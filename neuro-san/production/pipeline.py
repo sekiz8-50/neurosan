@@ -4,6 +4,7 @@ Roept de echte tools aan. Activeren gebeurt los, vanuit de webhook, na goedkeuri
 """
 import json
 import os
+import shutil
 import time
 
 import agents
@@ -41,17 +42,39 @@ def _bewaar_neuro_debug(vac: dict, prompt: str, res: dict, handoff: dict | None)
         print(f"[orkestrator] neuro-debug opslaan faalde: {e}")
 
 
+FALLBACK_FOTO = os.path.join(os.path.dirname(__file__), "assets", "fallback_beeld.jpg")
+
+
 def _genereer_beeld(vacancy: dict, image_prompt: str) -> str:
-    """OpenAI-beeld + Maintec-merk-overlay (logo, [ ]-titel, tagline). Geeft pad terug."""
+    """OpenAI-beeld + Maintec-merk-overlay (logo, [ ]-titel, tagline). Geeft pad terug.
+
+    RESILIENT: als de beeldgeneratie faalt (geen key/credit, netwerk, DEV_MODE) mag
+    dat de keten niet stoppen — dan gebruiken we de gebundelde merkfoto als basis en
+    melden we het via vacancy['beeld_fout'] in de goedkeur-mail.
+    """
+    os.makedirs(IMG_DIR, exist_ok=True)
     raw_path = os.path.join(IMG_DIR, f"{vacancy['id']}_raw.png")
-    image_gen.generate_image(image_prompt, raw_path)
+    if cfg.DEV_MODE:
+        print("[designer] DEV_MODE — beeldgeneratie overgeslagen, merkfoto als basis")
+        vacancy["beeld_fout"] = "DEV_MODE: beeldgeneratie overgeslagen (merkfoto gebruikt)"
+        raw_path = FALLBACK_FOTO
+    else:
+        try:
+            image_gen.generate_image(image_prompt, raw_path)
+        except Exception as e:
+            print(f"[designer] beeldgeneratie faalde, merkfoto als fallback: {e}")
+            vacancy["beeld_fout"] = f"Beeldgeneratie faalde ({str(e)[:180]}) — merkfoto gebruikt"
+            raw_path = FALLBACK_FOTO
     img_path = os.path.join(IMG_DIR, f"{vacancy['id']}.png")
     try:
         brand_overlay.apply(raw_path, img_path, title=vacancy["titel"],
                             subtitle=vacancy.get("plaats", ""))
     except Exception as e:
+        # Kopieer het kale beeld naar <id>.png zodat de foto_url (/beeld/<id>.png)
+        # altijd klopt — ook als de overlay faalt of de fallback-foto is gebruikt.
         print(f"[overlay] mislukt, gebruik kaal beeld: {e}")
-        img_path = raw_path
+        os.makedirs(IMG_DIR, exist_ok=True)
+        shutil.copyfile(raw_path, img_path)
     return img_path
 
 
@@ -134,13 +157,20 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
         print(f"[campagne-meta] campagne-aanmaak faalde — vacature staat al in Tigris, mail volgt: {e}")
 
     # 4. Goedkeur-mail — komt ALTIJD (campagne PAUSED, of met een meta_fout-melding).
+    if vacancy.get("beeld_fout") and vacancy["beeld_fout"] not in (warnings or []):
+        warnings = (warnings or []) + [vacancy["beeld_fout"]]
     mail_plan = {**variants[0], "label": plan["label"], "review": plan.get("review", {}),
                  "n_adsets": len(adset_ids), "n_ads": len(ad_ids), "warnings": warnings or [],
                  "meta_fout": meta_fout}
     record = {"campaign_id": campaign_id, "adset_ids": adset_ids, "ad_ids": ad_ids, "lead_gen": lead_gen,
               "state": "PENDING", "vacancy": vacancy, "plan": mail_plan, "image_path": img_path,
               "meta_fout": meta_fout}
-    _send_mail(record)
+    # RESILIENT: een mailfout mag het record (Tigris staat al) niet laten crashen.
+    try:
+        _send_mail(record)
+    except Exception as e:
+        record["mail_fout"] = str(e)[:600]
+        print(f"[goedkeuring] goedkeur-mail versturen faalde: {e}")
     return record
 
 

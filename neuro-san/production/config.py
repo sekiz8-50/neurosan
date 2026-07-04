@@ -18,6 +18,11 @@ def _opt(key: str, default: str = "") -> str:
 
 
 class Config:
+    # DEV-modus (lokaal draaien zonder echte sleutels): beeldgeneratie wordt
+    # overgeslagen (merkfoto als basis) en mails gaan naar data/outbox/ i.p.v. Resend.
+    # Meta/Salesforce falen dan gecontroleerd (dry-run/fout in de mail), de keten loopt door.
+    DEV_MODE = _opt("DEV_MODE").lower() in ("1", "true", "ja", "yes")
+
     # Meta
     META_TOKEN = _req("META_ACCESS_TOKEN")
     META_AD_ACCOUNT_ID = _req("META_AD_ACCOUNT_ID").replace("act_", "")

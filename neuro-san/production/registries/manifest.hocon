@@ -1,0 +1,5 @@
+# Manifest voor de neuro-san server: welke agentnetwerken geladen worden.
+# Gebruik: export AGENT_MANIFEST_FILE=registries/manifest.hocon
+{
+    "generated/neuro_san_vif_to_publish_sourcing.hocon": true
+}

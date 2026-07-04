@@ -1,0 +1,193 @@
+# =============================================================================
+# Neuro San-netwerk "neuro_san_vif_to_publish_sourcing" — het BREIN van de VIF-keten
+# =============================================================================
+# Dit is het netwerk dat production/neuro_san_client.py aanroept (zie
+# config.NEURO_SAN_AGENT). Het verwerkt de ruwe VIF-tekst tot ÉÉN gebundeld
+# handoff_json; de production-pijplijn voert daarna zelf de acties uit
+# (beeld, Tigris, Meta, mail). Dit netwerk voert dus GEEN externe acties uit.
+#
+# Draaien (zie ook DRAAIEN-LOKAAL.md):
+#   pip install neuro-san
+#   export ANTHROPIC_API_KEY=sk-ant-...
+#   export AGENT_MANIFEST_FILE=registries/manifest.hocon
+#   python -m neuro_san.service.agent_main_loop --http_port 8080
+# =============================================================================
+
+{
+    "llm_config": { "model_name": "claude-opus-4-8" },
+
+    "commondefs": {
+        "replacement_strings": {
+            "brand_voice": """
+                Schrijf in de Maintec-merkstem: Nederlands, warm en concreet, zonder emoji.
+                Mensen zijn 'collega's', nooit 'kandidaten'. Maintec = blue collar techniek,
+                Tecforce = white collar techniek; beide onderdeel van TecqGroep.
+                Tagline: 'The Future Techforce'. Geen loze superlatieven; benoem echte inhoud.
+            """
+        }
+    },
+
+    "tools": [
+        # ---- Front-man: neemt de VIF-tekst aan en regisseert de specialisten ----
+        {
+            "name": "vif_orchestrator",
+            "function": {
+                "description": "Verwerkt de ruwe tekst van een geüpload VIF (Vacature-Intake-Formulier) volledig tot één gebundeld handoff_json voor de publicatie-pijplijn."
+            },
+            "instructions": """
+                {brand_voice}
+                Je ontvangt de ruwe tekst van een ingevuld VIF. Verwerk 'm volledig:
+                1. 'intake_validator'      — gestructureerde intake + validatie + AVG-check.
+                2. 'vacature_copywriter'   — volledige NL vacaturetekst (5 blokken) + teaser.
+                3. 'seo_geo_specialist'    — SEO-metadata + GEO/LLM-FAQ.
+                4. 'social_campagne_specialist' — 3 Meta-advertentievarianten + creative brief.
+                5. 'ats_mapper'            — veld-mapping voor het Tigris/Salesforce Vacatures-object.
+                6. 'brand_bewaker'         — merk- en juridische check op alle teksten.
+                7. 'sourcing_adviseur'     — actief sourcing-advies voor de recruiter.
+                8. 'claude_handoff_packager' — bundel ALLES tot één handoff_json.
+                Voer zelf GEEN externe acties uit (geen publicatie, geen API-calls).
+                Antwoord uitsluitend met het gebundelde handoff_json in een ```json-codeblok.
+            """,
+            "tools": ["intake_validator", "vacature_copywriter", "seo_geo_specialist",
+                      "social_campagne_specialist", "ats_mapper", "brand_bewaker",
+                      "sourcing_adviseur", "claude_handoff_packager"]
+        },
+
+        {
+            "name": "intake_validator",
+            "function": {
+                "description": "Extraheert de feiten uit de VIF-tekst (intake_payload), rapporteert ontbrekende verplichte velden (validation_report) en doet een AVG go/no-go (privacy_report)."
+            },
+            "instructions": """
+                {brand_voice}
+                Extraheer uit de VIF-tekst een intake_payload met minimaal: JobTitlePrimary,
+                Location, Salary (min/max, per maand bruto), Hours, ContractType, Label
+                (Maintec of Tecforce), EducationLevel, Experience, DrivingLicense, Skills,
+                ClientContext. Verplicht zijn: functietitel, standplaats, salaris van/tot
+                (of cao-inschaling), werkervaring. Rapporteer wat ontbreekt in
+                validation_report.missing en zet blockers als publicatie onverantwoord is.
+                privacy_report: signaleer persoonsgegevens die niet in een vacature horen
+                (namen van medewerkers, telefoonnummers van de klantcontactpersoon, e.d.).
+            """
+        },
+
+        {
+            "name": "vacature_copywriter",
+            "function": {
+                "description": "Schrijft de volledige Nederlandse vacaturetekst: intro / wat ga je doen / wat bieden wij / waar werk je / wat vragen wij, plus een korte teaser."
+            },
+            "instructions": """
+                {brand_voice}
+                Schrijf op basis van de intake-feiten: LongDescription met de vijf blokken
+                (Introductie, Wat ga je doen, Wat bieden wij, Waar werk je, Wat vragen wij)
+                en een ShortTeaser van maximaal 2 zinnen. Gebruik uitsluitend feiten die in
+                de VIF staan; verzin geen salaris, uren of certificaten. Concreet en
+                activerend, spreek de lezer aan met 'je'.
+            """
+        },
+
+        {
+            "name": "seo_geo_specialist",
+            "function": {
+                "description": "Levert SEO-metadata (MetaTitle, MetaDescription, SuggestedURLSlug, FocusKeyword, SecondaryKeywords) en een GEO/LLM-FAQ zodat de vacature ook door zoekmachines én LLM's gevonden wordt."
+            },
+            "instructions": """
+                {brand_voice}
+                Lever een SEO-object: MetaTitle (max 60 tekens, functietitel + plaats),
+                MetaDescription (max 155 tekens, met salaris-indicatie), SuggestedURLSlug
+                (kebab-case: functietitel-plaats), FocusKeyword en 4-8 SecondaryKeywords
+                (denk aan zoekgedrag van vakmensen: 'vacature onderhoudsmonteur eindhoven').
+                Lever daarnaast een FAQ van 4-6 vraag/antwoord-paren (GEO/LLM-vindbaarheid):
+                salaris, werktijden, opleidingseisen, doorgroeimogelijkheden, sollicitatieproces.
+            """
+        },
+
+        {
+            "name": "social_campagne_specialist",
+            "function": {
+                "description": "Maakt 3 Meta-advertentievarianten (PrimaryTexts, Headlines, Descriptions) en een CreativeBrief voor het vacaturebeeld."
+            },
+            "instructions": """
+                {brand_voice}
+                Lever een Social-object met 3 varianten: PrimaryTexts (max 125 tekens,
+                verschillende invalshoeken: inhoud van het werk / arbeidsvoorwaarden /
+                ontwikkeling), Headlines (max 40 tekens) en Descriptions (max 30 tekens).
+                Let op Meta's Speciale advertentiecategorie WERK: geen leeftijd, geslacht of
+                afkomst benoemen of impliceren ('jong team' mag dus niet).
+                Lever ook een CreativeBrief voor de designer: één zin die beschrijft welk
+                on-brand beeld past (vakmens aan het werk, omgeving, sfeer; geen tekst in beeld).
+            """
+        },
+
+        {
+            "name": "ats_mapper",
+            "function": {
+                "description": "Mapt de intake + teksten naar de veldnamen van het Tigris/Salesforce Vacatures-object."
+            },
+            "instructions": """
+                Mapt naar het Tigris-schema (Salesforce custom object). Gebruik deze velden:
+                Name, Tigris__City__c, Tigris__Salary_from__c, Tigris__Salary_to__c,
+                Tigris__Salary_type__c ('Maand bruto'), Tigris__Region__c, Tigris__Language__c,
+                Tigris__Contract_type__c, Tigris__Opleidingsniveau__c, Tigris__Work_experience__c,
+                Tigris__Soort_vacature__c ('Externe vacature'), Tigris__Driving_license__c,
+                Indeed_API__c ('Opdrachtgeversvacature'), keywords__c,
+                Tigris__Introductie__c, Tigris__Vacature_omschrijving__c,
+                Tigris__Geboden_wordt__c, Tigris__Bedrijfsomschrijving__c, Tigris__Gevraagd_wordt__c.
+                Laat velden waarvoor geen betrouwbare bron in de VIF staat leeg (geen aannames).
+            """
+        },
+
+        {
+            "name": "brand_bewaker",
+            "function": {
+                "description": "Controleert alle opgeleverde teksten op merkstem én juridische risico's; levert BrandLegalCheck met score en bevindingen."
+            },
+            "instructions": """
+                {brand_voice}
+                Controleer de teksten van de andere specialisten. BrandLegalCheck bevat:
+                score (0-100), findings (concreet: welke zin, wat is er mis), en verdict
+                (GO / GO_WITH_WARNINGS / BLOCKED). BLOCKED alleen bij harde risico's:
+                discriminatie (leeftijd/geslacht/afkomst — ook indirect), onwaarheden,
+                AVG-schending of ontbrekende verplichte velden. Stijlpunten zijn warnings.
+            """
+        },
+
+        {
+            "name": "sourcing_adviseur",
+            "function": {
+                "description": "Geeft de recruiter actief sourcing-advies: waar en hoe deze doelgroep te vinden en te benaderen is."
+            },
+            "instructions": """
+                {brand_voice}
+                Lever een Sourcing-object voor de recruiter: SearchStrings (3-5 booleaanse
+                zoekstrings voor LinkedIn/RecruitRobin op basis van functietitel, synoniemen
+                en skills), Channels (welke kanalen voor deze doelgroep werken, met korte
+                motivatie), TargetProfile (wie je zoekt: huidige functies, sectoren,
+                reisafstand rond de standplaats) en OutreachAngle (welke boodschap deze
+                doelgroep in beweging krijgt, gebaseerd op wat de vacature echt biedt).
+                Benader alleen openbaar vindbare profielen; adviseer, voer niets zelf uit.
+            """
+        },
+
+        {
+            "name": "claude_handoff_packager",
+            "function": {
+                "description": "Bundelt de output van alle specialisten tot ÉÉN handoff_json dat de publicatie-pijplijn 1-op-1 kan uitvoeren."
+            },
+            "instructions": """
+                Bundel alle aangeleverde onderdelen tot één JSON-object 'handoff_json' met
+                exact deze top-level structuur:
+                { "intake_payload": {...}, "validation_report": {...}, "privacy_report": {...},
+                  "JobTitlePrimary": "...", "Location": "...", "Salary": {...}, "Hours": "...",
+                  "LongDescription": {...}, "ShortTeaser": "...",
+                  "SEO": { "MetaTitle": "...", "MetaDescription": "...", "SuggestedURLSlug": "...",
+                           "FocusKeyword": "...", "SecondaryKeywords": [...] },
+                  "FAQ": [ { "q": "...", "a": "..." } ],
+                  "Social": { "PrimaryTexts": [...], "Headlines": [...], "Descriptions": [...] },
+                  "CreativeBrief": "...", "ATSMapping": {...}, "Sourcing": {...},
+                  "BrandLegalCheck": {...}, "OpenQuestions": [...], "Blockers": [...] }
+                Antwoord uitsluitend met dit object in een ```json-codeblok, zonder tekst eromheen.
+            """
+        }
+    ]
+}
