@@ -76,6 +76,12 @@ else
   echo "› Bestaande .env gevonden — die configuratie wordt gebruikt."
 fi
 
+# Zorg dat .env eindigt met een nieuwe regel (anders plakt de eerste aanvulling
+# vast aan de laatste bestaande regel en wordt die onleesbaar)
+if [ -s .env ] && [ "$(tail -c 1 .env)" != "" ]; then
+  echo >> .env
+fi
+
 # Vul ontbrekende verplichte sleutels aan (een oude/onvolledige .env mag de start niet blokkeren)
 for sleutel in TIGRIS_SHARED_SECRET SIGNING_SECRET PUBLIC_BASE_URL META_ACCESS_TOKEN \
                META_AD_ACCOUNT_ID META_PAGE_ID OPENAI_API_KEY RESEND_API_KEY APPROVAL_TO; do
