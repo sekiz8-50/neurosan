@@ -8,13 +8,41 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-# 1. Virtuele omgeving + dependencies
+# 0. Geschikte Python zoeken (3.10 of nieuwer — de code gebruikt moderne type-hints)
+PY=""
+for kandidaat in python3.12 python3.11 python3.13 python3.10 python3; do
+  if command -v "$kandidaat" > /dev/null 2>&1; then
+    versie=$("$kandidaat" -c 'import sys; print(sys.version_info[0]*100+sys.version_info[1])' 2>/dev/null || echo 0)
+    if [ "$versie" -ge 310 ]; then PY="$kandidaat"; break; fi
+  fi
+done
+if [ -z "$PY" ]; then
+  echo "❌ Python 3.10 of nieuwer is nodig (jouw Mac heeft alleen een oudere versie)."
+  echo "   Oplossing: download en installeer Python via https://www.python.org/downloads/"
+  echo "   (kies de macOS-installer), sluit Terminal, open 'm opnieuw en draai dit script nog eens."
+  exit 1
+fi
+echo "› Python gevonden: $($PY --version)"
+
+# 1. Virtuele omgeving + dependencies (herbouw de omgeving als die met een te oude Python is gemaakt)
+if [ -d .venv ]; then
+  venv_versie=$(.venv/bin/python -c 'import sys; print(sys.version_info[0]*100+sys.version_info[1])' 2>/dev/null || echo 0)
+  if [ "$venv_versie" -lt 310 ]; then
+    echo "› Bestaande .venv gebruikt een te oude Python — opnieuw aanmaken..."
+    rm -rf .venv
+  fi
+fi
 if [ ! -d .venv ]; then
   echo "› Python-omgeving aanmaken (.venv)..."
-  python3 -m venv .venv
+  "$PY" -m venv .venv
 fi
 echo "› Dependencies installeren/controleren..."
-.venv/bin/pip install -q -r requirements.txt
+.venv/bin/pip install -q --upgrade pip
+if ! .venv/bin/pip install -q -r requirements.txt; then
+  echo "❌ Installatie van de dependencies faalde — hieronder nogmaals mét details:"
+  .venv/bin/pip install -r requirements.txt
+  exit 1
+fi
 
 # 2. .env — maak een werkende DEV-configuratie als er nog geen is
 if [ ! -f .env ]; then
