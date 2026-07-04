@@ -521,7 +521,6 @@ img { display: block; }
   font-family: var(--font-display); text-transform: uppercase; font-size: 26px;
   letter-spacing: -.01em; color: #000; margin: 0 0 14px; font-weight: 700;
 }
-.detail-body h3 + .detail-section { margin-top: 0; }
 .detail-body .lead {
   font-family: var(--font-body); font-size: 17px; line-height: 1.65; color: var(--ink-600); margin: 0;
 }
@@ -553,12 +552,15 @@ img { display: block; }
   display: block; font-family: var(--font-body); font-size: 11px;
   text-transform: uppercase; letter-spacing: .06em; color: var(--ink-500); margin-bottom: 6px;
 }
-.field input {
+.field input,
+.field textarea {
   width: 100%; font-family: var(--font-body); font-size: 15px;
   padding: 11px 13px; border: 1.5px solid var(--ink-200); border-radius: var(--radius-md); outline: none;
   transition: border-color .15s;
 }
-.field input:focus { border-color: var(--orange-500); }
+.field textarea { resize: vertical; }
+.field input:focus,
+.field textarea:focus { border-color: var(--orange-500); }
 .apply-card .note {
   font-family: var(--font-body); font-size: 12px; color: var(--ink-400);
   margin-top: 14px; line-height: 1.5;
@@ -608,4 +610,84 @@ img { display: block; }
   .detail-hero__photo { left: 0; opacity: .45; }
   .detail-hero__scrim { background: linear-gradient(180deg,rgba(0,0,0,.5),#000 85%); }
   .detail-hero h1 { font-size: 44px; }
+}
+
+/* ============================================================
+   EXTRA PAGES (Over ons / Voor werkgevers / Opleidingen / Contact)
+   ============================================================ */
+.header__nav a.active { color: #000; font-weight: 700; }
+.header.on-dark .header__nav a.active { color: #fff; }
+
+.page-hero {
+  background: var(--ink-950);
+  color: #fff;
+  margin-top: -76px;   /* schuift onder de transparante header, net als .hero */
+  padding: 226px 0 72px;
+}
+.page-hero .display { color: #fff; font-size: clamp(44px, 6vw, 76px); margin-top: 12px; }
+.page-hero__lead {
+  max-width: 640px;
+  font-family: var(--font-body); font-size: 18px; line-height: 1.65;
+  color: rgba(255,255,255,.75); margin: 20px 0 0;
+}
+
+.page-section { background: #fff; padding: 72px 0; }
+.page-section .display { font-size: clamp(32px, 4vw, 48px); margin-top: 10px; }
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 22px;
+  margin-top: 40px;
+}
+.info-card {
+  background: var(--ink-50);
+  border-radius: var(--radius-lg);
+  padding: 28px 26px;
+}
+.info-card .icon { color: var(--orange-500); font-size: 26px; }
+.info-card h3 {
+  font-family: var(--font-display); text-transform: uppercase;
+  font-size: 21px; letter-spacing: -.01em; margin: 14px 0 8px; color: #000;
+}
+.info-card p {
+  font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+  color: var(--ink-600); margin: 0;
+}
+.page-cta { margin-top: 44px; }
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 56px;
+  align-items: start;
+}
+.contact-card { position: static; }
+.contact-grid .card-grid { grid-template-columns: 1fr; }
+
+@media (max-width: 920px) {
+  .contact-grid { grid-template-columns: 1fr; gap: 36px; }
+}
+@media (max-width: 760px) {
+  .page-hero { padding: 196px 0 56px; }
+  .page-section { padding: 56px 0; }
+  /* Mobiel uitklapmenu */
+  .header { position: sticky; }
+  .header .container { position: relative; }
+  .header.menu-open .header__nav {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+    position: absolute;
+    top: 76px;
+    left: -20px;
+    right: -20px;
+    background: #fff;
+    padding: 20px 24px 24px;
+    border-bottom: 1px solid var(--ink-100);
+    box-shadow: 0 16px 32px rgba(0,0,0,.12);
+  }
+  .header.menu-open .header__nav a { color: var(--ink-800); font-size: 16px; }
+  .header.menu-open .header__nav a.active { color: var(--orange-600); }
 }

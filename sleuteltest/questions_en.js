@@ -357,6 +357,7 @@ const IMAGE_QUESTIONS_EN = {
     { vraag: "Which electrical component do you see?", img: "images/img_E-hulpmonteur_3.jpeg", opties: ["Distribution board","Plug","Transformer","Motion sensor"], correct: 0 },
   ],
   'E-monteur': [
+    { vraag: "Which component do you see in the image?", img: "images/img_E-monteur_1.jpeg", opties: ["Residual current device","Miniature circuit breaker","Magnetic contactor","Transformer"], correct: 0 },
     { vraag: "Which component do you see in the image?", img: "images/img_E-monteur_2.jpeg", opties: ["Relay","Magnetic contactor","Final circuit","Earth bar"], correct: 2 },
     { vraag: "Which component do you see in the image?", img: "images/img_E-monteur_3.png", opties: ["Main switch","Miniature circuit breaker","Fuse","Residual current device"], correct: 0 },
   ],

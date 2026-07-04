@@ -2,6 +2,8 @@
 Bouwt het pagina-pakket voor /zzp-naar-detachering/ (Maintec)
 Output: Maintec-Paginapakket-ZZP-naar-Detachering.docx
 """
+import os
+
 from docx import Document
 from docx.shared import Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -757,6 +759,9 @@ doc.add_paragraph(
 )
 
 # --- SAVE ---
-output_path = "/Users/maintec/CLAUDE26/pagina-pakketten/Maintec-Paginapakket-ZZP-naar-Detachering.docx"
+output_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "Maintec-Paginapakket-ZZP-naar-Detachering.docx",
+)
 doc.save(output_path)
 print(f"OK: {output_path}")

@@ -32,7 +32,7 @@ function Hero({ onCta }) {
           </p>
           <div style={{ display: "flex", gap: 14, marginTop: 32 }}>
             <Button variant="primary" size="lg" icon="arrow-right" onClick={onCta}>Bekijk vacatures</Button>
-            <Button variant="outline" size="lg" style={{ color: "#fff" }}>Onze verhaal</Button>
+            <Button variant="outline" size="lg" style={{ color: "#fff" }}>Ons verhaal</Button>
           </div>
         </div>
       </div>

@@ -44,11 +44,16 @@ def main() -> None:
         print("FOUT: neuro-san server niet bereikbaar. Draait 'm op localhost:8080?")
         return
 
-    vif = vif_parser.parse_vif(os.path.join(HIER, "data", "voorbeeld_vif.docx"))
+    docx = os.path.join(HIER, "data", "voorbeeld_vif.docx")
+    if not os.path.exists(docx):
+        from selftest_vif import maak_voorbeeld_vif
+        maak_voorbeeld_vif(docx)
+    vif = vif_parser.parse_vif(docx)
     print(f"VIF ingelezen ({len(vif)} tekens). Netwerk aanroepen — dit kan enkele minuten duren...")
 
     res = nsc.run_network(PROMPT % vif)
-    teksten, txt = res["alle_teksten"], res["text"]
+    txt = res["text"]
+    teksten = [m.get("text", "") for m in res["transcript"]]
     print(f"Klaar. {len(teksten)} antwoord-bericht(en) ontvangen.")
 
     os.makedirs(os.path.join(HIER, "data"), exist_ok=True)

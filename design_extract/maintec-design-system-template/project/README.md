@@ -145,10 +145,12 @@ Assets copied into `assets/`:
 - `logo-maintec-white.svg` — reversed (dark bg)
 - `logo-maintec-mono-black.svg` / `logo-maintec-mono-white.svg` — single-color
 - `logo-maintec-orange.svg` — all-orange
-- `imagery/*.jpg` — **official hi-res Maintec photography** (7 images: technicians at work
+- `imagery/*.jpg` — **official hi-res Maintec photography** (16 images: technicians at work
   in branded workwear + team/group shots). Use these directly: `worker-duct-install`,
   `workers-pipes-trio`, `workers-electrical-panel`, `worker-laptop-hallway`,
-  `worker-smiling-laptop`, `team-seated`, `team-group-large`.
+  `worker-smiling-laptop`, `team-seated`, `team-group-large`, `team-beams`, `team-hall`,
+  `team-scaffolding`, `team-toolbox`, `welder-hull`, `welder-sparks`, `crane-operator`,
+  `workers-blueprint`, `workers-shipbuild`.
 
 ---
 

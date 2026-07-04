@@ -34,7 +34,11 @@ def afzender(txt: str) -> str:
 
 
 def main() -> None:
-    vif = vif_parser.parse_vif(os.path.join(HIER, "data", "voorbeeld_vif.docx"))
+    docx = os.path.join(HIER, "data", "voorbeeld_vif.docx")
+    if not os.path.exists(docx):
+        from selftest_vif import maak_voorbeeld_vif
+        maak_voorbeeld_vif(docx)
+    vif = vif_parser.parse_vif(docx)
     prompt = ("Verwerk deze geüploade VIF volledig en lever uiteindelijk via claude_handoff_packager "
               "ÉÉN gebundeld handoff_json (intake_payload, content, ATS-veldmapping, meta, sourcing, "
               "blockers, approvals) in een ```json-codeblok.\n\nVIF:\n---\n" + vif + "\n---")

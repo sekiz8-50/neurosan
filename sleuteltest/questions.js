@@ -358,7 +358,7 @@ const IMAGE_QUESTIONS = {
     { vraag: "Welke elektrotechnische component zie je?", img: "images/img_E-hulpmonteur_3.jpeg", opties: ["Groepenkast","Stekker","Transformator","Bewegingssensor"], correct: 0 },
   ],
   'E-monteur': [
-    // GEEN correct antwoord gedefinieerd — overgeslagen: Welk component zie je op de afbeelding?
+    { vraag: "Welk component zie je op de afbeelding?", img: "images/img_E-monteur_1.jpeg", opties: ["Aardlekschakelaar","Installatieautomaat","Magneetschakelaar","Transformator"], correct: 0 },
     { vraag: "Welk component zie je op de afbeelding?", img: "images/img_E-monteur_2.jpeg", opties: ["Relais","Magneetschakelaar","Eindgroep","Aardrail"], correct: 2 },
     { vraag: "Welk component zie je op de afbeelding?", img: "images/img_E-monteur_3.png", opties: ["Hoofdschakelaar","Installatieautomaat","Smeltzekering","Aardlekschakelaar"], correct: 0 },
   ],

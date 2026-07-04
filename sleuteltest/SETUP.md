@@ -59,7 +59,7 @@
    - Uitvoeren als: **Mij**
    - Wie heeft toegang: **`Iedereen`** (NIET "Iedereen met Google-account")
 9. Klik **Implementeren** → kopieer de Web app URL
-10. Plak die URL in `index.html` regel ~340 (`const APPS_SCRIPT_URL = '…';`)
+10. Plak die URL in `index.html` regel ~1031 (`const APPS_SCRIPT_URL = '…';`)
 
 ### Stap 2 — MODX webserver
 1. Pak `sleuteltest_deploy.zip` lokaal uit
@@ -100,7 +100,9 @@ Alle uitnodigingen staan in tabblad **Uitnodigingen** met status (pending/used).
 
 ## Bekende TODO's
 
-⚠️ **E-monteur fotoherkenning vraag #1** (`images/img_E-monteur_1.jpeg`) heeft geen ingevuld correct antwoord. Vraag is daarom uitgesloten van de pool. In `questions.js` regel ~361 staat een commentaar als reminder. Vul het correcte antwoord in en haal de comment weg om de vraag te activeren.
+✅ **E-monteur fotoherkenning vraag #1** (`images/img_E-monteur_1.jpeg`) is geactiveerd. De afbeelding toont een ABB FH202 A aardlekschakelaar (TEST-knop, IΔn = 0,03 A); het correcte antwoord is **A — Aardlekschakelaar**. Ingevuld in `questions.js`, `questions_en.js` en `image_questions_mapping.json`.
+
+💡 Optioneel: de profielen **W-chef** (2 fotovragen) en overige profielen (3 fotovragen) zijn niet gelijk verdeeld. Voeg een derde fotovraag + afbeelding (`img_W-chef_3`) toe zodat ook W-chef echte randomisatie krijgt (er worden per sessie 2 van de 3 getrokken).
 
 ---
 

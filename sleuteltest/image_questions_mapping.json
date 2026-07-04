@@ -49,7 +49,7 @@
       "Magneetschakelaar",
       "Transformator"
     ],
-    "correct_letter": null
+    "correct_letter": "A"
   },
   {
     "profile": "E-monteur",
@@ -84,7 +84,7 @@
     "vraag": "Welk component zie je op de afbeelding?",
     "options": [
       "Frequentieregelaar",
-      "Vermo",
+      "Vermogensautomaat",
       "Magneetschakelaar",
       "Softstarter"
     ],

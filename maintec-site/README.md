@@ -22,9 +22,21 @@ python3 -m http.server 4310 --directory maintec-site
 - **Home** — hero (`HALLO COLLEGA`), brand manifesto + 3 pillars, vacancy grid with
   working filters, employer CTA band, dark footer.
 - Click any **vacancy card** → **vacancy detail** (hero + responsibilities + benefits)
-  with a sticky apply form → submit shows the **"Welkom collega!"** confirmation.
+  with a sticky apply form (name/email required, native validation) → submit shows
+  the **"Welkom collega!"** confirmation. There is no backend yet: submission is
+  handled client-side as a demo.
+- **Over ons** — story hero, brand manifesto, three "visie" cards, employer CTA band.
+- **Voor werkgevers** — services grid (detachering, werving & selectie,
+  internationaal talent, opleiden & reskilling) + contact CTA.
+- **Opleidingen** — vakschool hero + traject cards (leerling-trajecten, reskilling,
+  upskilling) + CTA to the vacancy grid.
+- **Contact** — reachability cards + working contact form (demo submit, native
+  validation) with confirmation state.
+- All header nav items, footer links and CTA buttons route to these pages; the
+  social icons link out to LinkedIn/Instagram/Facebook (update the URLs in
+  `app.js` → `footer()` to the real profiles).
 - **Terug naar vacatures** returns home. The header is transparent over the dark hero
-  and turns solid white on scroll.
+  and turns solid white on scroll; on mobile the menu button opens a dropdown nav.
 
 ## Files
 

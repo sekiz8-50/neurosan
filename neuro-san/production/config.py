@@ -24,6 +24,9 @@ class Config:
     META_PAGE_ID = _req("META_PAGE_ID")
     META_API_VERSION = _opt("META_API_VERSION", "v21.0")
     META_SPECIAL_AD_CATEGORY = _opt("META_SPECIAL_AD_CATEGORY", "EMPLOYMENT")
+    # Optioneel: Special Ad Audience (lookalike-vervanger) voor de 'use_lookalike'
+    # ad sets uit het targeting-plan. Leeg = die ad sets worden overgeslagen.
+    META_SPECIAL_AD_AUDIENCE_ID = _opt("META_SPECIAL_AD_AUDIENCE_ID")
 
     # Beeldgeneratie — OpenAI (gpt-image-1)
     OPENAI_API_KEY = _req("OPENAI_API_KEY")

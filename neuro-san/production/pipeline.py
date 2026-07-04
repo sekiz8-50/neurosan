@@ -11,7 +11,7 @@ import handoff_mapper
 import neuro_san_client
 import store
 import vif_parser
-from tools import image_gen, meta, emailer, brand_overlay, salesforce, trends
+from tools import image_gen, meta, emailer, brand_overlay, salesforce
 from config import cfg
 
 IMG_DIR = os.path.join(os.path.dirname(__file__), "data", "beelden")
@@ -64,7 +64,9 @@ def _targeting_geo(vacancy: dict, radius_km: int = 25) -> dict:
                                      "radius": radius, "distance_unit": "kilometer"}]}
     else:
         geo = {"countries": ["NL"]}     # fallback: heel NL (stuur lat/lng mee voor regio-targeting)
-    return {"geo_locations": geo, "age_min": 18, "age_max": 65}
+    # Geen age_min/age_max: Meta staat leeftijd-narrowing niet toe bij EMPLOYMENT
+    # en dwingt zelf 18-65 af; expliciet meesturen kan validatiefouten geven.
+    return {"geo_locations": geo}
 
 
 def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = None,
@@ -79,7 +81,10 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
     # 2. Beeld: hergebruik een al gegenereerd beeld, of maak er nu een (OpenAI + overlay)
     img_path = image_path or _genereer_beeld(vacancy, plan["image_prompt"])
     naam = f"{plan['label']} | {vacancy['titel']} {vacancy['plaats']}"
-    saa = vacancy.get("special_ad_audience_id")
+    saa = vacancy.get("special_ad_audience_id") or cfg.META_SPECIAL_AD_AUDIENCE_ID
+    # /tigris-payloads zijn niet gevalideerd; zonder url geen bruikbare advertentie.
+    if not vacancy.get("url"):
+        vacancy["url"] = f"{cfg.VACANCY_URL_BASE}/{vacancy.get('slug', '')}".rstrip("/")
     campaign_id, adset_ids, ad_ids, meta_fout = "", [], [], None
 
     # 3. Meta-campagne (PAUSED). RESILIENT: een Meta-fout mag de Tigris-vacature en de

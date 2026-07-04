@@ -89,29 +89,49 @@
 
   /* ---------------- Header ---------------- */
   function header(ctx) {
-    const nav = ["Vacatures", "Over ons", "Voor werkgevers", "Opleidingen", "Contact"];
+    const nav = [
+      ["Vacatures", "home"],
+      ["Over ons", "about"],
+      ["Voor werkgevers", "employers"],
+      ["Opleidingen", "training"],
+      ["Contact", "contact"],
+    ];
     const h = el("header", { class: "header" + (ctx.dark ? " on-dark" : "") }, [
       el("div", { class: "container" }, [
         el("div", { class: "header__logo", onclick: ctx.goHome }, [
           el("img", { class: "logo-black", src: "assets/logo/logo-maintec-black.svg", alt: "Maintec — The Future Techforce" }),
           el("img", { class: "logo-white", src: "assets/logo/logo-maintec-white.svg", alt: "Maintec — The Future Techforce" }),
         ]),
-        el("nav", { class: "header__nav" }, nav.map(function (n, i) {
-          return el("a", { onclick: i === 0 ? ctx.goHome : undefined }, n);
+        el("nav", { class: "header__nav" }, nav.map(function (n) {
+          return el("a", {
+            class: ctx.routeName === n[1] ? "active" : null,
+            onclick: function () { ctx.go(n[1]); },
+          }, n[0]);
         })),
-        button("Solliciteer", { variant: "primary", size: "sm", icon: "arrow-right", onClick: ctx.goHome }),
-        el("button", { class: "menu-toggle", "aria-label": "Menu" }, icon("menu", 26)),
+        button("Solliciteer", { variant: "primary", size: "sm", icon: "arrow-right", onClick: ctx.goVacancies }),
+        el("button", {
+          class: "menu-toggle", "aria-label": "Menu", "aria-expanded": "false",
+          onclick: function () {
+            const open = h.classList.toggle("menu-open");
+            this.setAttribute("aria-expanded", open ? "true" : "false");
+          },
+        }, icon("menu", 26)),
       ]),
     ]);
     return h;
   }
 
   /* ---------------- Footer ---------------- */
-  function footer() {
+  function footer(ctx) {
     const cols = [
-      { h: "Maintec", links: ["Over ons", "Onze visie", "Werken bij", "Nieuws", "Contact"] },
-      { h: "Voor talent", links: ["Vacatures", "Opleidingen", "Reskilling", "Mijn Maintec"] },
-      { h: "Voor werkgevers", links: ["Detachering", "Werving", "Internationaal", "Offerte"] },
+      { h: "Maintec", links: [["Over ons", "about"], ["Onze visie", "about"], ["Werken bij", "vacancies"], ["Contact", "contact"]] },
+      { h: "Voor talent", links: [["Vacatures", "vacancies"], ["Opleidingen", "training"], ["Reskilling", "training"]] },
+      { h: "Voor werkgevers", links: [["Detachering", "employers"], ["Werving", "employers"], ["Internationaal", "employers"], ["Offerte", "contact"]] },
+    ];
+    const social = [
+      ["linkedin", "https://www.linkedin.com/company/maintec/"],
+      ["instagram", "https://www.instagram.com/maintec/"],
+      ["facebook", "https://www.facebook.com/maintec/"],
     ];
     return el("footer", { class: "footer" }, [
       el("div", { class: "container" }, [
@@ -119,14 +139,18 @@
           el("div", {}, [
             el("div", { class: "footer__logo" }, el("img", { src: "assets/logo/logo-maintec-white.svg", alt: "Maintec — The Future Techforce" })),
             el("p", { class: "footer__about" }, "Een collectief van gemotiveerde vakprofessionals binnen de techniek. Wij zijn werkgever — onze mensen zijn collega's."),
-            el("div", { class: "footer__social" }, ["linkedin", "instagram", "facebook"].map(function (s) {
-              return el("span", { "aria-label": s }, icon(s, 18));
+            el("div", { class: "footer__social" }, social.map(function (s) {
+              return el("a", { "aria-label": s[0], href: s[1], target: "_blank", rel: "noopener noreferrer" }, icon(s[0], 18));
             })),
           ]),
           cols.map(function (c) {
             return el("div", { class: "footer__col" }, [
               el("h4", {}, c.h),
-              el("div", { class: "links" }, c.links.map(function (l) { return el("a", {}, l); })),
+              el("div", { class: "links" }, c.links.map(function (l) {
+                return el("a", {
+                  onclick: function () { l[1] === "vacancies" ? ctx.goVacancies() : ctx.go(l[1]); },
+                }, l[0]);
+              })),
             ]);
           }),
         ]),
@@ -150,7 +174,7 @@
           el("p", { class: "hero__lead" }, "Jij kan meer uit je werk halen dan je denkt. Sluit je aan bij een werkgever die verder kijkt dan vandaag. Laten we samen onze krachten bundelen."),
           el("div", { class: "hero__actions" }, [
             button("Bekijk vacatures", { variant: "primary", size: "lg", icon: "arrow-right", onClick: ctx.scrollToVacancies }),
-            button("Ons verhaal", { variant: "outline", size: "lg", style: "color:#fff" }),
+            button("Ons verhaal", { variant: "outline", size: "lg", style: "color:#fff", onClick: function () { ctx.go("about"); } }),
           ]),
         ]),
       ]),
@@ -241,7 +265,7 @@
     ]);
   }
 
-  function employerBand() {
+  function employerBand(ctx) {
     return el("section", { class: "employer" }, [
       el("div", { class: "container" }, [
         el("div", { class: "employer__copy" }, [
@@ -249,9 +273,132 @@
           display("h2", "Op zoek naar ", "technisch talent?"),
           el("p", { class: "employer__lead" }, "Wij leveren gemotiveerde vakspecialisten met landelijke dekking. Van detachering tot werving en internationaal personeel."),
         ]),
-        button("Neem contact op", { variant: "primary", size: "lg", icon: "arrow-right" }),
+        button("Neem contact op", { variant: "primary", size: "lg", icon: "arrow-right", onClick: function () { ctx.go("contact"); } }),
       ]),
     ]);
+  }
+
+  /* ---------------- Extra pages ---------------- */
+  function pageHero(eyebrowText, before, accent, after, lead) {
+    return el("section", { class: "page-hero" }, [
+      el("div", { class: "container" }, [
+        eyebrow(eyebrowText),
+        display("h1", before, accent, after),
+        lead ? el("p", { class: "page-hero__lead" }, lead) : null,
+      ]),
+    ]);
+  }
+  function infoCards(items) {
+    return el("div", { class: "card-grid" }, items.map(function (c) {
+      return el("div", { class: "info-card" }, [
+        el("span", { class: "icon" }, icon(c[0], 26)),
+        el("h3", {}, c[1]),
+        el("p", {}, c[2]),
+      ]);
+    }));
+  }
+  function pageSection(children) {
+    return el("section", { class: "page-section" }, el("div", { class: "container" }, children));
+  }
+
+  function aboutPage(ctx) {
+    return [
+      pageHero("Ons verhaal", "Wij zijn ", "Maintec", null,
+        "Onderdeel van TecqGroep. Geen uitzendbureau, maar een werkgever in de techniek. Onze mensen zijn collega's — en dat voel je in alles wat we doen."),
+      manifesto(),
+      pageSection([
+        eyebrow("Waar wij voor staan"),
+        display("h2", "Onze ", "visie"),
+        infoCards([
+          ["handshake", "Echt werkgeverschap", "Een vast contract, een vaste consultant en arbeidsvoorwaarden waar je op kunt bouwen. Wij investeren in mensen, niet in cv's."],
+          ["wrench", "Vakmanschap voorop", "We komen zelf uit de techniek. We spreken de taal van de werkvloer en weten wat een goede monteur nodig heeft."],
+          ["rocket", "Klaar voor de toekomst", "Met onze eigen vakschool leiden we de techforce van morgen op: reskilling, upskilling en leerling-trajecten."],
+        ]),
+      ]),
+      employerBand(ctx),
+    ];
+  }
+
+  function employersPage(ctx) {
+    return [
+      pageHero("Voor werkgevers", "Technisch talent, ", "geregeld", null,
+        "Van één specialist tot een compleet team: wij leveren gemotiveerde vakmensen met landelijke dekking. U krijgt één vast aanspreekpunt en heldere afspraken."),
+      pageSection([
+        eyebrow("Onze diensten"),
+        display("h2", "Wat wij voor u ", "kunnen doen"),
+        infoCards([
+          ["users", "Detachering", "Ervaren vakspecialisten, in dienst bij Maintec, flexibel inzetbaar op uw projecten — inclusief begeleiding en opleiding."],
+          ["search", "Werving & selectie", "Wij vinden en screenen technisch talent voor een vast dienstverband bij u. U betaalt pas bij een succesvolle plaatsing."],
+          ["globe", "Internationaal talent", "Gecertificeerde vakmensen uit heel Europa, inclusief huisvesting, vervoer en begeleiding — volledig conform wet- en regelgeving."],
+          ["graduation-cap", "Opleiden & reskilling", "Via onze eigen vakschool leiden we zij-instromers en leerlingen op tot de specialisten die uw organisatie nodig heeft."],
+        ]),
+        el("div", { class: "page-cta" }, [
+          button("Neem contact op", { variant: "primary", size: "lg", icon: "arrow-right", onClick: function () { ctx.go("contact"); } }),
+        ]),
+      ]),
+    ];
+  }
+
+  function trainingPage(ctx) {
+    return [
+      pageHero("Opleidingen", "Onze eigen ", "vakschool", null,
+        "Techniek verandert snel — wij zorgen dat jij voorop blijft lopen. Leer een vak, schakel om naar de techniek of verdiep je specialisatie. Mét salaris tijdens je opleiding."),
+      pageSection([
+        eyebrow("Trajecten"),
+        display("h2", "Leren én ", "verdienen"),
+        infoCards([
+          ["graduation-cap", "Leerling-trajecten", "Geen technische achtergrond? Geen probleem. Je start als leerling, krijgt een ervaren leermeester en verdient vanaf dag één een salaris."],
+          ["refresh-cw", "Reskilling", "Klaar voor iets anders? We begeleiden zij-instromers stap voor stap naar een nieuw vak in de installatietechniek, elektrotechniek of werktuigbouw."],
+          ["trending-up", "Upskilling", "Al vakman? Haal je certificeringen (VCA, NEN, BEI) en groei door naar eerste monteur, chef-monteur of werkvoorbereider."],
+        ]),
+        el("div", { class: "page-cta" }, [
+          button("Bekijk opleidingsvacatures", { variant: "primary", size: "lg", icon: "arrow-right", onClick: ctx.goVacancies }),
+        ]),
+      ]),
+    ];
+  }
+
+  function contactPage() {
+    const formCard = el("div", { class: "apply-card contact-card" });
+    function renderContactForm() {
+      formCard.innerHTML = "";
+      const form = el("form", {}, [
+        el("div", { class: "field" }, [el("label", { for: "c-name" }, "Naam"), el("input", { id: "c-name", name: "name", type: "text", required: "", autocomplete: "name" })]),
+        el("div", { class: "field" }, [el("label", { for: "c-email" }, "E-mailadres"), el("input", { id: "c-email", name: "email", type: "email", required: "", autocomplete: "email" })]),
+        el("div", { class: "field" }, [el("label", { for: "c-msg" }, "Bericht"), el("textarea", { id: "c-msg", name: "message", rows: 5, required: "" })]),
+        el("div", { style: "margin-top:8px" }, button("Verstuur bericht", { variant: "primary", icon: "arrow-right", block: true, type: "submit" })),
+      ]);
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        formCard.innerHTML = "";
+        appendChildren(formCard, el("div", { class: "apply-success" }, [
+          el("div", { class: "check" }, icon("check", 30, 3)),
+          el("div", { class: "title" }, "Bericht verzonden!"),
+          el("p", {}, "Bedankt voor je bericht. We nemen binnen één werkdag contact met je op."),
+        ]));
+        window.lucide && window.lucide.createIcons();
+      });
+      appendChildren(formCard, [eyebrow("Stuur een bericht"), el("div", { class: "title" }, "Laat van je horen"), form]);
+    }
+    renderContactForm();
+    return [
+      pageHero("Contact", "Laten we ", "kennismaken", null,
+        "Vragen over een vacature, detachering of onze vakschool? We denken graag met je mee."),
+      pageSection([
+        el("div", { class: "contact-grid" }, [
+          el("div", {}, [
+            eyebrow("Bereikbaarheid"),
+            display("h2", "Wij staan ", "voor je klaar"),
+            infoCards([
+              ["phone", "Bel ons", "Bereikbaar op werkdagen van 08:00 tot 17:30 uur."],
+              ["mail", "Mail ons", "We reageren binnen één werkdag op je bericht."],
+              ["map-pin", "Kom langs", "Vestigingen door heel Nederland — altijd één in de buurt."],
+            ]),
+          ]),
+          formCard,
+        ]),
+      ]),
+    ];
   }
 
   /* ---------------- Vacancy detail ---------------- */
@@ -267,18 +414,28 @@
     const applyCard = el("div", { class: "apply-card" });
     function renderForm() {
       applyCard.innerHTML = "";
+      const fields = [
+        ["Naam", "text", "name", true, "name"],
+        ["E-mailadres", "email", "email", true, "email"],
+        ["Telefoon", "tel", "phone", false, "tel"],
+      ];
+      const form = el("form", {}, [
+        fields.map(function (f) {
+          const id = "apply-" + f[2];
+          const attrs = { id: id, type: f[1], name: f[2], autocomplete: f[4] };
+          if (f[3]) attrs.required = "";
+          return el("div", { class: "field" }, [el("label", { for: id }, f[0]), el("input", attrs)]);
+        }),
+        el("div", { style: "margin-top:8px" }, button("Verstuur sollicitatie", {
+          variant: "primary", icon: "arrow-right", block: true, type: "submit",
+        })),
+      ]);
+      // Demo-afhandeling: er is (nog) geen backend, dus tonen we de bevestiging client-side.
+      form.addEventListener("submit", function (e) { e.preventDefault(); renderSuccess(); });
       appendChildren(applyCard, [
         eyebrow("Solliciteer direct"),
         el("div", { class: "title" }, "Word collega"),
-        ["Naam", "E-mailadres", "Telefoon"].map(function (l) {
-          return el("div", { class: "field" }, [
-            el("label", {}, l),
-            el("input", { type: l === "E-mailadres" ? "email" : l === "Telefoon" ? "tel" : "text" }),
-          ]);
-        }),
-        el("div", { style: "margin-top:8px" }, button("Verstuur sollicitatie", {
-          variant: "primary", icon: "arrow-right", block: true, onClick: renderSuccess,
-        })),
+        form,
         el("p", { class: "note" }, "Of bel ons direct — we denken graag met je mee."),
       ]);
       window.lucide && window.lucide.createIcons();
@@ -337,7 +494,17 @@
 
   const ctx = {
     dark: true,
+    routeName: "home",
+    go: function (name) { route = { name: name }; render(); requestAnimationFrame(scrollTop); },
     goHome: function () { route = { name: "home" }; render(); requestAnimationFrame(scrollTop); },
+    goVacancies: function () {
+      const wasHome = route.name === "home";
+      if (!wasHome) { route = { name: "home" }; render(); }
+      requestAnimationFrame(function () {
+        if (!wasHome) scrollTop();
+        ctx.scrollToVacancies();
+      });
+    },
     openVacancy: function (v) { route = { name: "vacancy", v: v }; render(); requestAnimationFrame(scrollTop); },
     scrollToVacancies: function () {
       const target = document.querySelector("[data-vacancies]");
@@ -346,6 +513,7 @@
   };
 
   function render() {
+    ctx.routeName = route.name;
     root.innerHTML = "";
     scroller = el("div", { "data-scroll": "", style: "height:100vh;overflow-y:auto;background:#fff" });
 
@@ -353,11 +521,19 @@
     scroller.appendChild(head);
 
     if (route.name === "home") {
-      appendChildren(scroller, [hero(ctx), manifesto(), vacancies(ctx), employerBand()]);
+      appendChildren(scroller, [hero(ctx), manifesto(), vacancies(ctx), employerBand(ctx)]);
     } else if (route.name === "vacancy") {
       scroller.appendChild(vacancyDetail(route.v, ctx));
+    } else if (route.name === "about") {
+      appendChildren(scroller, aboutPage(ctx));
+    } else if (route.name === "employers") {
+      appendChildren(scroller, employersPage(ctx));
+    } else if (route.name === "training") {
+      appendChildren(scroller, trainingPage(ctx));
+    } else if (route.name === "contact") {
+      appendChildren(scroller, contactPage(ctx));
     }
-    scroller.appendChild(footer());
+    scroller.appendChild(footer(ctx));
     root.appendChild(scroller);
 
     // sticky header: transparent over dark hero, solid once scrolled
