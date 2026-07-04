@@ -72,17 +72,44 @@ PUBLIC_BASE_URL=http://localhost:8000
 SIGNING_SECRET=${SIGNING}
 TIGRIS_SHARED_SECRET=${TIGRIS}
 EOF
+else
+  echo "› Bestaande .env gevonden — die configuratie wordt gebruikt."
 fi
 
-SECRET=$(grep '^TIGRIS_SHARED_SECRET=' .env | cut -d= -f2)
+# Vul ontbrekende verplichte sleutels aan (een oude/onvolledige .env mag de start niet blokkeren)
+for sleutel in TIGRIS_SHARED_SECRET SIGNING_SECRET PUBLIC_BASE_URL META_ACCESS_TOKEN \
+               META_AD_ACCOUNT_ID META_PAGE_ID OPENAI_API_KEY RESEND_API_KEY APPROVAL_TO; do
+  if ! grep -q "^${sleutel}=" .env; then
+    case "$sleutel" in
+      TIGRIS_SHARED_SECRET|SIGNING_SECRET) waarde=$(openssl rand -hex 16 2>/dev/null || echo "dev-secret") ;;
+      PUBLIC_BASE_URL) waarde="http://localhost:8000" ;;
+      APPROVAL_TO)     waarde="dev@example.com" ;;
+      META_AD_ACCOUNT_ID|META_PAGE_ID) waarde="0" ;;
+      *)               waarde="dev-dummy" ;;
+    esac
+    echo "› Ontbrekende sleutel aangevuld in .env: ${sleutel}"
+    printf '%s=%s\n' "$sleutel" "$waarde" >> .env
+  fi
+done
+
+SECRET=$(grep '^TIGRIS_SHARED_SECRET=' .env | head -1 | cut -d= -f2- || true)
+DEVREGEL=""
+if grep -q '^DEV_MODE=1' .env 2>/dev/null; then
+  DEVREGEL="  Goedkeur-mails (DEV):   data/outbox/  (open de .html in je browser)"
+fi
 echo
 echo "════════════════════════════════════════════════════════════"
 echo "  VIF-service start op:   http://localhost:8000"
 echo "  Upload-pagina:          http://localhost:8000/vif"
-echo "  Geheim voor de pagina:  ${SECRET}"
-echo "  Goedkeur-mails (DEV):   data/outbox/  (open de .html in je browser)"
+echo "  Geheim voor de pagina:  ${SECRET:-(zie TIGRIS_SHARED_SECRET in .env)}"
+[ -n "$DEVREGEL" ] && echo "$DEVREGEL"
 echo "  Gegenereerde beelden:   data/beelden/"
 echo "  Stoppen:                Ctrl+C"
 echo "════════════════════════════════════════════════════════════"
 echo
+if curl -s -m 2 http://localhost:8000/health > /dev/null 2>&1; then
+  echo "⚠️  Er draait al een service op poort 8000 — waarschijnlijk een eerder gestart venster."
+  echo "   Open gewoon http://localhost:8000/vif, of stop de andere eerst met Ctrl+C."
+  exit 0
+fi
 exec .venv/bin/uvicorn webhook:app --reload --port 8000
