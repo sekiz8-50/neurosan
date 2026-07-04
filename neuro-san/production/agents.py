@@ -211,8 +211,26 @@ def _vif_fallback(raw_text: str) -> dict:
                     return v
         return ""
 
-    titel = pak("functietitel", "functie", "vacature") or "Vacature"
-    bedragen = [int(b.replace(".", "")) for b in re.findall(r"\d[\d.]{2,}", pak("salaris", "salariss"))]
+    titel = pak("functietitel", "functie", "vacature")
+    if not titel:
+        # Twee-koloms VIF-layout: de waarde staat op de regel ónder het kopje
+        # ("Functietitel Datum aanvraag" → "Servicemonteur Elektrotechniek 04-07-2026").
+        regels = [r.strip() for r in raw_text.splitlines()]
+        for i, r in enumerate(regels):
+            if r.lower().startswith("functietitel") and i + 1 < len(regels):
+                kandidaat = re.sub(r"\s*\d{2}-\d{2}-\d{4}\s*$", "", regels[i + 1]).strip()
+                if kandidaat:
+                    titel = kandidaat
+                break
+    titel = titel or "Vacature"
+    # Verzamel bedragen uit ÁLLE salaris-regels ("Salaris van: …" en "Salaris tot: …"
+    # zijn aparte regels — voorheen werd alleen de eerste gelezen en ontbrak 'tot').
+    bedragen = []
+    for k, v in velden.items():
+        if "salaris" in k:
+            bedragen += [int(b.replace(".", "")) for b in re.findall(r"\d[\d.]{2,}", v)]
+    if len(bedragen) > 1:
+        bedragen = [min(bedragen), max(bedragen)]
     return {
         "label": "Maintec", "titel": titel, "gewenste_functie": pak("gewenste functie"),
         "sector": pak("sector", "branche"), "vakgebied": pak("vakgebied"),
