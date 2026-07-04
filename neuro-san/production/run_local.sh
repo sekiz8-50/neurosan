@@ -36,13 +36,22 @@ if [ ! -d .venv ]; then
   echo "› Python-omgeving aanmaken (.venv)..."
   "$PY" -m venv .venv
 fi
-echo "› Dependencies installeren/controleren..."
-.venv/bin/pip install -q --upgrade pip
-if ! .venv/bin/pip install -q -r requirements.txt; then
-  echo "❌ Installatie van de dependencies faalde — hieronder nogmaals mét details:"
-  .venv/bin/pip install -r requirements.txt
+echo "› Dependencies installeren/controleren... (eerste keer duurt dit enkele minuten)"
+LOG=".venv/pip-install.log"
+ok=1
+.venv/bin/pip install --upgrade pip > "$LOG" 2>&1 || ok=0
+if [ "$ok" = "1" ]; then
+  .venv/bin/pip install -r requirements.txt >> "$LOG" 2>&1 || ok=0
+fi
+if [ "$ok" != "1" ]; then
+  echo "❌ Installatie van de dependencies faalde. Laatste regels van het log ($LOG):"
+  echo "─────────────────────────────────────────────────────────────"
+  tail -30 "$LOG"
+  echo "─────────────────────────────────────────────────────────────"
+  echo "Tip: stuur bovenstaande regels door, dan kijken we mee. Controleer ook je internetverbinding."
   exit 1
 fi
+echo "› Dependencies geïnstalleerd ✓"
 
 # 2. .env — maak een werkende DEV-configuratie als er nog geen is
 if [ ! -f .env ]; then
