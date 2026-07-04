@@ -1,0 +1,238 @@
+/* ============================================================
+   MAINTEC — The Future Techforce
+   Design Tokens: Color + Typography
+   Brand: bold, professional technical staffing agency.
+   Core palette: orange (Mango Tango), black, white.
+   ============================================================ */
+
+/* ---------- Fonts ---------- */
+/* Rift Bold     — display headlines, ALL CAPS only            */
+/* Transducer    — body copy + subheads                         */
+/* Museo Sans 900 — logo wordmark only (reserved for the brand) */
+
+@font-face {
+  font-family: "Rift";
+  src: url("fonts/Rift-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Transducer";
+  src: url("fonts/Transducer-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Museo Sans";
+  src: url("fonts/MuseoSans-900.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ===========================================================
+     COLOR — RAW BRAND PALETTE
+     =========================================================== */
+
+  /* Primary brand */
+  --orange:        #FF7D2F;   /* Mango Tango — the one accent. CMYK 0/62/82/0 */
+  --black:         #000000;
+  --white:         #FFFFFF;
+
+  /* Support / neutral */
+  --dim-gray:      #69696A;   /* official support color from brand guide */
+
+  /* Orange ramp (derived harmoniously from Mango Tango, oklch-tuned) */
+  --orange-700:    #C75313;   /* pressed / deep */
+  --orange-600:    #E8631C;   /* hover */
+  --orange-500:    #FF7D2F;   /* base brand orange */
+  --orange-400:    #FF9659;   /* lighter accents */
+  --orange-300:    #FFB387;   /* tints, subtle fills */
+  --orange-100:    #FFE6D6;   /* faint wash */
+
+  /* Neutral ramp (warm-tinged charcoals toward true black) */
+  --ink-950:       #0A0A0A;   /* near-black surface */
+  --ink-900:       #121212;   /* primary dark surface */
+  --ink-800:       #1C1C1D;   /* raised dark surface / cards on black */
+  --ink-700:       #2A2A2B;   /* dark borders / hairlines on black */
+  --ink-600:       #3D3D3E;
+  --ink-500:       #69696A;   /* dim gray (brand) */
+  --ink-400:       #8A8A8B;   /* muted text on light */
+  --ink-300:       #B5B5B6;
+  --ink-200:       #DCDCDD;   /* light borders */
+  --ink-100:       #EEEEEE;   /* light fills */
+  --ink-50:        #F6F6F6;   /* page tint on light */
+
+  /* ===========================================================
+     SEMANTIC COLOR — LIGHT CONTEXT (default)
+     =========================================================== */
+  --bg:            var(--white);
+  --bg-subtle:     var(--ink-50);
+  --surface:       var(--white);
+  --surface-raised:var(--white);
+
+  --fg1:           var(--black);     /* primary text */
+  --fg2:           var(--ink-500);   /* secondary / muted text */
+  --fg3:           var(--ink-400);   /* tertiary / captions */
+  --fg-on-accent:  var(--white);     /* text on orange */
+  --fg-on-dark:    var(--white);     /* text on black */
+
+  --accent:        var(--orange-500);
+  --accent-hover:  var(--orange-600);
+  --accent-press:  var(--orange-700);
+
+  --border:        var(--ink-200);
+  --border-strong: var(--black);
+  --hairline:      rgba(0,0,0,0.08);
+
+  /* Feedback (kept neutral/orange-leaning; brand has no greens/reds defined) */
+  --success:       #2E8B57;
+  --warning:       var(--orange-500);
+  --danger:        #D23A3A;
+
+  /* ===========================================================
+     RADII — minimal. Brand is angular & bold; corners are tight.
+     =========================================================== */
+  --radius-none:   0px;
+  --radius-sm:     2px;
+  --radius-md:     4px;     /* default for buttons / inputs */
+  --radius-lg:     8px;     /* cards */
+  --radius-pill:   999px;   /* used sparingly (tags) */
+
+  /* ===========================================================
+     ELEVATION / SHADOW — restrained, hard-ish, low-spread.
+     =========================================================== */
+  --shadow-sm:     0 1px 2px rgba(0,0,0,0.10);
+  --shadow-md:     0 4px 14px rgba(0,0,0,0.12);
+  --shadow-lg:     0 12px 36px rgba(0,0,0,0.18);
+  --shadow-accent: 0 6px 20px rgba(255,125,47,0.35);
+
+  /* ===========================================================
+     SPACING — 4px base grid
+     =========================================================== */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* ===========================================================
+     TYPOGRAPHY — families
+     =========================================================== */
+  --font-display: "Rift", "Arial Narrow", sans-serif;   /* ALL CAPS headlines */
+  --font-body:    "Transducer", "Inter", system-ui, sans-serif;
+  --font-logo:    "Museo Sans", "Arial Black", sans-serif;
+
+  /* Display tracking — Rift looks best with a touch of negative tracking */
+  --track-display: -0.01em;
+  --track-label:   0.06em;   /* uppercase labels / eyebrows */
+
+  /* Type scale (display headlines use Rift, caps) */
+  --display-xl: 112px;   /* hero "HALLO COLLEGA" */
+  --display-lg: 80px;
+  --display-md: 56px;
+  --h1:         40px;
+  --h2:         30px;
+  --h3:         22px;
+  --body-lg:    19px;
+  --body:       16px;
+  --body-sm:    14px;
+  --caption:    12px;
+
+  --leading-tight: 0.92;   /* Rift display headlines */
+  --leading-snug:  1.15;
+  --leading-body:  1.55;
+}
+
+/* ============================================================
+   SEMANTIC ELEMENT STYLES
+   Use these classes or copy the rules into components.
+   ============================================================ */
+
+.maintec-display,
+.display-xl, .display-lg, .display-md {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-display);
+  line-height: var(--leading-tight);
+  color: var(--fg1);
+}
+.display-xl { font-size: var(--display-xl); }
+.display-lg { font-size: var(--display-lg); }
+.display-md { font-size: var(--display-md); }
+
+h1, .h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-display);
+  line-height: var(--leading-snug);
+  font-size: var(--h1);
+  color: var(--fg1);
+}
+h2, .h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-display);
+  line-height: var(--leading-snug);
+  font-size: var(--h2);
+  color: var(--fg1);
+}
+h3, .h3 {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: var(--h3);
+  line-height: var(--leading-snug);
+  color: var(--fg1);
+}
+
+/* Eyebrow / label — uppercase Transducer, tracked */
+.eyebrow, .label {
+  font-family: var(--font-body);
+  font-size: var(--caption);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  color: var(--fg2);
+  font-weight: 400;
+}
+
+p, .body {
+  font-family: var(--font-body);
+  font-size: var(--body);
+  line-height: var(--leading-body);
+  color: var(--fg1);
+}
+.body-lg { font-size: var(--body-lg); line-height: var(--leading-body); }
+.body-sm { font-size: var(--body-sm); line-height: var(--leading-body); }
+.caption { font-size: var(--caption); color: var(--fg3); }
+
+/* The orange accent word — used in taglines like JOIN THE FUTURE <em>TECHFORCE</em> */
+.accent-word { color: var(--accent); }
+
+/* ============================================================
+   DARK CONTEXT — the brand's signature is black backgrounds.
+   Apply .on-dark to a container to flip semantics.
+   ============================================================ */
+.on-dark {
+  --bg: var(--ink-900);
+  --bg-subtle: var(--ink-800);
+  --surface: var(--ink-800);
+  --surface-raised: var(--ink-700);
+  --fg1: var(--white);
+  --fg2: var(--ink-300);
+  --fg3: var(--ink-400);
+  --border: var(--ink-700);
+  --border-strong: var(--white);
+  --hairline: rgba(255,255,255,0.10);
+  background: var(--bg);
+  color: var(--fg1);
+}

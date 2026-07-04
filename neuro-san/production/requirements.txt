@@ -1,0 +1,11 @@
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+python-multipart==0.0.*    # vereist voor de VIF-upload (UploadFile) op /vif
+requests==2.32.*
+python-dotenv==1.0.*
+anthropic==0.40.*          # alleen nodig als je ANTHROPIC_API_KEY invult
+pillow==11.*               # merk-overlay op het gegenereerde beeld
+python-docx==1.1.*         # VIF (Word) inlezen op de /vif-landingspagina
+pdfplumber==0.11.*         # VIF (PDF) inlezen — tekst + tabellen, geen systeemdeps
+pypdf==4.*                 # AcroForm-veldwaarden uit interactieve (niet-platgeslagen) PDF's
+pytrends==4.9.*            # Google Trends-populariteit (optioneel, faalt stil terug)

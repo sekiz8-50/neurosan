@@ -1,0 +1,84 @@
+# =============================================================================
+# NeuroSan agent-netwerk — "VIF (Word) → vacature → Tigris → beeld → Meta-campagne"
+# =============================================================================
+# Conceptuele netwerkdefinitie. De feitelijke productie-orkestratie draait in
+# production/pipeline.py (run_vif), die deze rollen in deze volgorde aanstuurt.
+# Front-man 'orkestrator' neemt de geüploade VIF aan en delegeert naar de
+# specialisten; publiceren gebeurt NOOIT automatisch — alleen na de goedkeur-klik.
+# =============================================================================
+
+{
+    "llm_config": { "model_name": "claude-opus-4-8" },
+
+    "tools": [
+        # ---- Front-man: neemt de VIF aan en regisseert de hele keten ----------
+        {
+            "name": "orkestrator",
+            "function": { "description": "Neemt een geüpload VIF (Vacature-Intake-Formulier) aan en regisseert vacaturetekst, optimalisatie, beeld, Tigris-registratie en de Meta-campagne." },
+            "instructions": """
+                Je ontvangt de ruwe tekst van een ingevuld VIF (Word) via /vif.
+                1. 'intake' — extraheer de feiten uit het VIF naar het Tigris-schema.
+                2. 'copy' — schrijf de vier vacaturetekst-blokken + oneliner, on-brand.
+                3. 'seo' — keywords, meta-title/description, slug (bepaalt de vacature-URL).
+                4. 'trends' — populariteit van functie + plaats (Google Trends).
+                5. 'geo_llm' — schema.org JobPosting + FAQ voor LLM-vindbaarheid.
+                6. 'brand_bewaker' — huisstijlcheck op de vacaturetekst.
+                7. 'designer' — één on-brand beeld (gedeeld met Tigris én Meta).
+                8. 'ats_administrateur' — schrijf de vacature weg in Tigris/Salesforce.
+                9. 'campagne_meta' — gesegmenteerde Meta-campagne op PAUSED.
+               10. 'goedkeuring' — mail de performance-marketeer (Djimon) om akkoord.
+                Publiceer NOOIT zelf. 'publish' wordt extern getriggerd door de goedkeur-link.
+            """,
+            "tools": ["intake", "copy", "seo", "trends", "geo_llm", "brand_bewaker",
+                      "designer", "ats_administrateur", "campagne_meta", "goedkeuring"]
+        },
+
+        # ---- VIF-intake: ruwe VIF-tekst → gestructureerde vacature -------------
+        { "name": "intake",
+          "function": { "description": "Extraheert functietitel, plaats, salaris, eisen, skills en label (Maintec/Tecforce) uit de ruwe VIF-tekst." } },
+
+        # ---- Copy-specialist: de Tigris-omschrijvingsblokken ------------------
+        { "name": "copy",
+          "function": { "description": "Schrijft intro / wat-ga-je-doen / wat-bieden-wij / waar-werk-je / wat-vragen-wij, on-brand en concreet." } },
+
+        # ---- SEO-specialist ---------------------------------------------------
+        { "name": "seo",
+          "function": { "description": "Levert keywords, meta-title, meta-description en de URL-slug voor zoekvindbaarheid." } },
+
+        # ---- Google-Trends-specialist ----------------------------------------
+        { "name": "trends",
+          "function": { "description": "Bepaalt de relatieve zoekpopulariteit van de functie (en trend: stijgend/dalend) via Google Trends." } },
+
+        # ---- GEO-LLM-specialist ----------------------------------------------
+        { "name": "geo_llm",
+          "function": { "description": "Bouwt schema.org JobPosting + een FAQ-blok zodat de vacature ook door LLM's gevonden en geciteerd wordt." } },
+
+        # ---- Brand-bewaker ----------------------------------------------------
+        { "name": "brand_bewaker",
+          "function": { "description": "Bewaakt de huisstijl (toon, 'collega's', geen emoji, concreet) en geeft een kwaliteitsscore." } },
+
+        # ---- Designer: beeld via Adobe/OpenAI + Maintec-merk-overlay ----------
+        { "name": "designer",
+          "function": { "description": "Genereert één on-brand vacaturebeeld (text-to-image) met Maintec-overlay; gedeeld met Tigris en Meta." } },
+
+        # ---- ATS-administrateur: wegschrijven in Tigris/Salesforce ------------
+        { "name": "ats_administrateur",
+          "function": { "description": "Maakt de Vacatures-record aan in Tigris/Salesforce met alle velden, omschrijving, keywords en beeld-URL." } },
+
+        # ---- Campagnemanager Meta: gesegmenteerde campagne (PAUSED) -----------
+        { "name": "campagne_meta",
+          "function": { "description": "Maakt een gesegmenteerde, EMPLOYMENT-compliant Meta-campagne aan met status PAUSED." } },
+
+        # ---- Goedkeuring: human-in-the-loop via e-mail (Djimon) --------------
+        { "name": "goedkeuring",
+          "function": { "description": "Stuurt de performance-marketeer een goedkeur-mail met preview + ondertekende Goedkeuren/Afkeuren-links." } },
+
+        # ---- Publish: alleen extern getriggerd na klik op 'Goedkeuren' --------
+        { "name": "publish",
+          "function": { "description": "Zet de Meta-campagne op ACTIVE. UITSLUITEND aangeroepen door de goedgekeurde token-link." } }
+
+        # ---- (Gepland, buiten huidige scope) ----------------------------------
+        # recruiter: zoekt actief in RecruitRobin + LinkedIn, mailt geschikte
+        # kandidaatprofielen naar de recruiter-collega (Yasar) en doet na akkoord outreach.
+    ]
+}

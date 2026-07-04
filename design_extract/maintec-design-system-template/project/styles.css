@@ -1,0 +1,33 @@
+/* ============================================================
+   MAINTEC — Design System · canonical stylesheet entry point
+   Import this file to get the full design system:
+     @import "styles.css";  (or <link rel="stylesheet" href="styles.css">)
+   It self-hosts the three brand fonts and pulls in all tokens.
+   ============================================================ */
+
+/* ---------- Brand fonts (self-hosted from /fonts) ---------- */
+@font-face {
+  font-family: "Rift";
+  src: url("fonts/Rift-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Transducer";
+  src: url("fonts/Transducer-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Museo Sans";
+  src: url("fonts/MuseoSans-900.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Tokens, semantic type & color (also declares the
+   same @font-face for files that link colors_and_type.css directly) ---------- */
+@import "colors_and_type.css";

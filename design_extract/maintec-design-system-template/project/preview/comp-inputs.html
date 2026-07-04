@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{font-family:var(--font-body);color:var(--fg1);background:var(--white)}
+  body{padding:22px 26px}
+  .meta{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-400);margin-bottom:14px}
+  
+  .field{max-width:560px}
+  label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-500);margin-bottom:6px}
+  input{width:100%;font-family:var(--font-body);font-size:15px;padding:12px 14px;border:1.5px solid var(--ink-200);border-radius:4px;background:#fff;color:#000;outline:none}
+  input:focus{border-color:var(--orange)}
+  .focused{border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,125,47,.18)}
+  .grid{display:grid;gap:14px}
+
+</style></head><body>
+  <div class="meta">Inputs</div>
+  <div class="grid">
+    <div class="field"><label>E-mailadres</label><input value="naam@maintec.nl"></div>
+    <div class="field"><label>Telefoon (focus)</label><input class="focused" value="+31 6 ..."></div>
+  </div>
+</body></html>

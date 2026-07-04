@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neuro San — Vacature → Beeld → Meta-campagne</title>
+<style>
+  :root{
+    --orange:#FF7D2F; --orange-700:#C75313; --orange-100:#FFE6D6;
+    --ink-950:#0A0A0A; --ink-900:#121212; --ink-500:#69696A; --ink-200:#DCDCDD;
+    --ink-100:#EEEEEE; --ink-50:#F6F6F6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;color:var(--ink-900);background:var(--ink-50)}
+  header{background:var(--ink-950);color:#fff;padding:22px 32px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+  header .logo{color:var(--orange);font-weight:900;letter-spacing:1.5px;font-size:22px}
+  header .sub{color:#fff;font-size:13px;opacity:.7}
+  header .tag{margin-left:auto;background:var(--orange);color:#fff;font-size:11px;font-weight:700;padding:5px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
+  .wrap{max-width:920px;margin:0 auto;padding:32px}
+  .intro h1{font-size:26px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.5px}
+  .intro p{color:var(--ink-500);margin:0 0 8px;max-width:680px;line-height:1.5}
+  .flow{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 10px}
+  .flow span{font-size:12px;font-weight:600;background:#fff;border:1px solid var(--ink-200);padding:6px 12px;border-radius:999px}
+  .flow span.arrow{border:none;background:none;color:var(--ink-500);padding:6px 0}
+  .step{background:#fff;border:1px solid var(--ink-200);border-radius:8px;margin:16px 0;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .step .head{display:flex;align-items:center;gap:14px;padding:16px 20px;cursor:pointer;user-select:none}
+  .step .num{flex:0 0 32px;height:32px;border-radius:50%;background:var(--orange);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .step .ttl{font-weight:700;font-size:15px}
+  .step .who{color:var(--ink-500);font-size:12px;margin-left:auto;text-align:right}
+  .step .body{padding:0 20px 20px 66px;display:none;animation:fade .3s ease}
+  .step.open .body{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(-4px)}to{opacity:1}}
+  .kv{font-size:13px;line-height:1.7}
+  .kv b{display:inline-block;min-width:96px;color:var(--ink-500);font-weight:600}
+  code,.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--ink-50);border:1px solid var(--ink-100);border-radius:4px;padding:2px 6px}
+  .prompt{background:var(--ink-950);color:#e6e6e6;border-radius:6px;padding:14px 16px;font-size:12.5px;line-height:1.6;font-family:ui-monospace,Menlo,monospace;white-space:pre-wrap}
+  .prompt .hl{color:var(--orange)}
+  .imgrow{display:flex;gap:16px;align-items:flex-start;margin-top:12px;flex-wrap:wrap}
+  .imgrow img{width:260px;border-radius:6px;display:block}
+  .note{font-size:12px;color:var(--ink-500);background:var(--orange-100);border-left:3px solid var(--orange);padding:8px 12px;border-radius:0 4px 4px 0;margin-top:10px}
+  .adset{border:1px solid var(--ink-200);border-radius:6px;padding:12px 14px;margin:8px 0;font-size:13px}
+  .adset .nm{font-weight:700}
+  .chip{display:inline-block;font-size:11px;background:var(--ink-50);border:1px solid var(--ink-200);border-radius:999px;padding:2px 9px;margin:2px 3px 2px 0}
+  .status{font-weight:700;font-size:11px;padding:3px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
+  .status.paused{background:#FFF2CC;color:#946C00}
+  .status.active{background:#D9F2E0;color:#1B7A3D}
+  .mailframe{border:1px solid var(--ink-200);border-radius:8px;overflow:hidden;margin-top:12px}
+  .mailframe iframe{width:100%;height:760px;border:0;display:block;background:#f6f6f6}
+  .pub{display:flex;align-items:center;gap:14px;background:#fff;border:2px dashed var(--ink-200);border-radius:8px;padding:18px 20px;margin-top:8px}
+  .pub .big{font-size:15px;font-weight:700}
+  footer{color:var(--ink-500);font-size:12px;text-align:center;padding:30px}
+  .legend{font-size:11px;color:var(--ink-500);margin-top:6px}
+  .legend .auto{color:var(--orange-700);font-weight:700}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">MAINTEC</span>
+  <span class="sub">× Neuro San — recruitment-automatisering</span>
+  <span class="tag">Mock demo</span>
+</header>
+
+<div class="wrap">
+  <div class="intro">
+    <h1>Van gepubliceerde vacature naar live campagne — automatisch</h1>
+    <p>Zodra in <b>Salesforce / Tigris</b> een vacature wordt gepubliceerd, zet Neuro San automatisch
+       een passend beeld én een gesegmenteerde Meta-campagne klaar. Marketing krijgt één mail; pas na
+       <b>akkoord</b> gaat de campagne live. Klik op een stap om te zien wat de agent doet.</p>
+    <div class="flow">
+      <span>📢 Tigris: vacature gepubliceerd</span><span class="arrow">→</span>
+      <span>🧠 Analyse</span><span class="arrow">→</span>
+      <span>🖼️ Firefly-beeld</span><span class="arrow">→</span>
+      <span>🎯 Meta-campagne</span><span class="arrow">→</span>
+      <span>✉️ Goedkeuring</span><span class="arrow">→</span>
+      <span>🚀 Live</span>
+    </div>
+    <div class="legend">Stappen met <span class="auto">●</span> draaien 100% automatisch. Alleen de goedkeuring is menselijk.</div>
+  </div>
+
+  <!-- TRIGGER -->
+  <div class="step open">
+    <div class="head" onclick="this.parentElement.classList.toggle('open')">
+      <div class="num">0</div><div class="ttl">Trigger — vacature gepubliceerd in Tigris</div>
+      <div class="who">Salesforce → NeuroSan<br>Platform Event / Webhook</div>
+    </div>
+    <div class="body">
+      <div class="kv">
+        <div><b>Vacature</b> Onderhoudsmonteur</div>
+        <div><b>Label</b> Maintec <span class="chip">blue-collar</span></div>
+        <div><b>Locatie</b> Eindhoven · Noord-Brabant</div>
+        <div><b>Sector</b> Productie / Industrie · 2-ploegendienst</div>
+        <div><b>Niveau</b> MBO 3/4 · €2.800–€3.600</div>
+        <div><b>Skills</b>
+          <span class="chip">storingsanalyse</span><span class="chip">hydrauliek</span>
+          <span class="chip">pneumatiek</span><span class="chip">elektrotechniek</span></div>
+      </div>
+      <div class="note">In productie stuurt Salesforce een <b>Platform Event</b> of outbound webhook naar het NeuroSan-endpoint zodra de vacaturestatus op "Gepubliceerd" gaat.</div>
+    </div>
+  </div>
+
+  <!-- ANALYSE -->
+  <div class="step">
+    <div class="head" onclick="this.parentElement.classList.toggle('open')">
+      <div class="num">1</div><div class="ttl">Analyse-agent — doelgroep & concept</div>
+      <div class="who">automatisch</div>
+    </div>
+    <div class="body">
+      <div class="kv">
+        <div><b>Persona</b> Technisch geschoolde blue-collar kandidaat, 25–45 jr, MBO 3/4, binnen ~30 km van Eindhoven. Zoekt vastigheid, marktconform salaris en waardering voor vakmanschap.</div>
+        <div><b>Toon</b> direct, nuchter, trots op vakmanschap</div>
+        <div><b>Kanalen</b> <span class="chip">Facebook</span><span class="chip">Instagram</span> <span class="legend">(blue-collar doelgroep zit zwaarder op FB/IG — Tecforce white-collar krijgt LinkedIn-stijl)</span></div>
+        <div><b>Beeldstijl</b> echte werkplaats, geen stockclichés, oranje accent in werkkleding</div>
+      </div>
+      <div class="note">De agent kent de <b>TecqGroep label-split</b>: Maintec = blue collar, Tecforce = white collar. Dat stuurt automatisch toon, kanalen, beeld én targeting.</div>
+    </div>
+  </div>
+
+  <!-- BEELD -->
+  <div class="step">
+    <div class="head" onclick="this.parentElement.classList.toggle('open')">
+      <div class="num">2</div><div class="ttl">Beeld-agent — Adobe Firefly</div>
+      <div class="who">automatisch</div>
+    </div>
+    <div class="body">
+      <p style="font-size:13px;margin:0 0 8px">Uit de vacature + analyse bouwt de agent automatisch deze beeld-prompt:</p>
+      <div class="prompt">Professionele fotografie van een Nederlandse <span class="hl">onderhoudsmonteur</span> (blue-collar) van ~35 jaar aan het werk in een <span class="hl">productie/industrie</span>-omgeving in <span class="hl">Eindhoven</span>, in ploegendienst, bezig met <span class="hl">storingsanalyse, hydrauliek, pneumatiek</span>, draagt veiligheidswerkkleding, geconcentreerde blik, realistisch licht, geringe scherptediepte, authentiek, <span class="hl">oranje accent #FF7D2F</span>, fotojournalistieke stijl, 1080×1080.
+--- NO text, NO logos, NO watermark, geen stockclichés</div>
+      <div class="imgrow">
+        <div>
+          <img src="output/beeld_voorbeeld.jpg" alt="Gegenereerd beeld">
+          <div class="legend">1080×1080 feed + 1080×1920 story-variant</div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div class="kv"><b>Engine</b> Adobe Firefly (Text-to-Image)</div>
+          <div class="note">In déze demo-omgeving is Firefly-generatie niet beschikbaar, dus tonen we een echt <b>Adobe Stock</b>-voorbeeld. In productie genereert Firefly een uniek, rechtenvrij beeld uit de prompt hierboven — perfect afgestemd op deze ene vacature.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAMPAGNE -->
+  <div class="step">
+    <div class="head" onclick="this.parentElement.classList.toggle('open')">
+      <div class="num">3</div><div class="ttl">Campagne-agent — Meta (gesegmenteerd, getarget)</div>
+      <div class="who">automatisch · <span class="status paused">Paused</span></div>
+    </div>
+    <div class="body">
+      <div class="kv">
+        <div><b>Campagne</b> Maintec | Onderhoudsmonteur Eindhoven | 2026-06-01</div>
+        <div><b>Doel</b> OUTCOME_LEADS · <b>Looptijd</b> 14 dagen · <b>Budget</b> €350</div>
+        <div><b>Advertentie</b> "Vakman? Wij zoeken een onderhoudsmonteur in Eindhoven. Fulltime, vanaf €2.800/mnd. Solliciteer direct." → CTA <span class="chip">Solliciteer nu</span></div>
+      </div>
+      <div class="adset">
+        <div class="nm">① Eindhoven | Actief werkzoekend</div>
+        <span class="chip">geo Eindhoven +30 km</span><span class="chip">23–50 jr</span>
+        <span class="chip">interesse techniek/industrie</span><span class="chip">gedrag: job seekers</span><span class="chip">€15/dag</span>
+      </div>
+      <div class="adset">
+        <div class="nm">② Eindhoven | Latent — vakmanschap</div>
+        <span class="chip">geo Eindhoven +30 km</span><span class="chip">25–45 jr</span>
+        <span class="chip">interesse hydrauliek/onderhoud</span><span class="chip">1% lookalike sollicitanten</span><span class="chip">€10/dag</span>
+      </div>
+      <div class="note">De campagne wordt aangemaakt met status <b>PAUSED</b>. Er wordt nog niets uitgegeven of getoond tot marketing akkoord geeft.</div>
+    </div>
+  </div>
+
+  <!-- GOEDKEURING -->
+  <div class="step">
+    <div class="head" onclick="this.parentElement.classList.toggle('open')">
+      <div class="num">4</div><div class="ttl">Approval-agent — goedkeur-mail naar marketing</div>
+      <div class="who">mens in de lus</div>
+    </div>
+    <div class="body">
+      <p style="font-size:13px;margin:0 0 4px">Marketing ontvangt deze mail (hieronder live ingeladen). Eén klik op <b>Goedkeuren</b> publiceert; <b>Afkeuren</b> stopt de flow.</p>
+      <div class="mailframe"><iframe src="output/goedkeur-mail.html" title="Goedkeur-mail"></iframe></div>
+    </div>
+  </div>
+
+  <!-- PUBLISH -->
+  <div class="step">
+    <div class="head" onclick="this.parentElement.classList.toggle('open')">
+      <div class="num">5</div><div class="ttl">Publish-agent — campagne live</div>
+      <div class="who">na akkoord · automatisch</div>
+    </div>
+    <div class="body">
+      <div class="pub">
+        <span style="font-size:28px">🚀</span>
+        <div>
+          <div class="big">Campagne live op Meta <span class="status active">Active</span></div>
+          <div class="legend">campaign id <span class="mono">MOCK-23861000000000001</span> · status van PAUSED → ACTIVE gezet via de Meta Marketing API</div>
+        </div>
+      </div>
+      <div class="note">De publish-stap kan <b>alleen</b> worden getriggerd door de ondertekende goedkeur-link uit de mail — nooit door de agent zelf. Zo blijft marketing altijd de laatste check.</div>
+    </div>
+  </div>
+
+  <footer>
+    Neuro San · mock end-to-end demo · gegenereerd uit <span class="mono">sample_vacancy.json</span><br>
+    Draai zelf opnieuw met <span class="mono">python3 pipeline_mock.py --approve</span>
+  </footer>
+</div>
+</body>
+</html>

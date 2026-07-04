@@ -1,0 +1,24 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{font-family:var(--font-body);color:var(--fg1);background:var(--white)}
+  body{padding:22px 26px}
+  
+  .meta{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-400);margin-bottom:14px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .item{display:flex;align-items:center;gap:10px;font-size:12px}
+  .dot{width:26px;height:26px;border-radius:5px;border:1px solid rgba(0,0,0,.1);flex:none}
+  .k{color:var(--black);font-weight:600}.v{color:var(--ink-400);font-size:11px}
+
+</style></head><body>
+  <div class="meta">Semantic Tokens (light context)</div>
+  <div class="grid">
+    <div class="item"><span class="dot" style="background:#000"></span><span><span class="k">--fg1</span> <span class="v">primary text</span></span></div>
+    <div class="item"><span class="dot" style="background:#69696A"></span><span><span class="k">--fg2</span> <span class="v">muted text</span></span></div>
+    <div class="item"><span class="dot" style="background:#FF7D2F"></span><span><span class="k">--accent</span> <span class="v">orange</span></span></div>
+    <div class="item"><span class="dot" style="background:#E8631C"></span><span><span class="k">--accent-hover</span></span></div>
+    <div class="item"><span class="dot" style="background:#fff"></span><span><span class="k">--bg</span> <span class="v">white</span></span></div>
+    <div class="item"><span class="dot" style="background:#DCDCDD"></span><span><span class="k">--border</span></span></div>
+  </div>
+</body></html>

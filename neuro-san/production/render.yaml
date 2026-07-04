@@ -1,0 +1,66 @@
+# Render Blueprint — Render leest dit en zet de service vrijwel volledig voor je op.
+# Op render.com: New → Blueprint → koppel je repo. De velden met sync:false vraagt
+# Render je daarna in een webscherm in te vullen (je sleutels).
+services:
+  - type: web
+    name: neuro-san
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # --- door jou in te vullen in het Render-scherm (geheim) ---
+      - key: META_ACCESS_TOKEN
+        sync: false
+      - key: META_AD_ACCOUNT_ID
+        sync: false
+      - key: META_PAGE_ID
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SIGNING_SECRET
+        sync: false
+      - key: TIGRIS_SHARED_SECRET
+        sync: false
+      - key: APPROVAL_TO
+        sync: false
+      - key: ANTHROPIC_API_KEY        # optioneel — leeg = fallback-teksten i.p.v. AI
+        sync: false
+      # --- Salesforce / Tigris (optioneel; leeg = dry-run) ---
+      - key: SF_CLIENT_ID
+        sync: false
+      - key: SF_CLIENT_SECRET
+        sync: false
+      - key: SF_LOGIN_URL             # My Domain-URL, bv. https://maintec.my.salesforce.com
+        sync: false
+      # --- vaste waarden (hoef je niet te wijzigen) ---
+      - key: META_API_VERSION
+        value: v21.0
+      - key: META_SPECIAL_AD_CATEGORY
+        value: EMPLOYMENT
+      - key: OPENAI_IMAGE_MODEL
+        value: gpt-image-1
+      - key: RESEND_FROM
+        value: onboarding@resend.dev
+      - key: ANTHROPIC_MODEL
+        value: claude-opus-4-8
+      - key: SF_API_VERSION
+        value: v60.0
+      - key: SF_VACANCY_OBJECT
+        value: Tigris__Vacancy__c
+      - key: VACANCY_URL_BASE
+        value: https://www.maintec.nl/vacatures
+      - key: NEURO_SAN_URL            # leeg = fallback naar eigen agents (Render bereikt geen localhost)
+        value: ""
+      - key: NEURO_SAN_AGENT
+        value: generated/neuro_san_vif_to_publish_sourcing
+      - key: LEAD_PRIVACY_URL
+        value: https://www.maintec.nl/privacy
+      - key: LEAD_FOLLOWUP_URL
+        value: https://www.maintec.nl
+      - key: ALLOWED_ORIGINS
+        value: https://www.maintec.nl,https://maintec.nl
+      # PUBLIC_BASE_URL wordt automatisch ingevuld via RENDER_EXTERNAL_URL.

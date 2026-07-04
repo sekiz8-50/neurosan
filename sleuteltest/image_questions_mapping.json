@@ -1,0 +1,223 @@
+[
+  {
+    "profile": "E-hulpmonteur",
+    "file": "img_E-hulpmonteur_1.png",
+    "sheet_row": 2,
+    "vraag": "Welk component zie je op de afbeelding?",
+    "options": [
+      "Stopcontact",
+      "Installatieautomaat",
+      "Lasdoos",
+      "Dimmer"
+    ],
+    "correct_letter": "B"
+  },
+  {
+    "profile": "E-hulpmonteur",
+    "file": "img_E-hulpmonteur_2.jpeg",
+    "sheet_row": 3,
+    "vraag": "Welk onderdeel wordt hier afgebeeld?",
+    "options": [
+      "Aarddraad",
+      "Wandschakelaar",
+      "Kabelgoot",
+      "Hoofdschakelaar"
+    ],
+    "correct_letter": "B"
+  },
+  {
+    "profile": "E-hulpmonteur",
+    "file": "img_E-hulpmonteur_3.jpeg",
+    "sheet_row": 4,
+    "vraag": "Welke elektrotechnische component zie je?",
+    "options": [
+      "Groepenkast",
+      "Stekker",
+      "Transformator",
+      "Bewegingssensor"
+    ],
+    "correct_letter": "A"
+  },
+  {
+    "profile": "E-monteur",
+    "file": "img_E-monteur_1.jpeg",
+    "sheet_row": 5,
+    "vraag": "Welk component zie je op de afbeelding?",
+    "options": [
+      "Aardlekschakelaar",
+      "Installatieautomaat",
+      "Magneetschakelaar",
+      "Transformator"
+    ],
+    "correct_letter": null
+  },
+  {
+    "profile": "E-monteur",
+    "file": "img_E-monteur_2.jpeg",
+    "sheet_row": 6,
+    "vraag": "Welk component zie je op de afbeelding?",
+    "options": [
+      "Relais",
+      "Magneetschakelaar",
+      "Eindgroep",
+      "Aardrail"
+    ],
+    "correct_letter": "C"
+  },
+  {
+    "profile": "E-monteur",
+    "file": "img_E-monteur_3.png",
+    "sheet_row": 7,
+    "vraag": "Welk component zie je op de afbeelding?",
+    "options": [
+      "Hoofdschakelaar",
+      "Installatieautomaat",
+      "Smeltzekering",
+      "Aardlekschakelaar"
+    ],
+    "correct_letter": "A"
+  },
+  {
+    "profile": "E-chef",
+    "file": "img_E-chef_1.png",
+    "sheet_row": 8,
+    "vraag": "Welk component zie je op de afbeelding?",
+    "options": [
+      "Frequentieregelaar",
+      "Vermo",
+      "Magneetschakelaar",
+      "Softstarter"
+    ],
+    "correct_letter": "B"
+  },
+  {
+    "profile": "E-chef",
+    "file": "img_E-chef_2.png",
+    "sheet_row": 9,
+    "vraag": "Welk component zie je op de afbeelding?",
+    "options": [
+      "Aardlekautomaat",
+      "Motorbeveiligingsschakelaar",
+      "Vermogensautomaat",
+      "Relais"
+    ],
+    "correct_letter": "B"
+  },
+  {
+    "profile": "E-chef",
+    "file": "img_E-chef_3.png",
+    "sheet_row": 10,
+    "vraag": "Welk industrieel component zie je op de afbeelding?",
+    "options": [
+      "PLC-module",
+      "Installatieautomaat",
+      "Transformator",
+      "Tijdrelais"
+    ],
+    "correct_letter": "A"
+  },
+  {
+    "profile": "W-hulpmonteur",
+    "file": "img_W-hulpmonteur_1.jpeg",
+    "sheet_row": 11,
+    "vraag": "Welke fitting wordt hier afgebeeld?",
+    "options": [
+      "Perskoppeling",
+      "Sokverbinding",
+      "Kniekoppeling",
+      "Flensverbinding"
+    ],
+    "correct_letter": "A"
+  },
+  {
+    "profile": "W-hulpmonteur",
+    "file": "img_W-hulpmonteur_2.jpeg",
+    "sheet_row": 12,
+    "vraag": "Welk onderdeel zie je op de afbeelding?",
+    "options": [
+      "Kogelkraan",
+      "T-stuk",
+      "Flexibele slang",
+      "Radiatorkraan"
+    ],
+    "correct_letter": "A"
+  },
+  {
+    "profile": "W-hulpmonteur",
+    "file": "img_W-hulpmonteur_3.jpeg",
+    "sheet_row": 13,
+    "vraag": "Welke verbinding wordt hier toegepast?",
+    "options": [
+      "Flensverbinding",
+      "Knelkoppelingen",
+      "Persverbinding",
+      "Soldeerverbinding"
+    ],
+    "correct_letter": "B"
+  },
+  {
+    "profile": "W-monteur",
+    "file": "img_W-monteur_1.png",
+    "sheet_row": 14,
+    "vraag": "Welke fitting wordt hier afgebeeld?",
+    "options": [
+      "Perskoppeling",
+      "Sokverbinding",
+      "Kniekoppeling",
+      "Verloopring"
+    ],
+    "correct_letter": "D"
+  },
+  {
+    "profile": "W-monteur",
+    "file": "img_W-monteur_2.jpeg",
+    "sheet_row": 15,
+    "vraag": "Welk appendage zie je op de afbeelding?",
+    "options": [
+      "Inregelafsluiter",
+      "Terugslagklep",
+      "Veiligheidsventiel",
+      "Kogelkraan"
+    ],
+    "correct_letter": "A"
+  },
+  {
+    "profile": "W-monteur",
+    "file": "img_W-monteur_3.jpeg",
+    "sheet_row": 16,
+    "vraag": "Welk component hoort bij deze leidinginstallatie?",
+    "options": [
+      "Expansievat",
+      "Warmtewisselaar",
+      "Circulatiepomp",
+      "Drukregelaar"
+    ],
+    "correct_letter": "C"
+  },
+  {
+    "profile": "W-chef",
+    "file": "img_W-chef_1.jpeg",
+    "sheet_row": 17,
+    "vraag": "Welke industriële verbinding wordt hier afgebeeld?",
+    "options": [
+      "Victaulic koppeling",
+      "Flensverbinding",
+      "Persverbinding",
+      "Soldeerverbinding"
+    ],
+    "correct_letter": "B"
+  },
+  {
+    "profile": "W-chef",
+    "file": "img_W-chef_2.jpeg",
+    "sheet_row": 18,
+    "vraag": "Welke installatiecomponent wordt hier toegepast voor drukregeling?",
+    "options": [
+      "Expansievat",
+      "Reduceerventiel",
+      "Veiligheidsventiel",
+      "Circulatiepomp"
+    ],
+    "correct_letter": "B"
+  }
+]

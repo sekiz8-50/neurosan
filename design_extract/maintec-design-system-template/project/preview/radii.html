@@ -1,0 +1,23 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{font-family:var(--font-body);color:var(--fg1);background:var(--white)}
+  body{padding:22px 26px}
+  .meta{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-400);margin-bottom:14px}
+  
+  .row{display:flex;gap:18px}
+  .col{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .box{width:70px;height:54px;background:var(--ink-100);border:1.5px solid var(--black)}
+  .lab{font-size:11px;color:var(--ink-500)}
+
+</style></head><body>
+  <div class="meta">Corner Radii — tight &amp; angular</div>
+  <div class="row">
+    <div class="col"><div class="box" style="border-radius:0"></div><div class="lab">none · 0</div></div>
+    <div class="col"><div class="box" style="border-radius:2px"></div><div class="lab">sm · 2</div></div>
+    <div class="col"><div class="box" style="border-radius:4px"></div><div class="lab">md · 4</div></div>
+    <div class="col"><div class="box" style="border-radius:8px"></div><div class="lab">lg · 8</div></div>
+    <div class="col"><div class="box" style="border-radius:999px;width:54px"></div><div class="lab">pill</div></div>
+  </div>
+</body></html>

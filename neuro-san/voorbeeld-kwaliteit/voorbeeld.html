@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neuro San — kwaliteit voor/na</title>
+<style>
+  @font-face{font-family:"Rift";src:url("fonts/Rift-Bold.otf") format("opentype");font-weight:700}
+  @font-face{font-family:"Transducer";src:url("fonts/Transducer-Regular.otf") format("opentype")}
+  :root{--orange:#FF7D2F;--ink-950:#0A0A0A;--ink-900:#121212;--ink-500:#69696A;--ink-200:#DCDCDD;--ink-100:#EEEEEE;--ink-50:#F6F6F6}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Transducer",system-ui,sans-serif;background:var(--ink-50);color:var(--ink-900)}
+  .rift{font-family:"Rift","Arial Narrow",sans-serif;text-transform:uppercase;letter-spacing:.5px;line-height:.95}
+  header{background:#000;color:#fff;padding:20px 32px;display:flex;align-items:center;gap:14px}
+  header img{height:26px}
+  header .t{font-size:13px;opacity:.7}
+  .wrap{max-width:1040px;margin:0 auto;padding:28px}
+  h1.rift{font-size:30px;margin:0 0 6px}
+  .lede{color:var(--ink-500);max-width:760px;margin:0 0 22px;line-height:1.5}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .col h2{font-size:13px;letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;color:var(--ink-500)}
+  .col.na h2{color:var(--orange)}
+  .card{background:#fff;border:1px solid var(--ink-200);border-radius:8px;overflow:hidden}
+  .card.dull{filter:saturate(.7)}
+  .imgbox{position:relative;aspect-ratio:1/1;background:#000;overflow:hidden}
+  .imgbox img.ph{width:100%;height:100%;object-fit:cover;display:block}
+  /* NA creative overlay */
+  .creative .logo{position:absolute;top:14px;left:14px;height:22px;z-index:3}
+  .creative .grad{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.45) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 45%,rgba(0,0,0,.82) 100%);z-index:2}
+  .creative .title{position:absolute;left:18px;right:18px;bottom:46px;z-index:4;color:#fff}
+  .creative .title .br{position:relative;display:inline-block;padding:6px 14px}
+  .creative .title .br:before,.creative .title .br:after{content:"";position:absolute;width:14px;height:100%;top:0;border:3px solid var(--orange)}
+  .creative .title .br:before{left:0;border-right:0}
+  .creative .title .br:after{right:0;border-left:0}
+  .creative .title .fn{font-size:30px;display:block}
+  .creative .tag{position:absolute;left:20px;bottom:18px;z-index:4;color:var(--orange);font-size:12px;letter-spacing:2px}
+  .meta{padding:14px 16px}
+  .hl{font-weight:700;font-size:16px;margin:0 0 6px}
+  .bt{font-size:13.5px;line-height:1.55;margin:0 0 10px}
+  .desc{font-size:12px;color:var(--ink-500);margin:0 0 12px}
+  .cta{display:inline-block;background:var(--orange);color:#fff;font-weight:700;font-size:13px;padding:9px 16px;border-radius:4px}
+  .cta.dull{background:#1877F2}
+  .variant{background:var(--ink-50);border-top:1px solid var(--ink-100);padding:12px 16px;font-size:12.5px}
+  .variant .lab{color:var(--orange);font-weight:700;font-size:11px;letter-spacing:.5px;text-transform:uppercase}
+  .tg{margin-top:14px;border:1px solid var(--ink-200);border-radius:8px;background:#fff;padding:14px 16px;font-size:13px}
+  .tg h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-500)}
+  .tg .as{padding:8px 0;border-top:1px solid var(--ink-100)}
+  .tg .as:first-of-type{border-top:0}
+  .tg .nm{font-weight:700}
+  .chip{display:inline-block;font-size:11px;background:var(--ink-50);border:1px solid var(--ink-200);border-radius:999px;padding:2px 9px;margin:3px 3px 0 0}
+  .note{background:#FFE6D6;border-left:3px solid var(--orange);border-radius:0 6px 6px 0;padding:12px 16px;font-size:13px;margin-top:22px;line-height:1.5}
+  del{color:#b00020}
+</style>
+</head>
+<body>
+<header>
+  <img src="assets/logo-maintec-white.svg" alt="Maintec">
+  <span class="t">Neuro San · kwaliteit voor → na</span>
+</header>
+<div class="wrap">
+  <h1 class="rift">Zo wordt de campagne wél goed</h1>
+  <p class="lede">Zelfde vacature (<b>Elektromonteur — Wolvega</b>), links wat de tool nu maakt,
+     rechts met Maintec-huisstijl, een echte merkfoto en slimmere targeting. Niets hiervan is
+     definitief — het laat zien wat mogelijk is voordat we het inbouwen.</p>
+
+  <div class="grid">
+    <!-- VOOR -->
+    <div class="col voor">
+      <h2>Voor — huidige output</h2>
+      <div class="card dull">
+        <div class="imgbox"><img class="ph" src="../output/beeld_voorbeeld.jpg" alt="generieke AI-foto"></div>
+        <div class="meta">
+          <p class="hl">Elektromonteur in Wolvega</p>
+          <p class="bt">Vakman? Wij zoeken een elektromonteur in Wolvega. Fulltime (38 uur).
+             Werk aan storingsanalyse, hydrauliek, pneumatiek. Solliciteer direct.</p>
+          <p class="desc">Direct, nuchter, trots op vakmanschap.</p>
+          <span class="cta dull">Solliciteer nu</span>
+        </div>
+      </div>
+      <div class="tg">
+        <h3>Targeting</h3>
+        <div class="as"><div class="nm">1 advertentieset</div>
+          <span class="chip">heel Nederland</span><span class="chip">generieke interesses</span>
+          <span class="chip">1 advertentie</span></div>
+        <p style="color:var(--ink-500);margin:8px 0 0">Geen lokale focus, geen varianten om op te optimaliseren.</p>
+      </div>
+    </div>
+
+    <!-- NA -->
+    <div class="col na">
+      <h2>Na — Maintec-huisstijl + slimmere AI</h2>
+      <div class="card">
+        <div class="imgbox creative">
+          <img class="ph" src="assets/workers-electrical-panel.jpg" alt="Maintec monteurs">
+          <div class="grad"></div>
+          <img class="logo" src="assets/logo-maintec-white.svg" alt="Maintec">
+          <div class="title"><span class="br rift"><span class="fn">Elektromonteur<br>Wolvega</span></span></div>
+          <div class="tag rift">Join the Future Techforce</div>
+        </div>
+        <div class="meta">
+          <p class="hl rift" style="font-size:19px">Word elektromonteur in Wolvega</p>
+          <p class="bt">Storingen verhelpen vóór de lijn stilvalt — dat is jouw vak. Bij Maintec doe
+             je dat niet alleen: je hoort bij een ploeg vakmensen die elkaar scherp houdt. Vast
+             contract, een loon dat klopt en alle ruimte om je verder te specialiseren. Klaar voor
+             je volgende stap?</p>
+          <p class="desc">Vast dienstverband · regio Wolvega · doorgroei naar 1e monteur</p>
+          <span class="cta">Solliciteer nu</span>
+        </div>
+        <div class="variant">
+          <span class="lab">Variant B (voor A/B-test)</span><br>
+          <b>Elektromonteur? Wij zoeken jou.</b> Vast werk in de regio Wolvega, een ploeg die achter
+          je staat en échte doorgroei. Geen uitzendbureau — Maintec is je werkgever.
+        </div>
+      </div>
+      <div class="tg">
+        <h3>Targeting</h3>
+        <div class="as"><div class="nm">① Wolvega +25 km · breed</div>
+          <span class="chip">geo-radius 25 km</span><span class="chip">Facebook + Instagram</span>
+          <span class="chip">feeds, reels &amp; stories</span></div>
+        <div class="as"><div class="nm">② Lookalike vakmensen</div>
+          <span class="chip">Speciale Advertentie-doelgroep</span><span class="chip">o.b.v. eerdere collega's/sollicitanten</span></div>
+        <p style="color:var(--ink-500);margin:8px 0 0">3 advertentievarianten per set → Meta optimaliseert automatisch naar de beste.</p>
+        <p style="color:var(--ink-500);margin:6px 0 0;font-size:12px">Binnen de Meta EMPLOYMENT-regels: geen leeftijd/geslacht, wél scherpe lokale focus.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Grootste kwaliteitssprong:</b> voor blue-collar vacatures is een <b>echte Maintec-merkfoto</b>
+    (hier <code>workers-electrical-panel</code>) bijna altijd beter én geloofwaardiger dan een
+    generiek AI-beeld — en gratis. Idee: de tool kiest automatisch de best passende merkfoto bij de
+    vacature, plaatst het logo + de oranje [ ]-titel erover, en gebruikt AI-generatie alleen als
+    er geen passende merkfoto is. De teksten schrijft Claude dan in de Maintec-tone (collega's,
+    "Join the Future Techforce", geen emoji).
+  </div>
+</div>
+</body>
+</html>

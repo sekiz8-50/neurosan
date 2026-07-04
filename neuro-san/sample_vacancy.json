@@ -1,0 +1,23 @@
+{
+  "_comment": "Voorbeeld-payload zoals Salesforce/Tigris die bij publicatie naar NeuroSan stuurt (Platform Event / Outbound Webhook).",
+  "event": "vacancy.published",
+  "timestamp": "2026-06-01T09:32:00+02:00",
+  "vacancy": {
+    "id": "a1B5800000ABCDE",
+    "label": "Maintec",
+    "label_type": "blue-collar",
+    "titel": "Onderhoudsmonteur",
+    "opdrachtgever": "Industriële productielocatie",
+    "plaats": "Eindhoven",
+    "regio": "Noord-Brabant",
+    "sector": "Productie / Industrie",
+    "dienstverband": "Fulltime (38 uur)",
+    "ploegendienst": true,
+    "opleidingsniveau": "MBO niveau 3/4",
+    "salaris_min": 2800,
+    "salaris_max": 3600,
+    "skills": ["storingsanalyse", "hydrauliek", "pneumatiek", "elektrotechniek", "technische dienst"],
+    "omschrijving": "Voor een productielocatie in de regio Eindhoven zoeken wij een Onderhoudsmonteur die storingen verhelpt aan machines, preventief onderhoud uitvoert en meedenkt over verbeteringen. Je werkt in 2-ploegendienst.",
+    "url": "https://www.maintec.nl/vacatures/onderhoudsmonteur-eindhoven-a1B5800000ABCDE"
+  }
+}

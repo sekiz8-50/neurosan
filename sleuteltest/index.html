@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maintec — Digitale Sleuteltest</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- jsPDF library verwijderd: PDF-export wordt niet meer aangeboden aan deelnemer
+     (voorkomt dat resultaten/correcte antwoorden gedeeld kunnen worden met derden) -->
+<style>
+:root {
+  --orange: #ff7d2f;
+  --orange-light: #ff9a57;
+  --orange-dark: #e06520;
+  --orange-pale: #fff3ec;
+  --dark: #1C1C1C;
+  --gray: #5A5A5A;
+  --light: #F5F5F5;
+  --white: #FFFFFF;
+  --green: #27AE60;
+  --red: #E74C3C;
+  --border: #E0E0E0;
+  --radius: 10px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.10);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', -apple-system, sans-serif; background: var(--light); color: var(--dark); min-height: 100vh; }
+
+/* HEADER */
+.header { background: var(--white); border-bottom: 3px solid var(--orange); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 72px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.logo { display: flex; align-items: center; gap: 14px; text-decoration: none; }
+.logo-svg { height: 42px; width: auto; }
+.header-badge { background: var(--orange-pale); color: var(--orange); font-size: 0.75rem; font-weight: 600; padding: 4px 14px; border-radius: 20px; border: 1px solid #ffd0b0; white-space: nowrap; }
+.header-right { display: flex; align-items: center; gap: 14px; }
+.lang-switcher { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 99px; background: var(--white); }
+.lang-switcher .globe { font-size: 1rem; }
+.lang-switcher button { background: none; border: none; cursor: pointer; padding: 2px 8px; font-size: 0.78rem; font-weight: 700; color: var(--gray); border-radius: 99px; font-family: inherit; transition: all 0.15s; letter-spacing: 0.5px; }
+.lang-switcher button:hover { color: var(--orange); }
+.lang-switcher button.active { background: var(--orange); color: var(--white); }
+.lang-switcher .sep { color: var(--border); font-size: 0.85rem; }
+
+/* SCREENS */
+.screen { display: none; }
+.screen.active { display: block; }
+.container { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+
+/* WELCOME */
+.hero { text-align: center; padding: 3rem 0 2rem; }
+.hero h1 { font-size: 2.2rem; font-weight: 800; color: var(--dark); line-height: 1.2; margin-bottom: 1rem; }
+.hero h1 span { color: var(--orange); }
+.hero p { color: var(--gray); font-size: 1.05rem; line-height: 1.7; max-width: 520px; margin: 0 auto 2rem; }
+.info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin: 2rem 0; }
+.info-card { background: var(--white); border-radius: var(--radius); padding: 1.25rem; border-left: 4px solid var(--orange); box-shadow: var(--shadow); }
+.info-card .num { font-size: 2rem; font-weight: 800; color: var(--orange); }
+.info-card .lbl { font-size: 0.85rem; color: var(--gray); margin-top: 2px; }
+
+/* FORM */
+.card { background: var(--white); border-radius: var(--radius); padding: 2rem; box-shadow: var(--shadow); margin-bottom: 1.5rem; }
+.card h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--dark); }
+.form-group { margin-bottom: 1.25rem; }
+label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--gray); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+input[type=text] { width: 100%; padding: 12px 14px; border: 2px solid var(--border); border-radius: var(--radius); font-size: 1rem; font-family: inherit; color: var(--dark); background: var(--white); transition: border-color 0.2s; }
+input[type=text]:focus { outline: none; border-color: var(--orange); }
+.select-styled { width: 100%; padding: 12px 14px; border: 2px solid var(--border); border-radius: var(--radius); font-size: 1rem; font-family: inherit; color: var(--dark); background: var(--white) url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2716%27%20height%3D%2716%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20fill%3D%27%23ff7d2f%27%20d%3D%27M8%2011L3%206h10z%27%2F%3E%3C%2Fsvg%3E") no-repeat right 14px center; appearance: none; -webkit-appearance: none; cursor: pointer; transition: border-color 0.2s; }
+.select-styled:focus { outline: none; border-color: var(--orange); }
+.form-hint { display: block; margin-top: 6px; font-size: 0.78rem; color: var(--gray); font-weight: 400; text-transform: none; letter-spacing: 0; }
+.contact-combo { position: relative; }
+.contact-search { width: 100%; padding: 12px 38px 12px 14px; border: 2px solid var(--border); border-radius: var(--radius); font-size: 1rem; font-family: inherit; color: var(--dark); background: var(--white) url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2716%27%20height%3D%2716%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20fill%3D%27%23ff7d2f%27%20d%3D%27M8%2011L3%206h10z%27%2F%3E%3C%2Fsvg%3E") no-repeat right 14px center; transition: border-color 0.2s; }
+.contact-search:focus { outline: none; border-color: var(--orange); }
+.contact-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: white; border: 1px solid var(--border); border-radius: var(--radius); max-height: 280px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 100; }
+.contact-option { padding: 10px 14px; cursor: pointer; font-size: 0.95rem; color: var(--dark); border-bottom: 1px solid #f0f0f0; }
+.contact-option:last-child { border-bottom: none; }
+.contact-option:hover, .contact-option.highlighted { background: var(--orange-pale); color: var(--orange-dark); }
+.contact-option.no-results { color: var(--gray); font-style: italic; cursor: default; }
+.contact-option.no-results:hover { background: white; color: var(--gray); }
+.discipline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.disc-card { border: 2px solid var(--border); border-radius: var(--radius); padding: 1.25rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+.disc-card:hover { border-color: var(--orange); background: var(--orange-pale); }
+.disc-card.selected { border-color: var(--orange); background: var(--orange-pale); }
+.disc-card .disc-icon { font-size: 2rem; margin-bottom: 8px; }
+.disc-card .disc-title { font-weight: 700; font-size: 1rem; color: var(--dark); }
+.disc-card .disc-desc { font-size: 0.8rem; color: var(--gray); margin-top: 4px; line-height: 1.4; }
+.level-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.level-card { border: 2px solid var(--border); border-radius: var(--radius); padding: 1rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+.level-card:hover { border-color: var(--orange); background: var(--orange-pale); }
+.level-card.selected { border-color: var(--orange); background: var(--orange-pale); }
+.level-card .level-name { font-weight: 700; font-size: 0.95rem; }
+.level-card .level-desc { font-size: 0.75rem; color: var(--gray); margin-top: 4px; line-height: 1.3; }
+
+/* BUTTON */
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; border-radius: var(--radius); font-size: 1rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; text-decoration: none; font-family: inherit; }
+.btn-primary { background: var(--orange); color: var(--white); }
+.btn-primary:hover { background: var(--orange-light); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,125,47,0.35); }
+.btn-secondary { background: var(--white); color: var(--orange); border: 2px solid var(--orange); }
+.btn-secondary:hover { background: var(--orange-pale); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+
+/* AUTOSAVE BANNER */
+.autosave-banner { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: var(--radius); padding: 10px 16px; font-size: 0.82rem; color: #2e7d32; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
+.autosave-dot { width: 8px; height: 8px; background: #43a047; border-radius: 50%; animation: blink 2s infinite; flex-shrink: 0; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.warning-banner { background: #fff8e1; border: 1px solid #ffe082; border-radius: var(--radius); padding: 12px 16px; font-size: 0.87rem; color: #f57f17; display: flex; align-items: flex-start; gap: 10px; margin-bottom: 1.25rem; line-height: 1.5; }
+.must-answer-hint { background: #fff3ec; border: 1px solid #ffc4a0; color: var(--orange-dark); padding: 10px 14px; border-radius: var(--radius); font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-top: 1rem; }
+.kbd-hint { font-size: 0.78rem; color: var(--gray); margin-top: 1rem; text-align: center; }
+.kbd-hint kbd { background: #f0f0f0; border: 1px solid #d0d0d0; border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px; font-family: 'SF Mono', Menlo, monospace; font-size: 0.78rem; color: var(--dark); }
+@media (max-width: 600px), (pointer: coarse) { .kbd-hint { display: none; } }
+
+/* TEST SCREEN */
+.test-header { background: var(--white); padding: 0.9rem 2rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.progress-wrap { flex: 1; min-width: 180px; }
+.progress-meta { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--gray); margin-bottom: 5px; gap: 1rem; flex-wrap: wrap; }
+.q-remaining { font-weight: 600; color: var(--orange); }
+.progress-bar { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--orange); border-radius: 99px; transition: width 0.3s; }
+.timer { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; font-weight: 700; color: var(--dark); white-space: nowrap; }
+.timer.warning { color: var(--red); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* QUESTION */
+.question-card { background: var(--white); border-radius: var(--radius); padding: 2rem; box-shadow: var(--shadow); }
+.q-number { font-size: 0.78rem; font-weight: 700; color: var(--orange); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 0.75rem; }
+.q-text { font-size: 1.13rem; font-weight: 600; line-height: 1.65; margin-bottom: 1.75rem; color: var(--dark); }
+.options { display: flex; flex-direction: column; gap: 0.75rem; }
+.option { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border: 2px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: all 0.15s; user-select: none; }
+.option:hover { border-color: var(--orange); background: var(--orange-pale); }
+.option.selected { border-color: var(--orange); background: var(--orange-pale); }
+.opt-letter { width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background: var(--light); color: var(--gray); font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.option.selected .opt-letter { background: var(--orange); color: var(--white); }
+.opt-text { font-size: 0.97rem; padding-top: 5px; line-height: 1.45; }
+
+/* FOTOHERKENNINGSVRAAG */
+.q-image { margin: 0.25rem 0 1.25rem; text-align: center; background: var(--light); border-radius: var(--radius); padding: 12px; border: 1px solid var(--border); }
+.q-image img { max-width: 100%; max-height: 360px; border-radius: 6px; display: block; margin: 0 auto; }
+.q-image-badge { display: inline-block; background: var(--orange); color: white; font-size: 0.7rem; font-weight: 700; letter-spacing: 1.2px; padding: 3px 10px; border-radius: 99px; margin-bottom: 8px; }
+.result-image { max-width: 200px; max-height: 140px; border-radius: 6px; margin: 6px 0; border: 1px solid var(--border); }
+.nav-btns { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; }
+.dot-nav { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 1rem; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); cursor: pointer; transition: all 0.15s; border: none; padding: 0; }
+.dot.answered { background: var(--orange); }
+.dot.current { background: var(--orange-dark); transform: scale(1.3); }
+
+/* RESULTS */
+.score-hero { text-align: center; padding: 2.5rem; background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 1.5rem; }
+.score-circle { width: 130px; height: 130px; border-radius: 50%; margin: 0 auto 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 800; border: 8px solid var(--orange); color: var(--orange); line-height: 1; }
+.score-circle.pass { border-color: var(--green); color: var(--green); }
+.score-circle.fail { border-color: var(--red); color: var(--red); }
+.score-circle.neutral { border-color: var(--orange); color: var(--orange); }
+.score-circle small { font-size: 0.85rem; font-weight: 500; color: var(--gray); }
+.score-hero h2 { font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; }
+.score-hero p { color: var(--gray); }
+.result-item { background: var(--white); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-left: 5px solid var(--border); }
+.result-item.correct { border-left-color: var(--green); }
+.result-item.incorrect { border-left-color: var(--red); }
+.result-item.neutral { border-left-color: var(--orange); }
+.result-item.neutral .ans-given { color: var(--gray); }
+.result-q { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.6rem; color: var(--dark); }
+.result-answers { font-size: 0.85rem; display: flex; flex-direction: column; gap: 3px; }
+.ans-given { color: var(--gray); }
+.ans-given.wrong { color: var(--red); }
+.ans-correct { color: var(--green); font-weight: 600; }
+.result-actions { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+.tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+.tag-orange { background: var(--orange-pale); color: var(--orange); }
+.tag-green { background: #edfbf2; color: var(--green); }
+.tag-red { background: #fef0ef; color: var(--red); }
+
+/* THANKYOU */
+.ty-card { text-align: center; padding: 3rem 2rem; background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); }
+.ty-icon { font-size: 4rem; margin-bottom: 1rem; }
+.ty-card h2 { font-size: 1.8rem; font-weight: 800; color: var(--dark); margin-bottom: 1rem; }
+.ty-card p { color: var(--gray); font-size: 1rem; line-height: 1.7; margin-bottom: 1rem; }
+.contact-card { background: var(--orange-pale); border: 1px solid #ffd0b0; border-radius: var(--radius); padding: 1.25rem; margin-top: 1.5rem; display: inline-flex; gap: 12px; align-items: center; text-align: left; }
+.contact-avatar { width: 48px; height: 48px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 1.1rem; flex-shrink: 0; }
+.contact-info strong { display: block; font-size: 0.95rem; color: var(--dark); }
+.contact-info span { font-size: 0.8rem; color: var(--gray); }
+
+/* ALERTS */
+.alert { padding: 12px 16px; border-radius: var(--radius); font-size: 0.9rem; margin-bottom: 1rem; }
+.alert-error { background: #fef0ef; color: var(--red); border: 1px solid #f5c6c3; }
+.alert-info { background: var(--orange-pale); color: var(--orange-dark); border: 1px solid #ffd0b0; }
+
+/* FOOTER */
+.footer { text-align: center; padding: 2rem; color: var(--gray); font-size: 0.8rem; margin-top: 2rem; }
+.mt-3 { margin-top: 1.5rem; }
+
+/* PRESTART (B1) */
+.prestart-card { background: var(--white); border-radius: var(--radius); padding: 3rem 2rem; box-shadow: var(--shadow); text-align: center; }
+.prestart-icon { font-size: 3.5rem; margin-bottom: 0.5rem; }
+.prestart-card h2 { font-size: 1.7rem; font-weight: 800; margin-bottom: 1rem; color: var(--dark); }
+.prestart-card p { color: var(--gray); font-size: 0.97rem; line-height: 1.6; max-width: 480px; margin: 0 auto 0.6rem; }
+.prestart-countdown { font-size: 5rem; font-weight: 900; color: var(--orange); line-height: 1; margin: 1.75rem 0 1rem; font-variant-numeric: tabular-nums; transition: transform 0.3s ease; }
+.prestart-countdown.tick { animation: countdownPulse 1s ease; }
+@keyframes countdownPulse { 0% { transform: scale(0.7); opacity: 0; } 30% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+.prestart-note { font-size: 0.85rem; color: var(--gray); margin-bottom: 1.5rem !important; }
+.prestart-actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+
+/* REVIEW SCREEN (B2) — alleen vraag-nummers, geen vraag/antwoord-tekst (anti-spiek) */
+.review-chips-card { background: var(--white); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); margin-bottom: 1.25rem; }
+.review-stats { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+.review-stats .stat { display: flex; align-items: baseline; gap: 6px; }
+.review-stats .stat strong { font-size: 1.6rem; color: var(--orange); font-weight: 800; }
+.review-stats .stat .stat-label { color: var(--gray); font-size: 0.85rem; }
+.review-stats .stat.warn strong, .review-stats .stat.warn .stat-label { color: var(--red); }
+.review-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 8px; max-width: 480px; }
+.review-chip { aspect-ratio: 1; border-radius: 10px; border: 2px solid var(--border); background: var(--white); color: var(--dark); font-weight: 700; font-size: 1.05rem; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; font-family: inherit; }
+.review-chip.answered { background: #e8f5e9; border-color: var(--green); color: #1b5e20; }
+.review-chip.unanswered { background: #fff3ec; border-color: var(--red); color: var(--red); }
+.review-chip:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.12); }
+.review-legend { display: flex; gap: 1.25rem; margin-top: 1rem; font-size: 0.82rem; color: var(--gray); flex-wrap: wrap; }
+.review-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.review-legend .dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.review-legend .dot-answered { background: #e8f5e9; border: 2px solid var(--green); }
+.review-legend .dot-unanswered { background: #fff3ec; border: 2px solid var(--red); }
+
+/* SENDING SCREEN (B9) */
+.sending-card { background: var(--white); border-radius: var(--radius); padding: 4rem 2rem; box-shadow: var(--shadow); text-align: center; }
+.sending-spinner { width: 60px; height: 60px; border: 5px solid var(--orange-pale); border-top-color: var(--orange); border-radius: 50%; margin: 0 auto 1.5rem; animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sending-card h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.6rem; }
+.sending-card p { color: var(--gray); font-size: 0.95rem; }
+
+/* SOFT TRANSITIONS (B8) */
+.screen { transition: opacity 0.25s ease; }
+.screen.fading { opacity: 0; }
+
+/* TIMER TOAST (B7) */
+.timer-toast { position: fixed; top: 88px; left: 50%; transform: translateX(-50%) translateY(-20px); background: var(--orange); color: white; padding: 14px 22px; border-radius: 10px; box-shadow: 0 10px 30px rgba(255,125,47,0.4); font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 10px; opacity: 0; transition: all 0.3s ease; z-index: 1000; max-width: 90%; }
+.timer-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+@media (max-width: 600px) { .timer-toast { top: 70px; font-size: 0.88rem; padding: 12px 16px; } }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MOBIEL RESPONSIVE — A1 t/m A10
+   Breakpoints: tablet ≤ 768px, mobiel ≤ 600px, klein mobiel ≤ 380px
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Algemene mobiele aanpassingen ≤ 768px */
+@media (max-width: 768px) {
+  .container { padding: 1.5rem 1rem; }
+  .hero { padding: 2rem 0 1.25rem; }
+  .hero h1 { font-size: 1.7rem; line-height: 1.15; }
+  .hero p { font-size: 0.95rem; }
+  .card { padding: 1.4rem 1.1rem; border-radius: 8px; }
+  .info-grid { grid-template-columns: repeat(2, 1fr); gap: 0.7rem; }
+  .info-card { padding: 0.9rem 1rem; }
+  .info-card .num { font-size: 1.5rem; }
+  .info-card .lbl { font-size: 0.78rem; }
+  .level-grid { grid-template-columns: 1fr; gap: 0.65rem; }
+  .level-card { text-align: left; padding: 0.85rem 1rem; }
+  .level-card .level-name { font-size: 1rem; }
+  .level-card .level-desc { font-size: 0.82rem; }
+  .btn { padding: 14px 22px; font-size: 0.95rem; min-height: 48px; min-width: 48px; }
+}
+
+/* Mobiel ≤ 600px — header, voortgang, vragen */
+@media (max-width: 600px) {
+  /* A1 — header herontwerp */
+  .header { padding: 0 0.75rem; height: 60px; gap: 0.5rem; }
+  .logo { gap: 8px; }
+  .logo-svg { height: 32px; }
+  .header-badge { display: none; } /* badge weg op klein scherm */
+  .header-right { gap: 8px; }
+  .lang-switcher { padding: 3px 6px; gap: 4px; }
+  .lang-switcher button { font-size: 0.72rem; padding: 2px 6px; }
+  .lang-switcher .globe { font-size: 0.85rem; }
+
+  /* A2 — hero compacter */
+  .hero { padding: 1.5rem 0 1rem; }
+  .hero h1 { font-size: 1.5rem; }
+  .hero p { font-size: 0.9rem; line-height: 1.55; }
+
+  /* A3 — info-cards 2x2 grid (al gezet hierboven) */
+  .info-grid { grid-template-columns: repeat(2, 1fr); margin: 1.25rem 0; }
+
+  /* A4 — discipline-cards onder elkaar */
+  .discipline-grid { grid-template-columns: 1fr; gap: 0.65rem; }
+  .disc-card { padding: 1rem; text-align: left; display: flex; align-items: center; gap: 12px; }
+  .disc-card .disc-icon { font-size: 1.6rem; margin-bottom: 0; flex-shrink: 0; }
+  .disc-card .disc-title { font-size: 0.97rem; }
+  .disc-card .disc-desc { font-size: 0.78rem; line-height: 1.35; }
+
+  /* A6 — test-header herorganiseren: voortgangsbalk eigen rij */
+  .test-header { flex-direction: column; align-items: stretch; padding: 0.75rem 1rem; gap: 0.6rem; }
+  .progress-wrap { width: 100%; min-width: 0; }
+  .progress-meta { font-size: 0.74rem; }
+  .timer { align-self: flex-end; font-size: 1rem; }
+
+  /* A7 — banners compacter */
+  .warning-banner { padding: 10px 12px; font-size: 0.78rem; line-height: 1.45; gap: 8px; }
+  .warning-banner span:first-child { font-size: 1rem; }
+  .autosave-banner { padding: 8px 12px; font-size: 0.76rem; }
+
+  /* Vraag/opties */
+  .question-card { padding: 1.25rem 1rem; }
+  .q-number { font-size: 0.7rem; }
+  .q-text { font-size: 1rem; line-height: 1.5; margin-bottom: 1.25rem; }
+  .options { gap: 0.55rem; }
+  .option { padding: 12px 14px; min-height: 56px; align-items: center; }
+  .opt-letter { width: 28px; height: 28px; min-width: 28px; font-size: 0.78rem; }
+  .opt-text { font-size: 0.92rem; padding-top: 0; }
+
+  /* A9 — dot navigatie verbergen (we hebben al teller/balk) */
+  .dot-nav { display: none; }
+
+  /* Foto's (image recognition) */
+  .q-image { padding: 8px; }
+  .q-image img { max-height: 240px; }
+
+  /* A10 — knoppen vol breedte op resultatenpagina */
+  .result-actions { flex-direction: column; align-items: stretch; }
+  .result-actions .btn { width: 100%; justify-content: center; }
+  .nav-btns { gap: 0.65rem; }
+  .nav-btns .btn { flex: 1; justify-content: center; }
+
+  /* Resultaten lijst */
+  .result-item { padding: 1rem; }
+  .result-q { font-size: 0.92rem; }
+  .result-image { max-width: 160px; max-height: 110px; }
+  .score-hero { padding: 1.75rem 1.25rem; }
+  .score-circle { width: 110px; height: 110px; font-size: 2.1rem; border-width: 7px; }
+
+  /* Bedanktscherm */
+  .ty-card { padding: 2rem 1.25rem; }
+  .ty-icon { font-size: 3rem; }
+  .ty-card h2 { font-size: 1.4rem; }
+  .ty-card p { font-size: 0.95rem; }
+  .contact-card { padding: 1rem; gap: 10px; }
+  .contact-avatar { width: 42px; height: 42px; font-size: 1rem; }
+
+  /* Form-velden voor touch */
+  input[type=text], .select-styled { min-height: 48px; font-size: 1rem; }
+  .form-hint { font-size: 0.74rem; }
+}
+
+/* Klein mobiel ≤ 380px — extra compactheid voor iPhone SE-achtige toestellen */
+@media (max-width: 380px) {
+  .container { padding: 1rem 0.85rem; }
+  .header { padding: 0 0.6rem; height: 56px; }
+  .logo-svg { height: 28px; }
+  .lang-switcher { padding: 2px 4px; }
+  .lang-switcher button { font-size: 0.7rem; padding: 2px 4px; }
+  .hero h1 { font-size: 1.35rem; }
+  .info-card .num { font-size: 1.35rem; }
+  .info-card .lbl { font-size: 0.74rem; }
+  .q-text { font-size: 0.95rem; }
+  .opt-text { font-size: 0.88rem; }
+  .timer { font-size: 0.95rem; }
+}
+
+/* Touch targets — A8 (WCAG 2.5.5) */
+@media (pointer: coarse) {
+  .option, .disc-card, .level-card, .btn, .lang-switcher button {
+    min-height: 44px;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <a href="#" class="logo" onclick="return false">
+    <!-- Officieel Maintec logo — plaats het originele bestand als 'logo.png' in deze map -->
+    <img src="Logo_Maintec.png" alt="Maintec — The Future Techforce" class="logo-svg">
+  </a>
+  <div class="header-right">
+    <span class="header-badge" data-i18n="badge">Digitale Sleuteltest</span>
+    <div class="lang-switcher" role="group" aria-label="Taalkeuze">
+      <span class="globe" aria-hidden="true">🌐</span>
+      <button class="lang-btn active" data-lang="nl" onclick="setLang('nl')">NL</button>
+      <span class="sep">|</span>
+      <button class="lang-btn" data-lang="en" onclick="setLang('en')">ENG</button>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════ WELKOMSTSCHERM -->
+<div id="screen-welcome" class="screen active">
+  <div class="container">
+    <div class="hero">
+      <h1><span data-i18n="welcome.h1a">Welkom bij de</span><br><span data-i18n="welcome.h1b">Digitale Sleuteltest</span></h1>
+      <p data-i18n="welcome.intro">Deze test meet je technische vakkennis voor een groot renovatieproject in Den Haag. Selecteer je profiel en beantwoord 15 vakgerichte vragen.</p>
+    </div>
+    <div class="info-grid">
+      <div class="info-card"><div class="num">15</div><div class="lbl" data-i18n="welcome.info1">Vragen per test</div></div>
+      <div class="info-card"><div class="num">15</div><div class="lbl" data-i18n="welcome.info2">Minuten de tijd</div></div>
+      <div class="info-card"><div class="num">3</div><div class="lbl" data-i18n="welcome.info3">Niveaus</div></div>
+      <div class="info-card"><div class="num">E + W</div><div class="lbl" data-i18n="welcome.info4">Disciplines</div></div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="welcome.proj_h">Projectinformatie</h2>
+      <p style="color:var(--gray);font-size:0.92rem;line-height:1.75" data-i18n-html="welcome.proj_p">De vragen zijn afgestemd op een groot renovatieproject in <strong>Den Haag</strong>. Het project omvat 7 gebouwen met zowel monumentale als moderne bouwdelen. Let op: er geldt een <strong>totaal lasverbod</strong> in alle gebouwen vanwege houten vloeren.</p>
+    </div>
+    <div class="card">
+      <h2 data-i18n="welcome.exp_h">Wat kun je verwachten?</h2>
+      <p style="color:var(--gray);font-size:0.92rem;line-height:1.75;margin-bottom:1rem" data-i18n-html="welcome.exp_p1">Je krijgt <strong>15 multiple-choice vragen</strong>: <strong>13 vakvragen</strong> en <strong>2 fotoherkenningsvragen</strong> waarbij je een installatiecomponent op een afbeelding moet herkennen.</p>
+      <p style="color:var(--gray);font-size:0.92rem;line-height:1.75;margin-bottom:0.5rem" data-i18n-html="welcome.exp_p2"><strong>De onderwerpen per discipline:</strong></p>
+      <ul style="color:var(--gray);font-size:0.9rem;line-height:1.7;padding-left:1.4rem;margin-bottom:1rem">
+        <li data-i18n-html="welcome.exp_li1"><strong>Kies je Elektro (E)?</strong> Dan gaan de vragen over wandcontactdozen, draden trekken, verlichting aansluiten, schakelmateriaal, kabeldoorsnedes en NEN 1010 — afgestemd op jouw niveau (hulpmonteur, monteur of chef-monteur).</li>
+        <li data-i18n-html="welcome.exp_li2"><strong>Kies je Werktuigbouw (W)?</strong> Dan gaan de vragen over verwarmings- en koelsystemen, klimaatplafonds, prefab leidingen, persfittingen, drukproeven, F-gassen en ISSO-richtlijnen — eveneens afgestemd op jouw niveau.</li>
+        <li data-i18n-html="welcome.exp_li3"><strong>Daarnaast voor beide disciplines:</strong> veiligheid op de bouwplaats, PBM, het lasverbod op het project, werken in monumentale ruimtes en samenwerking met anderstalige collega's.</li>
+      </ul>
+      <p style="color:var(--gray);font-size:0.9rem;line-height:1.6" data-i18n-html="welcome.exp_p3"><strong>Belangrijk:</strong> je hebt <strong>15 minuten</strong> en je moet de test in één keer afmaken. Tussentijds wordt je voortgang automatisch opgeslagen, maar het is verstandig om pas te beginnen wanneer je 15 minuten ongestoord beschikbaar hebt.</p>
+    </div>
+    <div id="resume-banner" style="display:none" class="alert alert-info">
+      <span data-i18n-html="welcome.resume">💾 Er is een opgeslagen test gevonden. <a href="#" onclick="resumeTest();return false" style="color:var(--orange-dark);font-weight:700;text-decoration:underline">Doorgaan waar je gebleven was</a> of <a href="#" onclick="clearSave();return false" style="color:var(--orange-dark);font-weight:700;text-decoration:underline">opnieuw beginnen</a>.</span>
+    </div>
+    <div style="text-align:center">
+      <button class="btn btn-primary" onclick="showRegister()" data-i18n="welcome.btn_start">Start &#8594;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ REGISTRATIESCHERM -->
+<div id="screen-register" class="screen">
+  <div class="container">
+    <div class="card">
+      <h2 data-i18n="reg.h_data">Jouw gegevens</h2>
+      <div id="reg-error" class="alert alert-error" style="display:none"></div>
+      <div class="form-group">
+        <label data-i18n="reg.name_label">Volledige naam *</label>
+        <input type="text" id="inp-name" data-i18n-placeholder="reg.name_placeholder" placeholder="Je voor- en achternaam" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label data-i18n="reg.contact_label">Contactpersoon bij Maintec *</label>
+        <div class="contact-combo">
+          <input type="text" id="inp-contact-search" class="contact-search" autocomplete="off" data-i18n-placeholder="reg.contact_placeholder" placeholder="-- Selecteer of typ je contactpersoon --">
+          <input type="hidden" id="inp-contact" value="">
+          <div class="contact-dropdown" id="contact-dropdown" style="display:none"></div>
+        </div>
+        <small class="form-hint" data-i18n="reg.contact_hint">De terugkoppeling van de test wordt naar deze persoon verstuurd.</small>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="reg.h_disc">Discipline *</h2>
+      <div class="discipline-grid">
+        <div class="disc-card" id="disc-E" onclick="selectDiscipline('E')">
+          <div class="disc-icon">⚡</div>
+          <div class="disc-title" data-i18n="reg.disc_e_t">Elektro (E)</div>
+          <div class="disc-desc" data-i18n="reg.disc_e_d">Wandcontactdozen, verlichting, draden trekken, elektrische installaties</div>
+        </div>
+        <div class="disc-card" id="disc-W" onclick="selectDiscipline('W')">
+          <div class="disc-icon">🌡️</div>
+          <div class="disc-title" data-i18n="reg.disc_w_t">Werktuigbouw (W)</div>
+          <div class="disc-desc" data-i18n="reg.disc_w_d">Verwarming, koeling, klimaatplafonds, leidingen, prefab</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="reg.h_lvl">Functieniveau *</h2>
+      <div class="level-grid">
+        <div class="level-card" id="lvl-hulpmonteur" onclick="selectLevel('hulpmonteur')">
+          <div class="level-name" data-i18n="reg.lvl_h_t">Hulpmonteur</div>
+          <div class="level-desc" data-i18n="reg.lvl_h_d">Ondersteunende werkzaamheden, basiskennis</div>
+        </div>
+        <div class="level-card" id="lvl-monteur" onclick="selectLevel('monteur')">
+          <div class="level-name" data-i18n="reg.lvl_m_t">Monteur</div>
+          <div class="level-desc" data-i18n="reg.lvl_m_d">Zelfstandig uitvoeren, vakkennis</div>
+        </div>
+        <div class="level-card" id="lvl-chef" onclick="selectLevel('chef')">
+          <div class="level-name" data-i18n="reg.lvl_c_t">Chef-monteur</div>
+          <div class="level-desc" data-i18n="reg.lvl_c_d">Leidinggeven, plannen, bewaken</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:1rem;flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="showWelcome()" data-i18n="reg.btn_back">&#8592; Terug</button>
+      <button class="btn btn-primary" onclick="startTest()" data-i18n="reg.btn_start">Start &#8594;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ VOORBEREIDINGSSCHERM (3-2-1) -->
+<div id="screen-prestart" class="screen">
+  <div class="container">
+    <div class="prestart-card">
+      <div class="prestart-icon">⏱️</div>
+      <h2 data-i18n="prestart.h">Klaar om te starten?</h2>
+      <p data-i18n="prestart.p1">De timer van 15 minuten begint zodra het aftellen op 0 staat.</p>
+      <p data-i18n="prestart.p2">Zorg dat je in een rustige omgeving zit en de tijd ongestoord beschikbaar hebt.</p>
+      <div class="prestart-countdown" id="prestart-countdown">3</div>
+      <p class="prestart-note" data-i18n-html="prestart.note">Druk op <strong>Start nu</strong> om direct te beginnen, of wacht tot het aftellen klaar is.</p>
+      <div class="prestart-actions">
+        <button class="btn btn-secondary" onclick="cancelPrestart()" data-i18n="prestart.btn_cancel">&#8592; Terug</button>
+        <button class="btn btn-primary" onclick="startTestNow()" data-i18n="prestart.btn_start">Start nu &#8594;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ TESTSCHERM -->
+<div id="screen-test" class="screen">
+  <div class="test-header">
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span id="q-counter">Vraag 1 van 15</span>
+        <span class="q-remaining" id="q-remaining">14 vragen te gaan</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="timer" id="timer">
+      <span>⏱</span>
+      <span id="timer-display">15:00</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="warning-banner">
+      <span style="font-size:1.2rem">⚠️</span>
+      <span data-i18n-html="test.warn"><strong>Let op:</strong> sluit deze pagina niet af en stop niet tussentijds met de test. Je antwoorden worden automatisch opgeslagen, maar als je de browser vroegtijdig sluit kan dit leiden tot verlies van je voortgang.</span>
+    </div>
+    <div class="autosave-banner" id="autosave-banner">
+      <span class="autosave-dot"></span>
+      <span data-i18n="test.autosave">Je antwoorden worden automatisch opgeslagen</span>
+    </div>
+
+    <div class="question-card" id="question-card"><!-- injected --></div>
+
+    <div class="dot-nav" id="dot-nav"></div>
+
+    <div id="must-answer-hint" class="must-answer-hint" style="display:none">
+      <span style="font-size:1rem">⚠️</span>
+      <span data-i18n="test.must_answer">Selecteer eerst een antwoord om verder te gaan.</span>
+    </div>
+    <div class="kbd-hint" data-i18n-html="test.kbd_hint">💡 Tip: gebruik <kbd>1</kbd>-<kbd>4</kbd> voor antwoorden en <kbd>←</kbd> / <kbd>→</kbd> om te navigeren.</div>
+
+    <div class="nav-btns">
+      <button class="btn btn-secondary" id="btn-prev" onclick="prevQuestion()" data-i18n="test.prev">&#8592; Vorige</button>
+      <button class="btn btn-primary" id="btn-next" onclick="nextQuestion()" data-i18n="test.next">Volgende &#8594;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ OVERZICHTSSCHERM (vóór inleveren) -->
+<div id="screen-review" class="screen">
+  <!-- Timer prominent bovenaan, gelijk aan testscherm -->
+  <div class="test-header">
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span data-i18n="review.h_compact">Controle vóór inleveren</span>
+        <span class="q-remaining" id="review-remaining"></span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+    </div>
+    <div class="timer" id="review-timer">
+      <span>⏱</span>
+      <span id="review-timer-display">15:00</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <h2 data-i18n="review.h">Controle vóór inleveren</h2>
+      <p style="color:var(--gray);font-size:0.95rem;line-height:1.7" data-i18n-html="review.p">Klik op een nummer om die vraag opnieuw te bekijken of te wijzigen. Klik op <strong>Inleveren</strong> om je test definitief af te ronden.</p>
+    </div>
+    <div class="review-chips-card">
+      <div class="review-stats" id="review-stats"></div>
+      <div class="review-chips" id="review-chips"></div>
+      <div class="review-legend">
+        <span><span class="dot dot-answered"></span> <span data-i18n="review.legend_done">beantwoord</span></span>
+        <span><span class="dot dot-unanswered"></span> <span data-i18n="review.legend_open">nog open</span></span>
+      </div>
+    </div>
+    <div id="review-warning" class="alert alert-error" style="display:none"></div>
+    <div class="result-actions">
+      <button class="btn btn-secondary" onclick="returnToTest()" data-i18n="review.btn_back">&#8592; Terug naar vragen</button>
+      <button class="btn btn-primary" onclick="submitFinal()" data-i18n="review.btn_submit">Inleveren &#10004;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ VERZONDEN-FEEDBACK -->
+<div id="screen-sending" class="screen">
+  <div class="container">
+    <div class="sending-card">
+      <div class="sending-spinner"></div>
+      <h2 data-i18n="sending.h">Bezig met versturen…</h2>
+      <p data-i18n="sending.p">Een moment geduld terwijl we je antwoorden veilig versturen.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ RESULTATENSCHERM -->
+<div id="screen-results" class="screen">
+  <div class="container">
+    <div class="score-hero" id="score-hero"><!-- injected --></div>
+    <div class="result-actions">
+      <button class="btn btn-primary" onclick="showThankyou()" data-i18n="result.btn_done">Afronden &#8594;</button>
+    </div>
+    <div id="results-list"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ BEDANKTSCHERM -->
+<div id="screen-thankyou" class="screen">
+  <div class="container">
+    <div class="ty-card">
+      <div class="ty-icon">✅</div>
+      <h2 data-i18n="ty.h">Bedankt voor het invullen van de sleuteltest!</h2>
+      <p data-i18n="ty.p1">Je antwoorden zijn goed binnengekomen. We gaan ze beoordelen en nemen daarna zo snel mogelijk contact met je op over de uitslag en de volgende stappen.</p>
+      <p data-i18n="ty.p2">Tot die tijd: bedankt voor je tijd en succes met je sollicitatie!</p>
+    </div>
+    <div class="footer">
+      &copy; 2026 Maintec — The Future Techforce<br>
+      <small data-i18n="ty.footer">Dit systeem is ontwikkeld voor het selectieproces van een renovatieproject in Den Haag</small>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ JAVASCRIPT -->
+<script src="questions.js"></script>
+<script src="questions_en.js"></script>
+<script>
+// ─── MAINTEC MEDEWERKERS (recruiters & accountmanagers) ─────────────────────
+// Bron: Recruiters en Accountmanagers spreadsheet (medewerkers.xml, mei 2026)
+const MAINTEC_EMPLOYEES = [
+  { name: 'Aneta van Herwijnen',       email: 'aneta.van.herwijnen@maintec.nl' },
+  { name: 'Bobby Abbas',               email: 'bobby.abbas@maintec.nl' },
+  { name: 'Chinouk van den Heuvel',    email: 'chinouk.vandenheuvel@maintec.nl' },
+  { name: 'Cisca Klaassen',            email: 'cisca.klaassen@maintec.nl' },
+  { name: 'Ioana Budau',               email: 'ioana.budau@maintec.nl' },
+  { name: 'Jeannette Saelman - Zweed', email: 'jeannette.zweed@maintec.nl' },
+  { name: 'Jeffrey Zwarts',            email: 'jeffrey.zwarts@maintec.nl' },
+  { name: 'Johnny Mol',                email: 'johnny.mol@maintec.nl' },
+  { name: 'Julia Andriesse',           email: 'julia.andriesse@maintec.nl' },
+  { name: 'Kimberley Taal - Versluis', email: 'kimberley.versluis@maintec.nl' },
+  { name: 'Lara Correia Lima',         email: 'lara.correia.lima@maintec.nl' },
+  { name: 'Leonie Daling',             email: 'leonie.daling@maintec.nl' },
+  { name: 'Linda Feenstra',            email: 'linda.feenstra@maintec.nl' },
+  { name: 'Lisette Wesselius',         email: 'lisette.wesselius@maintec.nl' },
+  { name: 'Maresha Molenaar',          email: 'maresha.molenaar@maintec.nl' },
+  { name: 'Marloes van der Wal',       email: 'Marloes.vander.wal@maintec.nl' },
+  { name: 'Martijn Glandorf',          email: 'martijn.glandorf@maintec.nl' },
+  { name: 'Navin Balraadjsing',        email: 'navin.balraadjsing@maintec.nl' },
+  { name: 'Peter Miedema',             email: 'peter.miedema@maintec.nl' },
+  { name: 'Robin Tilroe',              email: 'robin.tilroe@maintec.nl' },
+  { name: 'Roxanne Veurman',           email: 'roxanne.veurman@maintec.nl' },
+  { name: 'Tjeska Jansen',             email: 'tjeska.jansen@maintec.nl' },
+  { name: 'Tony Stok',                 email: 'tony.stok@maintec.nl' },
+  { name: 'Wolter Haanskorf',          email: 'wolter.haanskorf@maintec.nl' },
+  { name: 'Yasar Erol',                email: 'yasar.erol@tecqgroep.com' },
+];
+
+// B4 — Searchable contact-combobox
+let contactHighlight = -1;
+
+function renderContactOptions(filter) {
+  const dd = document.getElementById('contact-dropdown');
+  if (!dd) return;
+  const f = (filter || '').toLowerCase().trim();
+  const list = MAINTEC_EMPLOYEES.filter(e => !f || e.name.toLowerCase().includes(f));
+  if (list.length === 0) {
+    dd.innerHTML = `<div class="contact-option no-results">Geen contactpersoon gevonden</div>`;
+  } else {
+    dd.innerHTML = list.map((e, idx) =>
+      `<div class="contact-option ${idx === contactHighlight ? 'highlighted' : ''}" data-email="${e.email}" data-name="${e.name}" onclick="selectContactPerson('${e.email}', \`${e.name}\`)">${e.name}</div>`
+    ).join('');
+  }
+  dd.style.display = 'block';
+}
+
+function selectContactPerson(email, name) {
+  document.getElementById('inp-contact').value = email;
+  document.getElementById('inp-contact-search').value = name;
+  document.getElementById('contact-dropdown').style.display = 'none';
+  contactHighlight = -1;
+}
+
+function setupContactCombo() {
+  const inp = document.getElementById('inp-contact-search');
+  const dd  = document.getElementById('contact-dropdown');
+  if (!inp || !dd || inp.dataset.bound) return;
+  inp.dataset.bound = '1';
+
+  inp.addEventListener('focus', () => { contactHighlight = -1; renderContactOptions(inp.value); });
+  inp.addEventListener('input', () => { contactHighlight = -1; document.getElementById('inp-contact').value = ''; renderContactOptions(inp.value); });
+  inp.addEventListener('keydown', (e) => {
+    const opts = [...dd.querySelectorAll('.contact-option:not(.no-results)')];
+    if (e.key === 'ArrowDown') { e.preventDefault(); contactHighlight = Math.min(contactHighlight + 1, opts.length - 1); renderContactOptions(inp.value); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); contactHighlight = Math.max(contactHighlight - 1, 0); renderContactOptions(inp.value); }
+    else if (e.key === 'Enter' && contactHighlight >= 0 && opts[contactHighlight]) {
+      e.preventDefault();
+      const sel = opts[contactHighlight];
+      selectContactPerson(sel.dataset.email, sel.dataset.name);
+    }
+    else if (e.key === 'Escape') { dd.style.display = 'none'; }
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.contact-combo')) dd.style.display = 'none';
+  });
+}
+
+function populateContactDropdown() { setupContactCombo(); }
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => { setupContactCombo(); applyURLPrefill(); });
+} else {
+  setupContactCombo(); applyURLPrefill();
+}
+
+// B6 — URL parameter pre-fill: ?name=Yasar%20Erol&contact=email%40maintec.nl&t=TOKEN
+function applyURLPrefill() {
+  const params = new URLSearchParams(location.search);
+  const urlName    = params.get('name');
+  const urlContact = (params.get('contact') || '').toLowerCase();
+  const urlToken   = params.get('t');
+  if (urlName) {
+    const inp = document.getElementById('inp-name');
+    if (inp) inp.value = urlName;
+  }
+  if (urlContact) {
+    const match = MAINTEC_EMPLOYEES.find(e => e.email.toLowerCase() === urlContact);
+    if (match) selectContactPerson(match.email, match.name);
+  }
+  // C2: Eenmalige link — bewaar token, valideer via Apps Script
+  if (urlToken) {
+    state.token = urlToken;
+    validateToken(urlToken);
+  }
+}
+
+// C2 — Token-validatie via JSONP (cross-origin)
+function validateToken(token) {
+  if (APPS_SCRIPT_URL.includes('VERVANG')) return;
+  const cb = '_jsonp_' + Math.floor(Math.random() * 1e9);
+  window[cb] = (data) => {
+    delete window[cb];
+    document.getElementById('jsonp_' + cb)?.remove();
+    if (data && data.valid && data.status === 'used') {
+      showTokenUsedScreen();
+    } else if (data && data.valid && data.status === 'pending') {
+      // Token is geldig en ongebruikt — niets doen, kandidaat kan starten
+      state.tokenValid = true;
+    }
+    // Onbekende token: laat bezoeker gewoon door (open access fallback)
+  };
+  const s = document.createElement('script');
+  s.id = 'jsonp_' + cb;
+  s.src = APPS_SCRIPT_URL + '?action=check&t=' + encodeURIComponent(token) + '&callback=' + cb;
+  s.onerror = () => { delete window[cb]; s.remove(); };
+  document.head.appendChild(s);
+}
+
+function showTokenUsedScreen() {
+  // Disable startknoppen + toon banner
+  document.querySelectorAll('#screen-welcome .btn-primary, #screen-register .btn-primary').forEach(b => b.disabled = true);
+  const c = document.querySelector('#screen-welcome .container');
+  if (c) {
+    const div = document.createElement('div');
+    div.className = 'alert alert-error';
+    div.style.fontSize = '0.95rem'; div.style.lineHeight = '1.55';
+    div.innerHTML = `<strong>${t('token.used_h')}</strong><br>${t('token.used_p')}`;
+    c.insertBefore(div, c.firstChild.nextSibling);
+  }
+  showScreen('welcome');
+}
+
+// ─── i18n: VERTALINGEN (NL/EN) ────────────────────────────────────────────────
+const T = {
+  nl: {
+    'badge': 'Digitale Sleuteltest',
+    'welcome.h1a': 'Welkom bij de',
+    'welcome.h1b': 'Digitale Sleuteltest',
+    'welcome.intro': 'Deze test meet je technische vakkennis voor een groot renovatieproject in Den Haag. Selecteer je profiel en beantwoord 15 vakgerichte vragen.',
+    'welcome.info1': 'Vragen per test',
+    'welcome.info2': 'Minuten de tijd',
+    'welcome.info3': 'Niveaus',
+    'welcome.info4': 'Disciplines',
+    'welcome.proj_h': 'Projectinformatie',
+    'welcome.proj_p': 'De vragen zijn afgestemd op een groot renovatieproject in <strong>Den Haag</strong>. Het project omvat 7 gebouwen met zowel monumentale als moderne bouwdelen. Let op: er geldt een <strong>totaal lasverbod</strong> in alle gebouwen vanwege houten vloeren.',
+    'welcome.exp_h': 'Wat kun je verwachten?',
+    'welcome.exp_p1': 'Je krijgt <strong>15 multiple-choice vragen</strong>: <strong>13 vakvragen</strong> en <strong>2 fotoherkenningsvragen</strong> waarbij je een installatiecomponent op een afbeelding moet herkennen.',
+    'welcome.exp_p2': '<strong>De onderwerpen per discipline:</strong>',
+    'welcome.exp_li1': '<strong>Kies je Elektro (E)?</strong> Dan gaan de vragen over wandcontactdozen, draden trekken, verlichting aansluiten, schakelmateriaal, kabeldoorsnedes en NEN 1010 — afgestemd op jouw niveau (hulpmonteur, monteur of chef-monteur).',
+    'welcome.exp_li2': '<strong>Kies je Werktuigbouw (W)?</strong> Dan gaan de vragen over verwarmings- en koelsystemen, klimaatplafonds, prefab leidingen, persfittingen, drukproeven, F-gassen en ISSO-richtlijnen — eveneens afgestemd op jouw niveau.',
+    'welcome.exp_li3': '<strong>Daarnaast voor beide disciplines:</strong> veiligheid op de bouwplaats, PBM, het lasverbod op het project, werken in monumentale ruimtes en samenwerking met anderstalige collega\'s.',
+    'welcome.exp_p3': '<strong>Belangrijk:</strong> je hebt <strong>15 minuten</strong> en je moet de test in één keer afmaken. Tussentijds wordt je voortgang automatisch opgeslagen, maar het is verstandig om pas te beginnen wanneer je 15 minuten ongestoord beschikbaar hebt.',
+    'welcome.resume': '💾 Er is een opgeslagen test gevonden. <a href="#" onclick="resumeTest();return false" style="color:var(--orange-dark);font-weight:700;text-decoration:underline">Doorgaan waar je gebleven was</a> of <a href="#" onclick="clearSave();return false" style="color:var(--orange-dark);font-weight:700;text-decoration:underline">opnieuw beginnen</a>.',
+    'welcome.btn_start': 'Start →',
+    'reg.h_data': 'Jouw gegevens',
+    'reg.name_label': 'Volledige naam *',
+    'reg.name_placeholder': 'Je voor- en achternaam',
+    'reg.contact_label': 'Contactpersoon bij Maintec *',
+    'reg.contact_placeholder': '-- Selecteer je contactpersoon --',
+    'reg.contact_hint': 'De terugkoppeling van de test wordt naar deze persoon verstuurd.',
+    'reg.h_disc': 'Discipline *',
+    'reg.disc_e_t': 'Elektro (E)',
+    'reg.disc_e_d': 'Wandcontactdozen, verlichting, draden trekken, elektrische installaties',
+    'reg.disc_w_t': 'Werktuigbouw (W)',
+    'reg.disc_w_d': 'Verwarming, koeling, klimaatplafonds, leidingen, prefab',
+    'reg.h_lvl': 'Functieniveau *',
+    'reg.lvl_h_t': 'Hulpmonteur',
+    'reg.lvl_h_d': 'Ondersteunende werkzaamheden, basiskennis',
+    'reg.lvl_m_t': 'Monteur',
+    'reg.lvl_m_d': 'Zelfstandig uitvoeren, vakkennis',
+    'reg.lvl_c_t': 'Chef-monteur',
+    'reg.lvl_c_d': 'Leidinggeven, plannen, bewaken',
+    'reg.btn_back': '← Terug',
+    'reg.btn_start': 'Start →',
+    'reg.err_name': 'Vul je volledige naam in.',
+    'reg.err_contact': 'Selecteer je contactpersoon bij Maintec.',
+    'reg.err_disc': 'Selecteer een discipline (E of W).',
+    'reg.err_lvl': 'Selecteer je functieniveau.',
+    'reg.err_pool': 'Vragenbank niet geladen. Herlaad de pagina.',
+    'prestart.h': 'Klaar om te starten?',
+    'prestart.p1': 'De timer van 15 minuten begint zodra het aftellen op 0 staat.',
+    'prestart.p2': 'Zorg dat je in een rustige omgeving zit en de tijd ongestoord beschikbaar hebt.',
+    'prestart.note': 'Druk op <strong>Start nu</strong> om direct te beginnen, of wacht tot het aftellen klaar is.',
+    'prestart.btn_cancel': '← Terug',
+    'prestart.btn_start': 'Start nu →',
+    'review.h': 'Controle vóór inleveren',
+    'review.h_compact': 'Overzicht — controleer je antwoorden',
+    'review.p': 'Klik op een nummer om die vraag opnieuw te bekijken of te wijzigen. Klik op <strong>Inleveren</strong> om je test definitief af te ronden. <strong>De timer loopt door</strong>.',
+    'review.btn_back': '← Terug naar vragen',
+    'review.btn_submit': 'Inleveren ✓',
+    'review.answered': 'beantwoord',
+    'review.unanswered': 'nog open',
+    'review.all_done': 'Alles beantwoord',
+    'review.legend_done': 'beantwoord',
+    'review.legend_open': 'nog open',
+    'review.no_answer': 'Niet beantwoord',
+    'review.warn_unanswered': (n) => `⚠️ Je hebt nog ${n} ${n === 1 ? 'vraag' : 'vragen'} niet beantwoord. Klik op het nummer om die alsnog te beantwoorden.`,
+    'sending.h': 'Bezig met versturen…',
+    'sending.p': 'Een moment geduld terwijl we je antwoorden veilig versturen.',
+    'test.warn': '<strong>Let op:</strong> sluit deze pagina niet af en stop niet tussentijds met de test. Alle vragen zijn verplicht. Je antwoorden worden automatisch opgeslagen, maar als je de browser vroegtijdig sluit kan dit leiden tot verlies van je voortgang.',
+    'test.autosave': 'Je antwoorden worden automatisch opgeslagen',
+    'test.prev': '← Vorige',
+    'test.next': 'Volgende →',
+    'test.finish': 'Afronden ✓',
+    'test.must_answer': 'Selecteer eerst een antwoord om verder te gaan.',
+    'test.kbd_hint': '💡 Tip: gebruik <kbd>1</kbd>-<kbd>4</kbd> voor antwoorden en <kbd>←</kbd> / <kbd>→</kbd> om te navigeren.',
+    'timer.warn5': 'Nog 5 minuten — neem rustig de tijd om je antwoorden te controleren.',
+    'timer.warn2': 'Nog 2 minuten — rond je laatste antwoorden af.',
+    'timer.warn30s': 'Nog 30 seconden! Antwoord nu.',
+    'token.used_h': 'Deze uitnodiging is al gebruikt',
+    'token.used_p': 'Volgens onze administratie is deze sleuteltest al afgerond met deze link. Een uitnodigingslink is per kandidaat slechts één keer geldig. Neem contact op met je contactpersoon bij Maintec voor een nieuwe link als hier een vergissing in staat.',
+    'test.q_of': (n, total) => `Vraag ${n} van ${total}`,
+    'test.last': 'Laatste vraag',
+    'test.remaining_one': (n) => `${n} vraag te gaan`,
+    'test.remaining_many': (n) => `${n} vragen te gaan`,
+    'test.q_label': (n, disc, lvl) => `Vraag ${n} — ${disc} / ${lvl}`,
+    'test.disc_e': 'Elektro',
+    'test.disc_w': 'Werktuigbouw',
+    'test.lvl_h': 'Hulpmonteur',
+    'test.lvl_m': 'Monteur',
+    'test.lvl_c': 'Chef-monteur',
+    'test.foto_badge': '📷 Fotoherkenning',
+    'test.unload_warn': 'Je bent nog bezig met de sleuteltest. Je antwoorden zijn opgeslagen, maar het wordt sterk afgeraden om nu te stoppen.',
+    'result.passed': '✅ Geslaagd!',
+    'result.failed': '❌ Niet geslaagd',
+    'result.summary': (s, total) => `Je hebt <strong>${s} van de ${total} vragen</strong> goed beantwoord. Je antwoorden zijn ontvangen en worden door je contactpersoon bij Maintec beoordeeld.`,
+    'result.tag_pass': 'Resultaat: Voldoende',
+    'result.tag_fail': 'Resultaat: Onvoldoende',
+    'result.h_neutral': 'Sleuteltest afgerond',
+    'result.list_h': 'Overzicht van je antwoorden',
+    'result.list_p': 'Hieronder zie je per vraag welk antwoord je hebt gegeven. De inhoudelijke beoordeling vindt plaats door je contactpersoon bij Maintec en wordt later met je gedeeld.',
+    'result.btn_done': 'Afronden →',
+    'result.your_ans': 'Jouw antwoord:',
+    'result.not_ans': 'Niet beantwoord',
+    'result.correct': '✓ Correct antwoord:',
+    'result.foto_tag': '📷 Foto',
+    'ty.h': 'Bedankt voor het invullen van de sleuteltest!',
+    'ty.p1': 'Je antwoorden zijn goed binnengekomen. We gaan ze beoordelen en nemen daarna zo snel mogelijk contact met je op over de uitslag en de volgende stappen.',
+    'ty.p2': 'Tot die tijd: bedankt voor je tijd en succes met je sollicitatie!',
+    'ty.footer': 'Dit systeem is ontwikkeld voor het selectieproces van een renovatieproject in Den Haag',
+  },
+  en: {
+    'badge': 'Digital Skills Test',
+    'welcome.h1a': 'Welcome to the',
+    'welcome.h1b': 'Digital Skills Test',
+    'welcome.intro': 'This test measures your technical expertise for a major renovation project in The Hague. Select your profile and answer 15 trade-specific questions.',
+    'welcome.info1': 'Questions per test',
+    'welcome.info2': 'Minutes available',
+    'welcome.info3': 'Levels',
+    'welcome.info4': 'Disciplines',
+    'welcome.proj_h': 'Project information',
+    'welcome.proj_p': 'The questions are tailored to a major renovation project in <strong>The Hague</strong>. The project includes 7 buildings with both monumental and modern sections. Please note: a <strong>total welding ban</strong> applies in all buildings due to wooden floors.',
+    'welcome.exp_h': 'What can you expect?',
+    'welcome.exp_p1': 'You will receive <strong>15 multiple-choice questions</strong>: <strong>13 trade questions</strong> and <strong>2 image-recognition questions</strong> in which you must identify an installation component shown in a picture.',
+    'welcome.exp_p2': '<strong>Topics per discipline:</strong>',
+    'welcome.exp_li1': '<strong>Choose Electrical (E)?</strong> Then the questions cover wall sockets, cable pulling, lighting connections, switchgear, cable cross-sections and NEN 1010 — tailored to your level (assistant fitter, fitter or lead fitter).',
+    'welcome.exp_li2': '<strong>Choose Mechanical (W)?</strong> Then the questions cover heating and cooling systems, climate ceilings, prefab piping, press fittings, pressure tests, F-gases and ISSO guidelines — also tailored to your level.',
+    'welcome.exp_li3': '<strong>For both disciplines additionally:</strong> safety on the construction site, PPE, the welding ban on this project, working in monumental areas and cooperation with foreign-language colleagues.',
+    'welcome.exp_p3': '<strong>Important:</strong> you have <strong>15 minutes</strong> and you must complete the test in one go. Your progress is saved automatically, but it is wise to start only when you have 15 uninterrupted minutes available.',
+    'welcome.resume': '💾 A saved test was found. <a href="#" onclick="resumeTest();return false" style="color:var(--orange-dark);font-weight:700;text-decoration:underline">Continue where you left off</a> or <a href="#" onclick="clearSave();return false" style="color:var(--orange-dark);font-weight:700;text-decoration:underline">start over</a>.',
+    'welcome.btn_start': 'Start →',
+    'reg.h_data': 'Your details',
+    'reg.name_label': 'Full name *',
+    'reg.name_placeholder': 'Your first and last name',
+    'reg.contact_label': 'Maintec contact person *',
+    'reg.contact_placeholder': '-- Select your contact person --',
+    'reg.contact_hint': 'The test feedback will be sent to this person.',
+    'reg.h_disc': 'Discipline *',
+    'reg.disc_e_t': 'Electrical (E)',
+    'reg.disc_e_d': 'Wall sockets, lighting, cable pulling, electrical installations',
+    'reg.disc_w_t': 'Mechanical (W)',
+    'reg.disc_w_d': 'Heating, cooling, climate ceilings, piping, prefab',
+    'reg.h_lvl': 'Function level *',
+    'reg.lvl_h_t': 'Assistant fitter',
+    'reg.lvl_h_d': 'Supporting work, basic knowledge',
+    'reg.lvl_m_t': 'Fitter',
+    'reg.lvl_m_d': 'Independent work, trade knowledge',
+    'reg.lvl_c_t': 'Lead fitter',
+    'reg.lvl_c_d': 'Supervising, planning, monitoring',
+    'reg.btn_back': '← Back',
+    'reg.btn_start': 'Start →',
+    'reg.err_name': 'Please enter your full name.',
+    'reg.err_contact': 'Please select your Maintec contact person.',
+    'reg.err_disc': 'Please select a discipline (E or W).',
+    'reg.err_lvl': 'Please select your function level.',
+    'reg.err_pool': 'Question bank not loaded. Please reload the page.',
+    'prestart.h': 'Ready to start?',
+    'prestart.p1': 'The 15-minute timer begins when the countdown reaches zero.',
+    'prestart.p2': 'Make sure you are in a quiet environment and have the time uninterrupted.',
+    'prestart.note': 'Press <strong>Start now</strong> to begin immediately, or wait for the countdown to finish.',
+    'prestart.btn_cancel': '← Back',
+    'prestart.btn_start': 'Start now →',
+    'review.h': 'Review before submitting',
+    'review.h_compact': 'Overview — check your answers',
+    'review.p': 'Click a number to revisit or change that question. Click <strong>Submit</strong> to finalise your test. <strong>The timer keeps running</strong>.',
+    'review.btn_back': '← Back to questions',
+    'review.btn_submit': 'Submit ✓',
+    'review.answered': 'answered',
+    'review.unanswered': 'still open',
+    'review.all_done': 'All answered',
+    'review.legend_done': 'answered',
+    'review.legend_open': 'still open',
+    'review.no_answer': 'Not answered',
+    'review.warn_unanswered': (n) => `⚠️ You still have ${n} ${n === 1 ? 'question' : 'questions'} unanswered. Click the number to answer it.`,
+    'sending.h': 'Sending…',
+    'sending.p': 'One moment while we securely send your answers.',
+    'test.warn': '<strong>Important:</strong> do not close this page and do not stop the test halfway. All questions are mandatory. Your answers are saved automatically, but closing the browser early may lead to loss of your progress.',
+    'test.autosave': 'Your answers are saved automatically',
+    'test.prev': '← Previous',
+    'test.next': 'Next →',
+    'test.finish': 'Finish ✓',
+    'test.must_answer': 'Please select an answer before continuing.',
+    'test.kbd_hint': '💡 Tip: use <kbd>1</kbd>-<kbd>4</kbd> for answers and <kbd>←</kbd> / <kbd>→</kbd> to navigate.',
+    'timer.warn5': '5 minutes left — take your time to review your answers.',
+    'timer.warn2': '2 minutes left — finalise your last answers.',
+    'timer.warn30s': '30 seconds left! Answer now.',
+    'token.used_h': 'This invitation has already been used',
+    'token.used_p': 'According to our records, this skills test has already been completed with this link. An invitation link is valid for only one candidate. Contact your Maintec contact person for a new link if you believe this is a mistake.',
+    'test.q_of': (n, total) => `Question ${n} of ${total}`,
+    'test.last': 'Last question',
+    'test.remaining_one': (n) => `${n} question remaining`,
+    'test.remaining_many': (n) => `${n} questions remaining`,
+    'test.q_label': (n, disc, lvl) => `Question ${n} — ${disc} / ${lvl}`,
+    'test.disc_e': 'Electrical',
+    'test.disc_w': 'Mechanical',
+    'test.lvl_h': 'Assistant fitter',
+    'test.lvl_m': 'Fitter',
+    'test.lvl_c': 'Lead fitter',
+    'test.foto_badge': '📷 Image recognition',
+    'test.unload_warn': 'You are still taking the test. Your answers are saved, but stopping now is strongly discouraged.',
+    'result.passed': '✅ Passed!',
+    'result.failed': '❌ Not passed',
+    'result.summary': (s, total) => `You answered <strong>${s} out of ${total} questions</strong> correctly. Your answers have been received and will be assessed by your contact person at Maintec.`,
+    'result.tag_pass': 'Result: Sufficient',
+    'result.tag_fail': 'Result: Insufficient',
+    'result.h_neutral': 'Skills test completed',
+    'result.list_h': 'Overview of your answers',
+    'result.list_p': 'Below you can see which answer you gave for each question. The substantive evaluation is done by your contact person at Maintec and will be shared with you later.',
+    'result.btn_done': 'Finish →',
+    'result.your_ans': 'Your answer:',
+    'result.not_ans': 'Not answered',
+    'result.correct': '✓ Correct answer:',
+    'result.foto_tag': '📷 Photo',
+    'ty.h': 'Thank you for completing the skills test!',
+    'ty.p1': 'Your answers have been received. We will review them and contact you as soon as possible regarding the result and next steps.',
+    'ty.p2': 'In the meantime: thank you for your time and good luck with your application!',
+    'ty.footer': 'This system was developed for the selection process of a renovation project in The Hague',
+  },
+};
+
+// B5 — Browser-taal autodetectie bij eerste bezoek (overschreven door localStorage indien al gekozen)
+function detectInitialLang() {
+  const saved = localStorage.getItem('maintec_lang');
+  if (saved === 'nl' || saved === 'en') return saved;
+  // URL ?lang=nl|en heeft prioriteit
+  const urlLang = new URLSearchParams(location.search).get('lang');
+  if (urlLang === 'nl' || urlLang === 'en') return urlLang;
+  // Browser-taal: alle non-Nederlandse talen → Engels
+  const navLang = (navigator.language || navigator.userLanguage || 'nl').toLowerCase();
+  return navLang.startsWith('nl') ? 'nl' : 'en';
+}
+let currentLang = detectInitialLang();
+
+function t(key, ...args) {
+  const v = (T[currentLang] && T[currentLang][key]) || (T.nl && T.nl[key]) || key;
+  return typeof v === 'function' ? v(...args) : v;
+}
+
+function setLang(lang) {
+  if (!T[lang]) return;
+  currentLang = lang;
+  localStorage.setItem('maintec_lang', lang);
+  // Update lang toggle visual
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+  // Update <html lang="">
+  document.documentElement.lang = lang;
+  // Apply translations to all elements with data-i18n / data-i18n-html / data-i18n-placeholder
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    const key = el.getAttribute('data-i18n-html');
+    el.innerHTML = t(key);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    el.setAttribute('placeholder', t(key));
+  });
+  // Re-render question screen / results if active
+  if (document.getElementById('screen-test').classList.contains('active') && state.questions.length) renderQuestion();
+  if (document.getElementById('screen-results').classList.contains('active') && state.endTime) rerenderResults();
+}
+
+// Apply language at startup
+window.addEventListener('DOMContentLoaded', () => setLang(currentLang));
+
+// ─── GOOGLE APPS SCRIPT CONFIG ────────────────────────────────────────────────
+// Spreadsheet: https://docs.google.com/spreadsheets/d/1TlTibuWHwN3IxUjrx425mT_XYSseJbU3hqJFJICJ5e0
+// Vervang onderstaande URL na het deployen van het Google Apps Script (zie google-apps-script.js)
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyaMONNXUI_dr4tFiV59mqjGPo1U2fzBYc6d5AzUq6ukTH8u8EKZ2hZj-b08AM0DOFX/exec';
+const AUTOSAVE_KEY = 'maintec_sleuteltest_v2';
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let state = {
+  participant: { name: '', discipline: '', level: '' },
+  discipline: null,
+  level: null,
+  questions: [],
+  answers: [],       // null | 0-3 per question
+  current: 0,
+  timeLeft: 15 * 60,
+  timerInterval: null,
+  startTime: null,
+  endTime: null,
+  questionStartTimes: [],  // Date.now() when each question was first shown
+  questionDurations: [],   // seconds spent on each question
+  // Anti-fraude tracking (verborgen voor deelnemer)
+  tabBlurCount: 0,
+  totalAwaySec: 0,
+  lastBlurAt: null,
+  copyAttempts: 0,
+  pasteAttempts: 0,
+  rightClicks: 0,
+  answerChanges: 0,
+  score: 0,
+  pct: 0,
+  passed: false,
+};
+
+// ─── B3: TOETSENBORD-SHORTCUTS ───────────────────────────────────────────────
+// 1-4 / A-D = antwoord kiezen, ←/→ = navigeren, Enter = volgende
+document.addEventListener('keydown', (e) => {
+  // Alleen actief op test-scherm
+  const onTest = document.getElementById('screen-test')?.classList.contains('active');
+  if (!onTest) return;
+  // Niet hijacken als een input/textarea focus heeft
+  const tag = (document.activeElement?.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+  const key = e.key.toLowerCase();
+  // Antwoord 1-4 of A-D
+  const nums = { '1': 0, '2': 1, '3': 2, '4': 3 };
+  const lets = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+  if (nums[key] !== undefined) { e.preventDefault(); selectAnswer(nums[key]); return; }
+  if (lets[key] !== undefined) { e.preventDefault(); selectAnswer(lets[key]); return; }
+  if (e.key === 'ArrowRight' || e.key === 'Enter') {
+    if (state.answers[state.current] !== null) { e.preventDefault(); nextQuestion(); }
+  }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prevQuestion(); }
+});
+
+// ─── ANTI-FRAUDE EVENT LISTENERS (verborgen) ──────────────────────────────────
+document.addEventListener('visibilitychange', () => {
+  if (!state.startTime || state.endTime) return;
+  if (document.hidden) {
+    state.tabBlurCount++;
+    state.lastBlurAt = Date.now();
+  } else if (state.lastBlurAt) {
+    state.totalAwaySec += Math.round((Date.now() - state.lastBlurAt) / 1000);
+    state.lastBlurAt = null;
+  }
+});
+window.addEventListener('blur', () => {
+  if (!state.startTime || state.endTime) return;
+  if (state.lastBlurAt === null) state.lastBlurAt = Date.now();
+});
+window.addEventListener('focus', () => {
+  if (!state.startTime || state.endTime) return;
+  if (state.lastBlurAt) {
+    state.totalAwaySec += Math.round((Date.now() - state.lastBlurAt) / 1000);
+    state.lastBlurAt = null;
+  }
+});
+// C3 — Anti-cheat hardening: tijdens test copy/paste/rechtsklik daadwerkelijk blokkeren
+document.addEventListener('copy',  (e) => {
+  if (state.startTime && !state.endTime) {
+    state.copyAttempts++;
+    e.preventDefault();
+  }
+});
+document.addEventListener('paste', (e) => {
+  if (state.startTime && !state.endTime) {
+    state.pasteAttempts++;
+    e.preventDefault();
+  }
+});
+document.addEventListener('contextmenu', (e) => {
+  if (state.startTime && !state.endTime) {
+    state.rightClicks++;
+    // Blokkeer rechtsklik op de testpagina (niet op andere schermen)
+    if (document.getElementById('screen-test')?.classList.contains('active')) e.preventDefault();
+  }
+});
+// Blokkeer ook tekst-selectie op testpagina (kan helpen tegen kopiëren via Sleep-actie)
+document.addEventListener('selectstart', (e) => {
+  if (state.startTime && !state.endTime &&
+      document.getElementById('screen-test')?.classList.contains('active')) {
+    // Sta wel selectie toe op input-velden (er zijn er geen, maar voor zekerheid)
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag !== 'input' && tag !== 'textarea') e.preventDefault();
+  }
+});
+
+// Waarschuwing bij verlaten van pagina tijdens test
+window.addEventListener('beforeunload', (e) => {
+  if (state.startTime && !state.endTime) {
+    autoSave();
+    e.preventDefault();
+    e.returnValue = t('test.unload_warn');
+    return e.returnValue;
+  }
+});
+
+// ─── ON LOAD: check for saved session ────────────────────────────────────────
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem(AUTOSAVE_KEY);
+  if (saved) {
+    try {
+      const d = JSON.parse(saved);
+      if (d && d.participant && d.answers) {
+        document.getElementById('resume-banner').style.display = 'block';
+      }
+    } catch(e) {}
+  }
+});
+
+function resumeTest() {
+  const saved = localStorage.getItem(AUTOSAVE_KEY);
+  if (!saved) return;
+  try {
+    const d = JSON.parse(saved);
+    state.participant = d.participant;
+    state.discipline = d.participant.discipline;
+    state.level = d.participant.level;
+    state.questions = d.questions;
+    state.answers = d.answers;
+    state.current = d.current || 0;
+    state.startTime = new Date(d.startTime);
+    state.timeLeft = d.timeLeft || (15 * 60);
+    state.questionStartTimes = d.questionStartTimes || [];
+    state.questionDurations = d.questionDurations || [];
+    document.getElementById('resume-banner').style.display = 'none';
+    showScreen('test');
+    renderQuestion();
+    startTimer();
+  } catch(e) { clearSave(); }
+}
+
+function clearSave() {
+  localStorage.removeItem(AUTOSAVE_KEY);
+  document.getElementById('resume-banner').style.display = 'none';
+}
+
+// ─── AUTO-SAVE ────────────────────────────────────────────────────────────────
+function autoSave() {
+  if (!state.startTime) return;
+  try {
+    const payload = {
+      participant: state.participant,
+      questions: state.questions,
+      answers: state.answers,
+      current: state.current,
+      startTime: state.startTime.toISOString(),
+      timeLeft: state.timeLeft,
+      questionStartTimes: state.questionStartTimes,
+      questionDurations: state.questionDurations,
+    };
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+    // Flash autosave banner
+    const b = document.getElementById('autosave-banner');
+    if (b) { b.style.opacity = '1'; setTimeout(() => { b.style.opacity = '0.6'; }, 800); }
+  } catch(e) {}
+}
+
+// ─── NAVIGATION (met soft fade-transitie B8) ──────────────────────────────────
+function showScreen(id) {
+  const target = document.getElementById('screen-' + id);
+  if (!target) return;
+  const actives = [...document.querySelectorAll('.screen.active')];
+  if (actives.length === 1 && actives[0] === target) return;
+  // Vorige schermen direct fade en daarna deactiveren (alle, voor robuustheid)
+  actives.forEach(s => s.classList.add('fading'));
+  setTimeout(() => {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'fading'));
+    target.classList.add('active');
+    window.scrollTo(0, 0);
+  }, actives.length ? 180 : 0);
+}
+function showWelcome() { showScreen('welcome'); }
+function showRegister() { populateContactDropdown(); showScreen('register'); }
+function showThankyou() {
+  clearSave();
+  showScreen('thankyou');
+}
+
+// ─── REGISTRATION ─────────────────────────────────────────────────────────────
+function selectDiscipline(d) {
+  state.discipline = d;
+  document.querySelectorAll('.disc-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('disc-' + d).classList.add('selected');
+}
+function selectLevel(l) {
+  state.level = l;
+  document.querySelectorAll('.level-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('lvl-' + l).classList.add('selected');
+}
+
+function startTest() {
+  const name = document.getElementById('inp-name').value.trim();
+  const errEl = document.getElementById('reg-error');
+  errEl.style.display = 'none';
+  const contactEmail = document.getElementById('inp-contact').value;
+  const contactName  = document.getElementById('inp-contact-search').value;
+  if (!name) { errEl.textContent = t('reg.err_name'); errEl.style.display = 'block'; return; }
+  if (!contactEmail) { errEl.textContent = t('reg.err_contact'); errEl.style.display = 'block'; return; }
+  if (!state.discipline) { errEl.textContent = t('reg.err_disc'); errEl.style.display = 'block'; return; }
+  if (!state.level) { errEl.textContent = t('reg.err_lvl'); errEl.style.display = 'block'; return; }
+
+  state.participant = { name, discipline: state.discipline, level: state.level, taal: currentLang, contactName, contactEmail };
+
+  const key = state.discipline + '-' + state.level;
+  const textPool = (currentLang === 'en' && typeof QUESTIONS_EN !== 'undefined' && QUESTIONS_EN[key]) ? QUESTIONS_EN[key] : QUESTIONS[key];
+  const imgPool  = (currentLang === 'en' && typeof IMAGE_QUESTIONS_EN !== 'undefined' && IMAGE_QUESTIONS_EN[key])
+    ? IMAGE_QUESTIONS_EN[key]
+    : (typeof IMAGE_QUESTIONS !== 'undefined' && IMAGE_QUESTIONS[key]) ? IMAGE_QUESTIONS[key] : [];
+  if (!textPool || textPool.length === 0) { errEl.textContent = t('reg.err_pool'); errEl.style.display = 'block'; return; }
+  // 13 tekst-vragen + 2 fotoherkenningsvragen = 15 totaal
+  const text13 = shuffle(textPool).slice(0, 13);
+  const img2   = shuffle(imgPool).slice(0, 2).map(q => [q.vraag, q.opties, q.correct, q.img]);
+  state.questions = shuffle([...text13, ...img2]);
+  state.answers = new Array(15).fill(null);
+  state.questionDurations = new Array(15).fill(0);
+  state.questionStartTimes = [];
+  state.current = 0;
+  state.timeLeft = 15 * 60;
+
+  clearSave();
+  showPreStart();
+}
+
+// ─── B1: Voorbereidingsscherm met 3-2-1 aftelling ────────────────────────────
+let prestartInterval = null;
+function showPreStart() {
+  showScreen('prestart');
+  let count = 3;
+  const el = document.getElementById('prestart-countdown');
+  el.textContent = count;
+  el.classList.remove('tick'); void el.offsetWidth; el.classList.add('tick');
+  clearInterval(prestartInterval);
+  prestartInterval = setInterval(() => {
+    count--;
+    if (count <= 0) {
+      clearInterval(prestartInterval);
+      startTestNow();
+    } else {
+      el.textContent = count;
+      el.classList.remove('tick'); void el.offsetWidth; el.classList.add('tick');
+    }
+  }, 1000);
+}
+function cancelPrestart() {
+  clearInterval(prestartInterval);
+  showScreen('register');
+}
+function startTestNow() {
+  clearInterval(prestartInterval);
+  state.startTime = new Date();
+  showScreen('test');
+  renderQuestion();
+  startTimer();
+}
+
+// ─── SHUFFLE ──────────────────────────────────────────────────────────────────
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ─── TIMER met waarschuwingen op 5min, 2min, 30sec (B7) ─────────────────────
+const TIMER_WARNINGS = [300, 120, 30]; // seconden
+function startTimer() {
+  clearInterval(state.timerInterval);
+  state.warnedAt = state.warnedAt || {};
+  state.timerInterval = setInterval(() => {
+    state.timeLeft--;
+    const m = Math.floor(state.timeLeft / 60);
+    const s = state.timeLeft % 60;
+    const display = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    document.getElementById('timer-display').textContent = display;
+    const reviewDisplay = document.getElementById('review-timer-display');
+    if (reviewDisplay) reviewDisplay.textContent = display;
+    const timerEl = document.getElementById('timer');
+    timerEl.classList.toggle('warning', state.timeLeft <= 120);
+    const reviewTimerEl = document.getElementById('review-timer');
+    if (reviewTimerEl) reviewTimerEl.classList.toggle('warning', state.timeLeft <= 120);
+
+    // B7: floating timerwaarschuwingen
+    TIMER_WARNINGS.forEach(thr => {
+      if (state.timeLeft === thr && !state.warnedAt[thr]) {
+        state.warnedAt[thr] = true;
+        showTimerWarning(thr);
+      }
+    });
+
+    if (state.timeLeft <= 0) { clearInterval(state.timerInterval); finishTest(); }
+  }, 1000);
+}
+
+function showTimerWarning(seconds) {
+  const div = document.createElement('div');
+  div.className = 'timer-toast';
+  let key = seconds === 300 ? 'timer.warn5'
+          : seconds === 120 ? 'timer.warn2'
+          : 'timer.warn30s';
+  div.innerHTML = `<span style="font-size:1.4rem">⏱️</span><span>${t(key)}</span>`;
+  document.body.appendChild(div);
+  // Animatie + auto-remove
+  requestAnimationFrame(() => div.classList.add('show'));
+  setTimeout(() => {
+    div.classList.remove('show');
+    setTimeout(() => div.remove(), 400);
+  }, 4000);
+}
+
+// ─── RENDER QUESTION ──────────────────────────────────────────────────────────
+function recordQuestionTime() {
+  if (state.questionStartTimes[state.current] !== undefined) {
+    state.questionDurations[state.current] =
+      (state.questionDurations[state.current] || 0) +
+      Math.round((Date.now() - state.questionStartTimes[state.current]) / 1000);
+  }
+}
+
+function renderQuestion() {
+  state.questionStartTimes[state.current] = Date.now();
+  const q = state.questions[state.current];
+  const n = state.current;
+  const letters = ['A','B','C','D'];
+  const answered = state.answers[n];
+  const remaining = 15 - (n + 1);
+
+  document.getElementById('q-counter').textContent = t('test.q_of', n+1, 15);
+  document.getElementById('q-remaining').textContent =
+    remaining === 0 ? t('test.last') : (remaining === 1 ? t('test.remaining_one', remaining) : t('test.remaining_many', remaining));
+  document.getElementById('progress-fill').style.width = `${((n+1)/15)*100}%`;
+
+  const optionsHTML = q[1].map((opt, i) => `
+    <div class="option ${answered === i ? 'selected' : ''}" onclick="selectAnswer(${i})">
+      <span class="opt-letter">${letters[i]}</span>
+      <span class="opt-text">${opt}</span>
+    </div>`).join('');
+
+  const discLabel = state.participant.discipline === 'E' ? t('test.disc_e') : t('test.disc_w');
+  const lvlMap = { hulpmonteur: t('test.lvl_h'), monteur: t('test.lvl_m'), chef: t('test.lvl_c') };
+  const imgHTML = q[3] ? `<div class="q-image"><span class="q-image-badge">${t('test.foto_badge')}</span><br><img src="${q[3]}" alt=""></div>` : '';
+  document.getElementById('question-card').innerHTML = `
+    <div class="q-number">${t('test.q_label', n+1, discLabel, lvlMap[state.participant.level] || state.participant.level)}</div>
+    <div class="q-text">${q[0]}</div>
+    ${imgHTML}
+    <div class="options">${optionsHTML}</div>`;
+
+  // Dot navigation
+  const dots = state.questions.map((_, i) => {
+    let cls = 'dot';
+    if (i === n) cls += ' current';
+    else if (state.answers[i] !== null) cls += ' answered';
+    return `<button class="${cls}" onclick="jumpToQuestion(${i})" title="Vraag ${i+1}"></button>`;
+  }).join('');
+  document.getElementById('dot-nav').innerHTML = dots;
+
+  document.getElementById('btn-prev').style.visibility = n === 0 ? 'hidden' : 'visible';
+  document.getElementById('btn-next').textContent = n === 14 ? t('test.finish') : t('test.next');
+  updateNextButtonState();
+}
+
+function updateNextButtonState() {
+  const btn  = document.getElementById('btn-next');
+  const hint = document.getElementById('must-answer-hint');
+  const answered = state.answers[state.current] !== null;
+  if (btn) btn.disabled = !answered;
+  if (hint) hint.style.display = answered ? 'none' : 'flex';
+}
+
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function selectAnswer(i) {
+  if (state.answers[state.current] !== null && state.answers[state.current] !== i) {
+    state.answerChanges++;
+  }
+  state.answers[state.current] = i;
+  updateNextButtonState();
+  document.querySelectorAll('.option').forEach((el, idx) => {
+    el.classList.toggle('selected', idx === i);
+    el.querySelector('.opt-letter').style.background = idx === i ? 'var(--orange)' : '';
+    el.querySelector('.opt-letter').style.color = idx === i ? 'white' : '';
+  });
+  // Update dot
+  const dots = document.querySelectorAll('.dot');
+  if (dots[state.current]) dots[state.current].classList.add('answered');
+  autoSave();
+}
+
+function jumpToQuestion(n) {
+  // Springen naar een vraag VOORWAARTS mag pas als alle tussenliggende vragen zijn beantwoord
+  if (n > state.current) {
+    for (let i = state.current; i < n; i++) {
+      if (state.answers[i] === null) { updateNextButtonState(); return; }
+    }
+  }
+  recordQuestionTime();
+  state.current = n;
+  renderQuestion();
+}
+
+function prevQuestion() {
+  if (state.current > 0) { recordQuestionTime(); state.current--; renderQuestion(); }
+}
+
+function nextQuestion() {
+  // Antwoord is verplicht — extra fail-safe naast disabled button
+  if (state.answers[state.current] === null) { updateNextButtonState(); return; }
+  recordQuestionTime();
+  if (state.current < 14) { state.current++; renderQuestion(); }
+  else showReviewScreen(); // B2: overzichtsscherm vóór finale submit
+}
+
+// ─── B2: Overzichtsscherm — geen vraag/antwoord-tekst zichtbaar (anti-spiek) ─
+function showReviewScreen() {
+  recordQuestionTime();
+  // Timer LOOPT GEWOON DOOR op review-scherm
+  const answered   = state.answers.filter(a => a !== null).length;
+  const unanswered = 15 - answered;
+
+  // Stats (alleen aantallen, geen vraag-content)
+  document.getElementById('review-stats').innerHTML = `
+    <div class="stat"><strong>${answered}</strong><span class="stat-label">/ 15 ${t('review.answered')}</span></div>
+    ${unanswered > 0 ? `<div class="stat warn"><strong>${unanswered}</strong><span class="stat-label">${t('review.unanswered')}</span></div>` : ''}
+  `;
+
+  // Chips per vraag — alleen nummer, kleurcoded, klikbaar
+  document.getElementById('review-chips').innerHTML = state.questions.map((_, i) => {
+    const cls = state.answers[i] !== null ? 'answered' : 'unanswered';
+    return `<button type="button" class="review-chip ${cls}" onclick="goToQuestion(${i})" title="${t('test.q_of', i+1, 15)}">${i+1}</button>`;
+  }).join('');
+
+  // Resterende-tekst en timer-display synchroniseren
+  document.getElementById('review-remaining').textContent =
+    unanswered === 0 ? t('review.all_done') : (unanswered === 1 ? t('test.remaining_one', unanswered) : t('test.remaining_many', unanswered));
+  document.getElementById('review-timer-display').textContent = formatTimeLeft();
+  document.getElementById('review-timer').classList.toggle('warning', state.timeLeft <= 120);
+
+  // Onbeantwoorde waarschuwing
+  const warn = document.getElementById('review-warning');
+  if (unanswered > 0) {
+    warn.textContent = t('review.warn_unanswered', unanswered);
+    warn.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
+  }
+
+  showScreen('review');
+}
+
+function returnToTest() {
+  state.current = 0;
+  renderQuestion();
+  showScreen('test');
+}
+
+function goToQuestion(n) {
+  state.current = Math.max(0, Math.min(14, n));
+  renderQuestion();
+  showScreen('test');
+}
+
+function formatTimeLeft() {
+  const m = Math.max(0, Math.floor(state.timeLeft / 60));
+  const s = Math.max(0, state.timeLeft % 60);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function submitFinal() {
+  finishTest();
+}
+
+// ─── BETROUWBAARHEIDSANALYSE (verborgen voor deelnemer) ──────────────────────
+function calculateReliability() {
+  const totalSec = state.endTime ? Math.round((state.endTime - state.startTime) / 1000) : 0;
+  const answers = state.answers;
+  let score = 100;
+  const flags = [];
+
+  // 1. Tab-/venster-wissels (sterke indicator van opzoeken/spieken)
+  if (state.tabBlurCount >= 5)      { score -= 35; flags.push(`${state.tabBlurCount}× weggeklikt naar ander tabblad/venster`); }
+  else if (state.tabBlurCount >= 3) { score -= 20; flags.push(`${state.tabBlurCount}× weggeklikt naar ander tabblad/venster`); }
+  else if (state.tabBlurCount >= 1) { score -= 8;  flags.push(`${state.tabBlurCount}× weggeklikt naar ander tabblad/venster`); }
+
+  // 2. Tijd buiten de testpagina
+  if (state.totalAwaySec >= 60)      { score -= 20; flags.push(`${state.totalAwaySec}s buiten testpagina`); }
+  else if (state.totalAwaySec >= 20) { score -= 10; flags.push(`${state.totalAwaySec}s buiten testpagina`); }
+
+  // 3. Copy/paste pogingen
+  if (state.copyAttempts > 0)  { score -= 15; flags.push(`${state.copyAttempts}× kopieer-poging`); }
+  if (state.pasteAttempts > 0) { score -= 15; flags.push(`${state.pasteAttempts}× plak-poging`); }
+  if (state.rightClicks >= 3)  { score -= 5;  flags.push(`${state.rightClicks}× rechtermuisklik`); }
+
+  // 4. Snelheidscheck
+  if (totalSec > 0) {
+    if (totalSec < 60)       { score -= 45; flags.push('Extreem snel ingevuld (<60s)'); }
+    else if (totalSec < 150) { score -= 25; flags.push('Zeer snel ingevuld (<2,5 min)'); }
+    else if (totalSec < 240) { score -= 10; flags.push('Snel ingevuld (<4 min)'); }
+  }
+
+  // 5. Gemiddelde tijd per beantwoorde vraag
+  const answered = answers.filter(a => a !== null);
+  if (answered.length > 0 && totalSec > 0) {
+    const avgSec = totalSec / answered.length;
+    if (avgSec < 4)      { score -= 20; flags.push(`Gem. ${avgSec.toFixed(1)}s per vraag`); }
+    else if (avgSec < 8) { score -= 8;  flags.push(`Gem. ${avgSec.toFixed(1)}s per vraag`); }
+  }
+
+  // 6. Patroondetectie (allemaal A, allemaal B, etc.)
+  const ansCount = [0, 0, 0, 0];
+  answers.forEach(a => { if (a !== null) ansCount[a]++; });
+  const maxSame = Math.max(...ansCount);
+  if (answered.length >= 8) {
+    const ratio = maxSame / answered.length;
+    if (ratio >= 0.85)      { score -= 30; flags.push(`${Math.round(ratio*100)}% identiek antwoord`); }
+    else if (ratio >= 0.65) { score -= 12; flags.push(`${Math.round(ratio*100)}% identiek antwoord`); }
+  }
+
+  // 7. Niet-beantwoorde vragen
+  const unanswered = answers.filter(a => a === null).length;
+  if (unanswered >= 8)      { score -= 20; flags.push(`${unanswered} vragen overgeslagen`); }
+  else if (unanswered >= 4) { score -= 8;  flags.push(`${unanswered} vragen overgeslagen`); }
+
+  // 8. Perfecte score op chef-niveau in opvallend korte tijd
+  if (state.participant.level === 'chef' && state.pct === 100 && totalSec < 360) {
+    score -= 12; flags.push('Perfecte chef-score in <6 min');
+  }
+
+  // 9. Uniforme vraagduur (bot-achtig of vooraf voorbereid)
+  const durations = state.questionDurations.filter(d => d > 0);
+  if (durations.length >= 8) {
+    const avg = durations.reduce((a,b)=>a+b,0)/durations.length;
+    const variance = durations.reduce((acc,d) => acc + Math.pow(d-avg,2), 0) / durations.length;
+    if (variance < 1.5 && avg < 10) { score -= 15; flags.push('Zeer uniforme antwoordtijden'); }
+  }
+
+  // 10. Lange pauzes op afzonderlijke vragen (langer dan 90s) — opzoek-gedrag
+  const longPauses = durations.filter(d => d >= 90).length;
+  if (longPauses >= 3) { score -= 10; flags.push(`${longPauses} vragen >90s (mogelijk opgezocht)`); }
+
+  // 11. Veel antwoord-wijzigingen (twijfel of correctie van fout)
+  if (state.answerChanges >= 8)      { score -= 10; flags.push(`${state.answerChanges}× antwoord gewijzigd`); }
+  else if (state.answerChanges >= 5) { score -= 5;  flags.push(`${state.answerChanges}× antwoord gewijzigd`); }
+
+  const final = Math.max(0, Math.min(100, score));
+  const label = final >= 80 ? 'Hoog (betrouwbaar)' : final >= 50 ? 'Matig (twijfelachtig)' : 'Laag (mogelijk fraude)';
+  return {
+    score: final, label, flags, totalSec,
+    tabBlurCount: state.tabBlurCount,
+    totalAwaySec: state.totalAwaySec,
+    copyAttempts: state.copyAttempts,
+    pasteAttempts: state.pasteAttempts,
+    rightClicks: state.rightClicks,
+    answerChanges: state.answerChanges,
+  };
+}
+
+// ─── FINISH ───────────────────────────────────────────────────────────────────
+function finishTest() {
+  clearInterval(state.timerInterval);
+  recordQuestionTime();
+  state.endTime = new Date();
+
+  const score = state.answers.filter((a, i) => a !== null && a === state.questions[i][2]).length;
+  const pct = Math.round((score / 15) * 100);
+  const passed = pct >= 60;
+  state.score = score; state.pct = pct; state.passed = passed;
+
+  rerenderResults();
+  // B9: toon sending-screen, verstuur, daarna resultaten
+  showScreen('sending');
+  sendResults().finally(() => {
+    setTimeout(() => showScreen('results'), 500);
+  });
+}
+
+function rerenderResults() {
+  if (!state.endTime) return;
+  const pct = state.pct, score = state.score;
+  const lvlMap = { hulpmonteur: t('test.lvl_h'), monteur: t('test.lvl_m'), chef: t('test.lvl_c') };
+  // Neutrale weergave — geen "Geslaagd"/"Niet geslaagd" verdict, geen voldoende/onvoldoende.
+  // Alleen percentage, score en gegeven antwoorden (zonder goed/fout-indicatie of correct antwoord).
+  document.getElementById('score-hero').innerHTML = `
+    <div class="score-circle neutral">${pct}<small>%</small></div>
+    <h2 data-i18n="result.h_neutral">${t('result.h_neutral')}</h2>
+    <p style="margin-bottom:1rem">${t('result.summary', score, 15)}</p>
+    <span class="tag tag-orange">${lvlMap[state.participant.level] || state.participant.level} ${state.participant.discipline === 'E' ? t('test.disc_e') : t('test.disc_w')}</span>`;
+
+  const letters = ['A','B','C','D'];
+  document.getElementById('results-list').innerHTML = `
+    <div class="card" style="margin-bottom:1rem"><h3 style="font-size:1rem;font-weight:700;margin-bottom:0.4rem">${t('result.list_h')}</h3>
+    <p style="color:var(--gray);font-size:0.88rem;line-height:1.55">${t('result.list_p')}</p></div>
+    ${state.questions.map((q, i) => {
+      const given = state.answers[i];
+      const fotoBadge = q[3] ? `<span class="tag tag-orange" style="font-size:0.7rem;margin-left:6px">${t('result.foto_tag')}</span>` : '';
+      return `<div class="result-item neutral">
+        <div class="result-q">${i+1}. ${q[0]} ${fotoBadge}</div>
+        <div class="result-answers">
+          <div class="ans-given">${t('result.your_ans')} ${given !== null ? letters[given]+'. '+q[1][given] : t('result.not_ans')}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+// ─── VERSTUUR NAAR GOOGLE APPS SCRIPT ────────────────────────────────────────
+function sendResults() {
+  const reliability = calculateReliability();
+  const startStr = state.startTime ? state.startTime.toLocaleString('nl-NL') : '—';
+  const endStr   = state.endTime   ? state.endTime.toLocaleString('nl-NL')   : '—';
+  const durationMin = reliability.totalSec > 0
+    ? `${Math.floor(reliability.totalSec/60)}m ${reliability.totalSec%60}s` : '—';
+
+  const payload = {
+    naam:              state.participant.name,
+    token:             state.token || '',
+    taal:              currentLang === 'en' ? 'Engels' : 'Nederlands',
+    contactpersoon:    state.participant.contactName  || '',
+    contactEmail:      state.participant.contactEmail || '',
+    discipline:        state.participant.discipline,
+    niveau:            state.participant.level,
+    score:             state.score,
+    percentage:        state.pct,
+    geslaagd:          state.passed ? 'Ja' : 'Nee',
+    startTijd:         startStr,
+    eindTijd:          endStr,
+    duur:              durationMin,
+    duurSeconden:      reliability.totalSec,
+    betrouwbaarheid:        reliability.score,
+    betrouwbaarheid_label:  reliability.label,
+    betrouwbaarheid_flags:  reliability.flags.join(' | ') || 'Geen bijzonderheden',
+    tabWissels:        reliability.tabBlurCount,
+    tijdBuitenPagina:  reliability.totalAwaySec,
+    kopieerPogingen:   reliability.copyAttempts,
+    plakPogingen:      reliability.pasteAttempts,
+    rechtermuisKlikken:reliability.rightClicks,
+    antwoordWijzigingen:reliability.answerChanges,
+    vragen: state.questions.map((q, i) => ({
+      nr: i + 1,
+      vraag: (q[3] ? '📷 [FOTO] ' : '') + q[0],
+      antwoord: state.answers[i] !== null ? q[1][state.answers[i]] : 'Niet beantwoord',
+      correct_antwoord: q[1][q[2]],
+      juist: state.answers[i] === q[2] ? 'Ja' : 'Nee',
+      tijdSeconden: state.questionDurations[i] || 0,
+    }))
+  };
+
+  // C1: retry-logica — 3 pogingen met exponentiële back-off
+  return submitWithRetry(payload, 3);
+}
+
+function submitWithRetry(payload, maxAttempts) {
+  if (APPS_SCRIPT_URL.includes('VERVANG')) return Promise.resolve({ ok: false, reason: 'no-url' });
+  return new Promise((resolve) => {
+    let attempt = 0;
+    const tryOnce = () => {
+      attempt++;
+      fetch(APPS_SCRIPT_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload)
+      })
+      .then(() => resolve({ ok: true, attempts: attempt }))
+      .catch(() => {
+        if (attempt < maxAttempts) {
+          // back-off: 800ms, 1600ms, 3200ms…
+          setTimeout(tryOnce, 800 * Math.pow(2, attempt - 1));
+        } else {
+          resolve({ ok: false, reason: 'network', attempts: attempt });
+        }
+      });
+    };
+    tryOnce();
+  });
+}
+
+</script>
+</body>
+</html>

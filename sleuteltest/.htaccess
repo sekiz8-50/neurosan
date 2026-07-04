@@ -1,0 +1,26 @@
+# Deze .htaccess zorgt dat de Maintec Sleuteltest correct werkt
+# binnen een MODX-installatie. Plaats samen met index.html in /cwd/sleuteltest/
+
+# Toon index.html als standaardpagina van deze map
+DirectoryIndex index.html
+
+# Schakel MODX URL-rewriting uit voor deze submap
+RewriteEngine Off
+
+# Cache static assets in de browser (snelheid)
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/png  "access plus 30 days"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType image/jpg  "access plus 30 days"
+  ExpiresByType text/css   "access plus 7 days"
+  ExpiresByType application/javascript "access plus 1 day"
+  ExpiresByType text/html  "access plus 0 seconds"
+</IfModule>
+
+# CORS toegestaan op fonts/images (mocht het ooit nodig zijn)
+<IfModule mod_headers.c>
+  <FilesMatch "\.(png|jpe?g|gif|svg|woff2?)$">
+    Header set Access-Control-Allow-Origin "*"
+  </FilesMatch>
+</IfModule>

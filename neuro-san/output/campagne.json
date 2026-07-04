@@ -1,0 +1,62 @@
+{
+  "naam": "Maintec | Onderhoudsmonteur Eindhoven | 2026-06-01",
+  "doelstelling": "OUTCOME_LEADS",
+  "status": "PAUSED",
+  "looptijd_dagen": 14,
+  "totaal_budget_eur": 350,
+  "ad_sets": [
+    {
+      "naam": "Eindhoven | Actief werkzoekend",
+      "segment": "Actief — kandidaten die actief zoeken",
+      "targeting": {
+        "geo": "Eindhoven +30 km",
+        "leeftijd": "23-50",
+        "interesses": [
+          "techniek",
+          "industrie",
+          "monteur",
+          "Productie / Industrie"
+        ],
+        "gedrag": [
+          "job seekers"
+        ],
+        "platforms": [
+          "Facebook",
+          "Instagram"
+        ]
+      },
+      "budget_dag_eur": 15
+    },
+    {
+      "naam": "Eindhoven | Latent — vakmanschap",
+      "segment": "Passief — tevreden in baan, verleidbaar",
+      "targeting": {
+        "geo": "Eindhoven +30 km",
+        "leeftijd": "25-45",
+        "interesses": [
+          "storingsanalyse",
+          "hydrauliek",
+          "pneumatiek",
+          "technische dienst",
+          "onderhoud"
+        ],
+        "lookalike": "1% lookalike van eerdere sollicitanten",
+        "platforms": [
+          "Facebook",
+          "Instagram"
+        ]
+      },
+      "budget_dag_eur": 10
+    }
+  ],
+  "creative": {
+    "headline": "Onderhoudsmonteur in Eindhoven",
+    "primary_text": "Vakman? Wij zoeken een onderhoudsmonteur in Eindhoven. Fulltime (38 uur), vanaf €2.800 per maand. Werk aan storingsanalyse, hydrauliek, pneumatiek. Solliciteer direct.",
+    "description": "Direct, nuchter, trots op vakmanschap.",
+    "cta": "Solliciteer nu",
+    "link": "https://www.maintec.nl/vacatures/onderhoudsmonteur-eindhoven-a1B5800000ABCDE",
+    "beeld_url": "output/beeld_voorbeeld.jpg",
+    "formaten": "1080x1080 (1:1 feed) + 1080x1920 (story) variant"
+  },
+  "meta_campaign_id": "MOCK-23861000000000001"
+}

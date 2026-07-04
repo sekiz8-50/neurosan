@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Sleuteltest (static)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "3000", "--directory", "sleuteltest"],
+      "port": 3000
+    },
+    {
+      "name": "Maintec site (static)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4310", "--directory", "maintec-site"],
+      "port": 4310
+    },
+    {
+      "name": "Neuro San demo (static)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4320", "--directory", "neuro-san"],
+      "port": 4320
+    },
+    {
+      "name": "Neuro San VIF (FastAPI)",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd neuro-san/production && source .venv/bin/activate && META_ACCESS_TOKEN=x META_AD_ACCOUNT_ID=0 META_PAGE_ID=0 OPENAI_API_KEY=x RESEND_API_KEY=x APPROVAL_TO=djimon@test.com PUBLIC_BASE_URL=http://localhost:4330 SIGNING_SECRET=x TIGRIS_SHARED_SECRET=geheim123 exec uvicorn webhook:app --host 127.0.0.1 --port 4330"],
+      "port": 4330
+    },
+    {
+      "name": "Neuro San VIF preview (static)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4340", "--directory", "neuro-san/production/data/preview"],
+      "port": 4340
+    }
+  ]
+}
