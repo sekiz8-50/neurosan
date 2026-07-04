@@ -243,7 +243,11 @@ def _vif_fallback(raw_text: str) -> dict:
         "salaris_min": bedragen[0] if bedragen else 0,
         "salaris_max": bedragen[1] if len(bedragen) > 1 else 0, "uren_per_week": 0,
         "cao_inschaling": pak("cao", "inschaling", "loonschaal"),
-        "skills": [s.strip() for s in re.split(r"[,;]", pak("skills", "competenties", "eisen")) if s.strip()][:6],
+        # Alleen korte, skill-achtige fragmenten — geen halve zinnen uit eisen-prose
+        # ("basiskennis van", "MBO werk- en denkniveau richting ...").
+        "skills": [s.strip() for s in re.split(r"[,;]", pak("skills", "competenties", "eisen"))
+                   if 2 < len(s.strip()) <= 40
+                   and not s.strip().lower().endswith((" van", " met", " en", " of", " in", " op"))][:6],
         "arbeidsvoorwaarden": [s.strip() for s in re.split(r"[,;]", pak("arbeidsvoorwaarden", "geboden")) if s.strip()],
         "bedrijf": pak("opdrachtgever", "bedrijf", "klant"),
         "bijzonderheden": pak("bijzonderheden", "deadline"),

@@ -35,7 +35,8 @@ def _template(vacancy: dict) -> dict:
         "headline": f"{vacancy['titel']} in {vacancy['plaats']}",
         "primary_text": (f"Vakman? Wij zoeken een {vacancy['titel'].lower()} in {vacancy['plaats']}. "
                          f"{vacancy.get('dienstverband','')}{', vanaf '+sal+'/mnd' if sal else ''}. "
-                         f"Werk aan {skills}. Solliciteer direct."),
+                         + (f"Werk aan {skills}. " if skills else "")
+                         + "Solliciteer direct."),
         "description": p["toon"].capitalize() + ".",
     }
 
