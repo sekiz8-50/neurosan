@@ -60,6 +60,31 @@ def testmail(token: str = ""):
             "ok": False, "from": cfg.RESEND_FROM, "naar": cfg.APPROVAL_TO, "resend_fout": str(e)})
 
 
+@app.get("/mailtest-goedkeur")
+def mailtest_goedkeur(token: str = ""):
+    """Stuurt een VOORBEELD-goedkeur-mail (incl. agent-gesprek-bijlage en beeld) naar
+    APPROVAL_TO — zonder de hele VIF-keten te draaien. Zo test je de mail los.
+    Gebruik: /mailtest-goedkeur?token=<TIGRIS_SHARED_SECRET>"""
+    if token.strip() != cfg.TIGRIS_SHARED_SECRET:
+        raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
+    vac = {"id": "MAILTEST", "titel": "Testmonteur", "plaats": "Eindhoven", "salesforce_id": "",
+           "agent_transcript": [
+               {"from": "orchestrator", "type": "AGENT_FRAMEWORK", "text": "→ copywriter: schrijf de vacaturetekst (voorbeeld)"},
+               {"from": "copywriter", "type": "AI", "text": "Dit is een voorbeeldantwoord van de copywriter."},
+               {"from": "orchestrator", "type": "AGENT_FRAMEWORK", "text": "→ brand_marketeer: eindcheck"},
+               {"from": "brand_marketeer", "type": "AI", "text": '{"status": "GO", "score": 9}'}]}
+    record = {"vacancy": vac, "campaign_id": "MAILTEST", "image_path": pipeline.FALLBACK_FOTO,
+              "meta_fout": None,
+              "plan": {"headline": "Testmonteur in Eindhoven", "label": "Maintec",
+                       "primary_text": "Dit is een testmail — er is geen echte vacature verwerkt.",
+                       "alle_varianten": ["Variant A (test).", "Variant B (test).", "Variant C (test)."],
+                       "review": {"score": 9}, "warnings": ["Dit is een TESTMAIL van /mailtest-goedkeur."],
+                       "meta_fout": None, "n_adsets": 1, "n_ads": 0, "n_variants": 3}}
+    pipeline._send_mail(record)
+    return {"ok": True, "naar": cfg.APPROVAL_TO,
+            "let_op": "check je inbox; details/fouten staan in de server-logs"}
+
+
 @app.get("/metacheck")
 def metacheck(token: str = ""):
     """Diagnose voor de Meta-leadcampagne: toont of de lead-ads-TOS is geaccepteerd voor

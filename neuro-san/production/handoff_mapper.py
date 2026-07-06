@@ -393,7 +393,7 @@ def campagne_plan(vac: dict, handoff: dict) -> dict:
     hls = social.get("Headlines") or []
     dcs = social.get("Descriptions") or []
     variants = []
-    for i in range(min(3, max(len(pts), 1))):
+    for i in range(min(5, max(len(pts), 1))):
         variants.append({
             "headline": (hls[i] if i < len(hls) else (hls[0] if hls else vac.get("titel", ""))),
             "primary_text": (pts[i] if i < len(pts) else (pts[0] if pts else vac.get("quote", ""))),

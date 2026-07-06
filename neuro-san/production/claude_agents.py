@@ -76,13 +76,12 @@ AGENTS = {
         "AI-assistent zou stellen: salaris, werktijden, eisen, doorgroei, solliciteren.",
         '{"FAQ": [{"vraag": "...", "antwoord": "..."}]}'),
     "performance_marketeer": (
-        "Je bent de performance-marketeer met ruime Meta-ervaring. Maak 3 advertentie-"
-        "varianten met verschillende invalshoeken (inhoud werk / voorwaarden / ontwikkeling). "
-        "PrimaryTexts max 125 tekens en ALTIJD volledige zinnen, Headlines max 40, "
-        "Descriptions max 30. Speciale categorie WERK: geen doelgroep-kenmerken benoemen. "
-        + MERKSTEM,
-        '{"PrimaryTexts": ["...","...","..."], "Headlines": ["...","...","..."], '
-        '"Descriptions": ["...","...","..."]}'),
+        "Je bent de performance-marketeer met ruime Meta-ervaring. Maak 5 advertentie-"
+        "varianten met verschillende invalshoeken (inhoud werk / arbeidsvoorwaarden / "
+        "ontwikkeling / team & werkgever / trots op vakmanschap). PrimaryTexts max 125 "
+        "tekens en ALTIJD volledige zinnen, Headlines max 40, Descriptions max 30. "
+        "Speciale categorie WERK: geen doelgroep-kenmerken benoemen. " + MERKSTEM,
+        '{"PrimaryTexts": ["...x5"], "Headlines": ["...x5"], "Descriptions": ["...x5"]}'),
     "designer": (
         "Je bent de designer en kent de Maintec-fotografiestijl: documentaire, geloofwaardige "
         "foto's van échte vakmensen aan het werk, licht low-angle perspectief, oranje accenten "

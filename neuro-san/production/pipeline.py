@@ -161,8 +161,9 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
     if vacancy.get("beeld_fout") and vacancy["beeld_fout"] not in (warnings or []):
         warnings = (warnings or []) + [vacancy["beeld_fout"]]
     mail_plan = {**variants[0], "label": plan["label"], "review": plan.get("review", {}),
-                 "n_adsets": len(adset_ids), "n_ads": len(ad_ids), "warnings": warnings or [],
-                 "meta_fout": meta_fout}
+                 "n_adsets": len(adset_ids), "n_ads": len(ad_ids), "n_variants": len(variants),
+                 "alle_varianten": [x.get("primary_text", "") for x in variants],
+                 "warnings": warnings or [], "meta_fout": meta_fout}
     record = {"campaign_id": campaign_id, "adset_ids": adset_ids, "ad_ids": ad_ids, "lead_gen": lead_gen,
               "state": "PENDING", "vacancy": vacancy, "plan": mail_plan, "image_path": img_path,
               "meta_fout": meta_fout}
@@ -276,6 +277,7 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "") -
         plan = handoff_mapper.campagne_plan(vac, handoff)
         gate, warnings = handoff_mapper.gatekeeping(handoff)
         print(f"[orkestrator] handoff verwerkt ({len(handoff)} velden) — gate: {gate}")
+        vac["agent_transcript"] = res.get("transcript", [])   # voor de mail-bijlage (schijf-onafhankelijk)
         _bewaar_neuro_debug(vac, _neuro_prompt(raw), res, handoff)
     else:
         # Fallback: eigen agents (als de Neuro San-server niet bereikbaar is)
@@ -369,15 +371,23 @@ def _meld_blockers(vac: dict, warnings: list, naar: str | None = None, naam: str
         print(f"[orkestrator] blocker-mail mislukt: {e}")
 
 
-def _gesprek_bijlage(vac_id: str, titel: str) -> list:
-    """Bouwt de agent-dialoog (uit data/neuro_runs) als HTML-mailbijlage."""
+def _gesprek_bijlage(vac: dict, titel: str) -> list:
+    """Bouwt de agent-dialoog als HTML-mailbijlage. Leest het transcript bij
+    voorkeur uit het geheugen van deze run (vac['agent_transcript']); alleen als
+    dat er niet is uit data/neuro_runs (ephemeral op Render)."""
     try:
-        pad = os.path.join(NEURO_DIR, f"{vac_id}.json")
-        if not os.path.exists(pad):
+        transcript = vac.get("agent_transcript") or []
+        if not transcript:
+            pad = os.path.join(NEURO_DIR, f"{vac.get('id', '')}.json")
+            if os.path.exists(pad):
+                with open(pad) as f:
+                    transcript = json.load(f).get("transcript", [])
+        if not transcript:
+            print("[mail] geen agent-transcript beschikbaar — bijlage overgeslagen")
             return []
+        print(f"[mail] gesprek-bijlage: {len(transcript)} berichten")
         import base64
-        with open(pad) as f:
-            b = json.load(f)
+        b = {"transcript": transcript}
         regels = "".join(
             f"<div style='margin:12px 0;border-left:3px solid "
             f"{'#FF7D2F' if m.get('type') == 'AGENT_FRAMEWORK' else '#2E7D32'};padding-left:10px'>"
@@ -398,7 +408,7 @@ def _gesprek_bijlage(vac_id: str, titel: str) -> list:
 def _send_mail(record: dict) -> None:
     v, plan, cid = record["vacancy"], record["plan"], record["campaign_id"]
     sf = v.get("salesforce_id", "") or ""
-    bijlagen = _gesprek_bijlage(v.get("id", ""), f"{v.get('titel', '')} {v.get('plaats', '')}")
+    bijlagen = _gesprek_bijlage(v, f"{v.get('titel', '')} {v.get('plaats', '')}")
     from tools import canva
     canva_url = canva.maak_design(record.get("image_path"), f"{v.get('titel', '')} {v.get('plaats', '')}")
     canva_html = (f'<p style="font-size:12px;margin:0 0 14px"><a href="{canva_url}" '
@@ -420,9 +430,9 @@ def _send_mail(record: dict) -> None:
 <tr><td style="padding:24px">
 <h2 style="margin:0 0 4px">{plan['headline']}</h2>
 <p style="color:#69696A;font-size:13px;margin:0 0 6px">Vacature <b>{v['titel']}</b> gepubliceerd in Tigris. Beeld + Meta-campagne staan klaar (PAUSED).</p>
-<p style="color:#69696A;font-size:12px;margin:0 0 14px">Door agents ontworpen — kwaliteitsscore <b>{plan.get('review',{}).get('score','—')}/10</b> · {plan.get('n_adsets','?')} advertentieset(s) · {plan.get('n_ads','?')} variant-advertenties</p>
+<p style="color:#69696A;font-size:12px;margin:0 0 14px">Door agents ontworpen — kwaliteitsscore <b>{plan.get('review',{}).get('score','—')}/10</b> · {plan.get('n_adsets','?')} advertentieset(s) · {plan.get('n_variants','?')} advertentievarianten klaar (worden bij goedkeuring als advertenties aangemaakt)</p>
 <img src="cid:beeld" width="512" style="width:100%;border-radius:6px;margin-bottom:14px">
-<div style="background:#F6F6F6;border-radius:6px;padding:14px;font-size:13px;margin-bottom:16px">{plan['primary_text']}</div>
+<div style="background:#F6F6F6;border-radius:6px;padding:14px;font-size:13px;margin-bottom:16px">{"".join(f'<p style=\'margin:0 0 8px\'><b>Variant {i+1}:</b> {t}</p>' for i, t in enumerate(plan.get('alle_varianten') or [plan['primary_text']]))}</div>
 {canva_html}
 {meta_html}
 {warn_html}
