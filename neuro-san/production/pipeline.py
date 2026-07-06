@@ -424,6 +424,9 @@ def _send_mail(record: dict) -> None:
     meta_html = (f"""<div style="background:#FDECEA;color:#b23b2e;border-radius:6px;padding:12px 14px;font-size:12px;margin-bottom:16px">"""
                  "<b>Let op:</b> de Meta-campagne kon niet automatisch worden aangemaakt (de vacature staat wél in Tigris). "
                  f"Reden: {str(mf)[:220]}</div>") if mf else ""
+    varianten_html = "".join(
+        "<p style='margin:0 0 8px'><b>Variant {}:</b> {}</p>".format(i + 1, t)
+        for i, t in enumerate(plan.get("alle_varianten") or [plan.get("primary_text", "")]))
     html = f"""<!doctype html><html lang="nl"><meta charset="utf-8"><body style="margin:0;background:#f6f6f6;font-family:Inter,system-ui,sans-serif;color:#121212">
 <table width="100%"><tr><td align="center" style="padding:24px"><table width="560" style="background:#fff;border-radius:8px;overflow:hidden">
 <tr><td style="background:#000;padding:18px 24px"><span style="color:#FF7D2F;font-weight:800;font-size:18px">MAINTEC</span></td></tr>
@@ -432,7 +435,7 @@ def _send_mail(record: dict) -> None:
 <p style="color:#69696A;font-size:13px;margin:0 0 6px">Vacature <b>{v['titel']}</b> gepubliceerd in Tigris. Beeld + Meta-campagne staan klaar (PAUSED).</p>
 <p style="color:#69696A;font-size:12px;margin:0 0 14px">Door agents ontworpen — kwaliteitsscore <b>{plan.get('review',{}).get('score','—')}/10</b> · {plan.get('n_adsets','?')} advertentieset(s) · {plan.get('n_variants','?')} advertentievarianten klaar (worden bij goedkeuring als advertenties aangemaakt)</p>
 <img src="cid:beeld" width="512" style="width:100%;border-radius:6px;margin-bottom:14px">
-<div style="background:#F6F6F6;border-radius:6px;padding:14px;font-size:13px;margin-bottom:16px">{"".join(f'<p style=\'margin:0 0 8px\'><b>Variant {i+1}:</b> {t}</p>' for i, t in enumerate(plan.get('alle_varianten') or [plan['primary_text']]))}</div>
+<div style="background:#F6F6F6;border-radius:6px;padding:14px;font-size:13px;margin-bottom:16px">{varianten_html}</div>
 {canva_html}
 {meta_html}
 {warn_html}
