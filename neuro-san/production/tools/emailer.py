@@ -33,9 +33,15 @@ def _naar_outbox(subject: str, html: str, inline_image_path: str | None) -> None
 
 
 def send_approval_mail(subject: str, html: str, inline_image_path: str | None = None,
-                       image_cid: str = "beeld", to: str | None = None) -> None:
+                       image_cid: str = "beeld", to: str | None = None,
+                       attachments: list | None = None) -> None:
+    """attachments: extra bijlagen als [{"filename": ..., "content": <base64>}]."""
     if cfg.DEV_MODE:
         _naar_outbox(subject, html, inline_image_path)
+        for a in (attachments or []):
+            os.makedirs(OUTBOX_DIR, exist_ok=True)
+            with open(os.path.join(OUTBOX_DIR, f"{int(time.time())}-{a['filename']}"), "wb") as f:
+                f.write(base64.b64decode(a["content"]))
         return
     payload = {
         "from": cfg.RESEND_FROM,
@@ -43,14 +49,18 @@ def send_approval_mail(subject: str, html: str, inline_image_path: str | None = 
         "subject": subject,
         "html": html,
     }
+    atts = []
     if inline_image_path:
         with open(inline_image_path, "rb") as f:
             content = base64.b64encode(f.read()).decode()
-        payload["attachments"] = [{
+        atts.append({
             "filename": "beeld.png",
             "content": content,
             "content_id": image_cid,     # maakt cid:beeld in de HTML mogelijk
-        }]
+        })
+    atts.extend(attachments or [])
+    if atts:
+        payload["attachments"] = atts
 
     r = requests.post(RESEND_URL,
         headers={"Authorization": f"Bearer {cfg.RESEND_API_KEY}", "Content-Type": "application/json"},

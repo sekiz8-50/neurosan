@@ -402,12 +402,15 @@ def campagne_plan(vac: dict, handoff: dict) -> dict:
     if not variants:
         variants = [{"headline": vac.get("titel", ""), "primary_text": vac.get("quote", ""), "description": ""}]
 
-    # Neuro San levert geen text-to-image prompt → die maken we lokaal (art-director, met fallback).
+    # Beeldprompt: bij voorkeur die van de designer-agent uit de handoff (Maintec-
+    # fotografiestijl); anders lokaal via de art-director, met sjabloon-fallback.
     brand = agents.BRAND.get(vac.get("label", "Maintec"), agents.BRAND["Maintec"])
-    try:
-        image_prompt = agents.art_director(vac, brand)["image_prompt"]
-    except Exception:
-        image_prompt = copy_engine.build(vac)["prompt"]
+    image_prompt = str(handoff.get("ImagePrompt") or "").strip()
+    if not image_prompt:
+        try:
+            image_prompt = agents.art_director(vac, brand)["image_prompt"]
+        except Exception:
+            image_prompt = copy_engine.build(vac)["prompt"]
     try:
         targeting = agents.targeting_strateeg(vac)
     except Exception:

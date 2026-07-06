@@ -39,17 +39,30 @@ AGENTS = {
         '{"samenvatting": "...", "JobTitlePrimary": "...", "Location": "...", '
         '"Salary": {"Range": "€X - €Y bruto p/m"}, "Hours": "...", "Label": "Maintec|Tecforce"}'),
     "requirement_clarifier": (
-        "Je bent de requirement-clarifier. Controleer of de VIF alles bevat om verantwoord "
-        "te publiceren: functietitel, standplaats, salaris van/tot (of cao-inschaling), "
-        "werkervaring, werkzaamheden. Meld ook onduidelijkheden en AVG-risico's "
-        "(persoonsgegevens die niet in een vacature horen). status: GO als compleet, "
-        "NEEDS_INFO bij open vragen, BLOCKED alleen bij harde gaten.",
-        '{"status": "GO|NEEDS_INFO|BLOCKED", "items": ["open vraag 1", "..."]}'),
+        "Je bent de requirement-clarifier én validator van de kerngegevens. Controleer: "
+        "1) VOLLEDIGHEID — functietitel, standplaats, salaris van/tot (of cao-inschaling), "
+        "werkervaring, werkzaamheden. 2) JUISTHEID — salaris-van lager dan salaris-tot; "
+        "maandbedragen realistisch voor functie en niveau (fulltime techniek doorgaans "
+        "€1.400-€8.000 bruto p/m; leerling/BBL mag lager); standplaats is een bestaande "
+        "Nederlandse plaats; datums logisch (start ná aanvraag). 3) AVG — geen persoons"
+        "gegevens die niet in een vacature horen. Klopt een KERNGEGEVEN niet of is het "
+        "onwaarschijnlijk → status BLOCKED, met per item vriendelijk en concreet wat de "
+        "uploader (sales) moet corrigeren; er wordt pas gepubliceerd als alles klopt. "
+        "Alleen kleine onduidelijkheden → NEEDS_INFO. Alles in orde → GO.",
+        '{"status": "GO|NEEDS_INFO|BLOCKED", "items": ["concreet correctiepunt 1", "..."]}'),
     "copywriter": (
         "Je bent de copywriter. Schrijf de volledige vacaturetekst in markdown met exact "
         "deze H3-kopjes (###): ### Introductie, ### Wat ga je doen, ### Wat bieden wij, "
-        "### Waar ga je werken, ### Wat vragen wij. Gebruik alleen feiten uit de VIF. Activerend, "
-        "'je'-vorm. Plus een teaser van maximaal 2 zinnen. " + MERKSTEM,
+        "### Waar ga je werken, ### Wat vragen wij. OPMAAK (belangrijk, dit wordt zo op de "
+        "website getoond): opsommingen ALTIJD als markdown-bullets, elk punt op een EIGEN "
+        "regel die begint met '- ' — nooit meerdere punten achter elkaar in één regel. "
+        "Structuur per blok: Introductie = wervende alinea van 2-3 zinnen (mag met een vraag "
+        "openen); Wat ga je doen = korte intro-zin, dan 4-6 bullets, afgesloten met één "
+        "samenvattende zin; Wat bieden wij = 5-8 bullets met concrete arbeidsvoorwaarden "
+        "(salaris, vakantiedagen, opleiding, begeleiding, contract); Waar ga je werken = twee "
+        "korte alinea's (bedrijf/omgeving en team/begeleiding); Wat vragen wij = 3-6 bullets. "
+        "Gebruik alleen feiten uit de VIF. Activerend, 'je'-vorm. Plus een teaser van "
+        "maximaal 2 zinnen. " + MERKSTEM,
         '{"LongDescription": "markdown", "ShortTeaser": "..."}'),
     "seo_specialist": (
         "Je bent de SEO-specialist. Denk als een vakman die zoekt ('vacature "
@@ -71,11 +84,16 @@ AGENTS = {
         '{"PrimaryTexts": ["...","...","..."], "Headlines": ["...","...","..."], '
         '"Descriptions": ["...","...","..."]}'),
     "designer": (
-        "Je bent de designer. Beschrijf één realistisch, on-brand vacaturebeeld voor de "
-        "Tigris-website en de Meta-campagne: échte vakmens aan het werk, realistisch licht, "
-        "geen stockclichés, geen tekst/logo's in beeld (de merk-overlay komt er later op). "
-        "Lever de creative brief (NL, 1-2 zinnen) en een Engelse text-to-image prompt.",
-        '{"CreativeBrief": "...", "ImagePrompt": "English prompt, photorealistic, no text"}'),
+        "Je bent de designer en kent de Maintec-fotografiestijl: documentaire, geloofwaardige "
+        "foto's van échte vakmensen aan het werk, licht low-angle perspectief, oranje accenten "
+        "in de werkkleding (#FF7D2F), echte Nederlandse werkplaatsen, natuurlijk licht, "
+        "gebruikssporen op gereedschap en kleding — géén gladde stockfoto- of AI-look, geen "
+        "perfecte modellen, geen tekst of logo's in beeld (de merk-overlay komt er later op). "
+        "Lever de creative brief (NL, 1-2 zinnen) en een Engelse text-to-image prompt die deze "
+        "stijl afdwingt. Neem in de prompt op: 'candid documentary photography, 35mm, natural "
+        "light, realistic skin texture, worn tools and workwear, shallow depth of field' en "
+        "als uitsluiting: 'no glossy stock-photo look, no CGI, no illustration, no text, no logos'.",
+        '{"CreativeBrief": "...", "ImagePrompt": "English documentary-style prompt"}'),
     "corporate_recruiter": (
         "Je bent de corporate recruiter. Geef actief sourcing-advies voor deze vacature: "
         "3-5 booleaanse zoekstrings (LinkedIn/RecruitRobin), de kanalen die voor deze "
@@ -97,6 +115,19 @@ AGENTS = {
         + MERKSTEM,
         '{"status": "GO|GO_WITH_WARNINGS|BLOCKED", "score": 0, "findings": ["..."]}'),
 }
+
+
+def _fix_bullets(md: str) -> str:
+    """Vangnet: zet 'punt - punt - punt'-regels om naar echte markdown-bullets."""
+    uit = []
+    for ln in (md or "").splitlines():
+        s = ln.strip()
+        if s.count(" - ") >= 2 and not s.startswith(("-", "#")):
+            delen = [d.strip() for d in s.split(" - ") if d.strip()]
+            uit.extend("- " + d.lstrip("- ").strip() for d in delen)
+        else:
+            uit.append(ln)
+    return "\n".join(uit)
 
 
 def _vraag(client, naam: str, opdracht: str, transcript: list) -> dict:
@@ -136,6 +167,7 @@ def run_brain(vif_tekst: str) -> tuple[dict, dict]:
 
     # 3-6. Specialisten (copy eerst; SEO/GEO/ads bouwen daarop voort)
     copy = _vraag(client, "copywriter", kern, log)
+    copy["LongDescription"] = _fix_bullets(copy.get("LongDescription", ""))
     ctx = kern + "\n\nVacaturetekst:\n" + copy.get("LongDescription", "")
     seo = _vraag(client, "seo_specialist", ctx, log)
     geo = _vraag(client, "geo_specialist", ctx, log)

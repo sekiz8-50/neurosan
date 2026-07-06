@@ -369,9 +369,41 @@ def _meld_blockers(vac: dict, warnings: list, naar: str | None = None, naam: str
         print(f"[orkestrator] blocker-mail mislukt: {e}")
 
 
+def _gesprek_bijlage(vac_id: str, titel: str) -> list:
+    """Bouwt de agent-dialoog (uit data/neuro_runs) als HTML-mailbijlage."""
+    try:
+        pad = os.path.join(NEURO_DIR, f"{vac_id}.json")
+        if not os.path.exists(pad):
+            return []
+        import base64
+        with open(pad) as f:
+            b = json.load(f)
+        regels = "".join(
+            f"<div style='margin:12px 0;border-left:3px solid "
+            f"{'#FF7D2F' if m.get('type') == 'AGENT_FRAMEWORK' else '#2E7D32'};padding-left:10px'>"
+            f"<b>{m.get('from', '?')}</b>"
+            f"<pre style='white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:12px;"
+            f"margin:4px 0'>{(m.get('text') or '').replace('<', '&lt;')}</pre></div>"
+            for m in b.get("transcript", []))
+        html = (f"<!doctype html><meta charset='utf-8'><body style='font-family:system-ui;"
+                f"max-width:900px;margin:auto;padding:24px;color:#222'>"
+                f"<h2 style='color:#FF7D2F'>Agent-gesprek — {titel}</h2>{regels}</body>")
+        return [{"filename": "agent-gesprek.html",
+                 "content": base64.b64encode(html.encode()).decode()}]
+    except Exception as e:
+        print(f"[mail] gesprek-bijlage bouwen faalde: {e}")
+        return []
+
+
 def _send_mail(record: dict) -> None:
     v, plan, cid = record["vacancy"], record["plan"], record["campaign_id"]
     sf = v.get("salesforce_id", "") or ""
+    bijlagen = _gesprek_bijlage(v.get("id", ""), f"{v.get('titel', '')} {v.get('plaats', '')}")
+    from tools import canva
+    canva_url = canva.maak_design(record.get("image_path"), f"{v.get('titel', '')} {v.get('plaats', '')}")
+    canva_html = (f'<p style="font-size:12px;margin:0 0 14px"><a href="{canva_url}" '
+                  f'style="color:#E8631C;font-weight:700">🖌 Ontwerp openen in Canva</a> — '
+                  f'pas het beeld direct aan als er nog iets moet veranderen.</p>') if canva_url else ""
     approve = f"{cfg.PUBLIC_BASE_URL}/approve?campaign={cid}&sf={sf}&token={store.sign(cid, 'approve', sf)}"
     reject = f"{cfg.PUBLIC_BASE_URL}/reject?campaign={cid}&sf={sf}&token={store.sign(cid, 'reject', sf)}"
     warn = plan.get("warnings") or []
@@ -391,6 +423,7 @@ def _send_mail(record: dict) -> None:
 <p style="color:#69696A;font-size:12px;margin:0 0 14px">Door agents ontworpen — kwaliteitsscore <b>{plan.get('review',{}).get('score','—')}/10</b> · {plan.get('n_adsets','?')} advertentieset(s) · {plan.get('n_ads','?')} variant-advertenties</p>
 <img src="cid:beeld" width="512" style="width:100%;border-radius:6px;margin-bottom:14px">
 <div style="background:#F6F6F6;border-radius:6px;padding:14px;font-size:13px;margin-bottom:16px">{plan['primary_text']}</div>
+{canva_html}
 {meta_html}
 {warn_html}
 <table width="100%"><tr>
@@ -400,13 +433,15 @@ def _send_mail(record: dict) -> None:
 <p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Campagne staat op PAUSED tot je goedkeurt. Link 7 dagen geldig.</p>
 </td></tr></table></td></tr></table></body></html>"""
     try:
-        emailer.send_approval_mail(f"[Akkoord nodig] Vacature {v['titel']} {v['plaats']}", html, record["image_path"])
+        emailer.send_approval_mail(f"[Akkoord nodig] Vacature {v['titel']} {v['plaats']}", html,
+                                   record["image_path"], attachments=bijlagen)
         print(f"[mail] goedkeur-mail verstuurd naar {cfg.APPROVAL_TO}")
     except Exception as e:
         print(f"[mail] goedkeur-mail VERSTUREN MISLUKT ({e}); 2e poging zonder inline-beeld...")
         try:
             emailer.send_approval_mail(f"[Akkoord nodig] Vacature {v['titel']} {v['plaats']}",
-                                       html.replace('src="cid:beeld"', f'src="{v.get("foto_url", "")}"'))
+                                       html.replace('src="cid:beeld"', f'src="{v.get("foto_url", "")}"'),
+                                       attachments=bijlagen)
             print(f"[mail] goedkeur-mail (zonder bijlage) verstuurd naar {cfg.APPROVAL_TO}")
         except Exception as e2:
             print(f"[mail] goedkeur-mail definitief mislukt: {e2}")

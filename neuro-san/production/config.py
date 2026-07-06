@@ -75,6 +75,10 @@ class Config:
     NEURO_SAN_URL = _opt("NEURO_SAN_URL", "http://localhost:8080").rstrip("/")
     NEURO_SAN_AGENT = _opt("NEURO_SAN_AGENT", "generated/neuro_san_vif_to_publish_sourcing")
 
+    # Canva Connect API — optioneel: zet het vacaturebeeld als bewerkbaar design
+    # in Canva en neem de edit-link op in de goedkeur-mail. Leeg = overslaan.
+    CANVA_ACCESS_TOKEN = _opt("CANVA_ACCESS_TOKEN")
+
     # Meta lead-formulier (Instant Form)
     LEAD_PRIVACY_URL = _opt("LEAD_PRIVACY_URL", "https://www.maintec.nl/privacy")
     LEAD_FOLLOWUP_URL = _opt("LEAD_FOLLOWUP_URL", "https://www.maintec.nl")
