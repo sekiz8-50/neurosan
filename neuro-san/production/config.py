@@ -54,6 +54,10 @@ class Config:
     # Optioneel: Claude voor teksten/prompt
     ANTHROPIC_API_KEY = _opt("ANTHROPIC_API_KEY")
     ANTHROPIC_MODEL = _opt("ANTHROPIC_MODEL", "claude-opus-4-8")
+    # Het ingebouwde Claude-brein (11 agents, claude_agents.py) — standaard AAN
+    # zodra er een ANTHROPIC_API_KEY is. Zet CLAUDE_BRAIN=0 om terug te vallen
+    # op de simpele agents (sneller/goedkoper, minder rijk).
+    CLAUDE_BRAIN = _opt("CLAUDE_BRAIN", "1").lower() not in ("0", "false", "nee", "uit")
 
     # Salesforce / Tigris (ATS-administrateur) — optioneel. OAuth2 client-credentials.
     # Leeg laten = DRY-RUN: de tool logt de payload i.p.v. echt weg te schrijven.

@@ -8,6 +8,7 @@ import shutil
 import time
 
 import agents
+import claude_agents
 import handoff_mapper
 import neuro_san_client
 import store
@@ -231,7 +232,9 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "") -
     vac.setdefault("id", f"VIF-{int(time.time())}")
     print(f"[orkestrator] VIF verwerkt → {vac.get('titel')} ({vac.get('label')}) in {vac.get('plaats')}")
 
-    # 2. BREIN — jouw Neuro San-netwerk verwerkt de VIF tot een handoff (content + checks).
+    # 2. BREIN — verwerkt de VIF tot een handoff (content + checks). Volgorde:
+    #    externe Neuro San-server (indien draaiend) → ingebouwd Claude-brein
+    #    (11 agents, zie claude_agents.py) → simpele fallback-agents.
     handoff, bron = None, "neuro-san"
     if neuro_san_client.beschikbaar():
         try:
@@ -243,8 +246,20 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "") -
         except Exception as e:
             print(f"[orkestrator] Neuro San faalde: {e}")
 
+    if handoff is None and cfg.ANTHROPIC_API_KEY and cfg.CLAUDE_BRAIN:
+        try:
+            print("[orkestrator] Claude-brein gestart (11 agents)...")
+            handoff, res = claude_agents.run_brain(raw)
+            bron = "claude-brein"
+        except Exception as e:
+            print(f"[orkestrator] Claude-brein faalde, terugval op eigen agents: {e}")
+            handoff = None
+
     if handoff:
-        facts = handoff_mapper.extract_facts(res)        # schone, gestructureerde feiten uit de dialoog
+        try:
+            facts = handoff_mapper.extract_facts(res)    # schone, gestructureerde feiten uit de dialoog
+        except Exception:
+            facts = {}
         handoff_mapper.verrijk(vac, handoff)             # SEO/keywords/FAQ/social/quote uit de handoff
         for k, v in facts.items():
             if v:
