@@ -1,0 +1,14 @@
+{
+  "_uitleg": "Extra context per agent — wordt bij ELKE run aan de systeemprompt toegevoegd. Sleutel '*' geldt voor alle agents. Pas dit bestand aan (op GitHub of lokaal), deploy, klaar — geen code-kennis nodig.",
+  "*": "",
+  "vif_parser": "",
+  "requirement_clarifier": "Scan of alles aanwezig is wat de andere agents nodig hebben om een kwalitatief goed en betrouwbaar resultaat te maken.",
+  "copywriter": "Wees creatief en schrijf SEO-inhoudelijk sterk zodat de vacature ook organisch gevonden wordt. Volg het Maintec-brandingboek, maak het persoonlijk en zorg dat de blue collar lezer getriggerd wordt en na het lezen niets meer onduidelijk is.",
+  "seo_specialist": "Jouw analyse gaat vóór de copywriter uit: geef expliciet aan welke woorden in welk deel van de vacaturedetailpagina moeten landen.",
+  "geo_specialist": "Je FAQ wordt automatisch weggeschreven naar Tigris (veld FAQ__c) — lever 'm volledig en publicabel op.",
+  "performance_marketeer": "Neem in MediaAdvice een concreet advies op voor marketing: wat moet de lezer doen om de juiste kandidaten te bereiken op basis van alle informatie in de VIF.",
+  "designer": "",
+  "corporate_recruiter": "Je zoekstrings worden automatisch weggeschreven naar Tigris (veld SearchStrings__c) — maak ze direct bruikbaar.",
+  "ats_publisher": "",
+  "brand_marketeer": "Geef niet alleen een status en score: leg in 'onderbouwing' uit waarom je deze score geeft, per beoordeeld aspect."
+}

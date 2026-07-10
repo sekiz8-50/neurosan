@@ -389,6 +389,7 @@ def gatekeeping(handoff: dict) -> tuple[str, list]:
 def campagne_plan(vac: dict, handoff: dict) -> dict:
     """Bouwt het plan-dict dat pipeline.run() verwacht, met de Meta-copy uit de handoff."""
     social = handoff.get("Social") or {}
+    media_advies = str(social.get("MediaAdvice") or "")
     pts = social.get("PrimaryTexts") or []
     hls = social.get("Headlines") or []
     dcs = social.get("Descriptions") or []
@@ -420,5 +421,6 @@ def campagne_plan(vac: dict, handoff: dict) -> dict:
     blc = handoff.get("BrandLegalCheck") or {}
     return {"label": vac.get("label", "Maintec"), "image_prompt": image_prompt,
             "variants": variants, "cta": "APPLY_NOW", "targeting": targeting,
+        "media_advies": media_advies,
             "review": {"approved": str(blc.get("status", "")).upper().startswith("APPROVED"),
                        "score": None, "feedback": blc.get("status")}}

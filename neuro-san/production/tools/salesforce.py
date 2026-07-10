@@ -34,6 +34,8 @@ from config import cfg
 # STRIKT de velden die in Tigris ingevuld moeten worden (bron: Yasar, 2026-06-08).
 # Géén oneliner/keywords/vacature-url/uren/campagne — die horen hier niet.
 FIELD_MAP = {
+    "faq_tekst": "FAQ__c",
+    "sourcing_zoekstrings": "SearchStrings__c",
     "titel":            "Name",                                  # Functietitel (openveld)
     "gewenste_functie": "tigrisXigb__Normalized_job_title__c",   # keuzelijst (best passend)
     "sector":           "Tigris__Branche__c",                    # keuzelijst (best passend)

@@ -163,6 +163,7 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
     mail_plan = {**variants[0], "label": plan["label"], "review": plan.get("review", {}),
                  "n_adsets": len(adset_ids), "n_ads": len(ad_ids), "n_variants": len(variants),
                  "alle_varianten": [x.get("primary_text", "") for x in variants],
+                 "media_advies": plan.get("media_advies", ""),
                  "warnings": warnings or [], "meta_fout": meta_fout}
     record = {"campaign_id": campaign_id, "adset_ids": adset_ids, "ad_ids": ad_ids, "lead_gen": lead_gen,
               "state": "PENDING", "vacancy": vacancy, "plan": mail_plan, "image_path": img_path,
@@ -328,6 +329,14 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "") -
     img_path = _genereer_beeld(vac, plan["image_prompt"])
     vac["foto_url"] = f"{cfg.PUBLIC_BASE_URL}/beeld/{vac['id']}.png"
 
+    # 5b. FAQ en sourcing-zoekstrings als Tigris-velden (FAQ__c / SearchStrings__c)
+    if vac.get("faq"):
+        vac["faq_tekst"] = "\n\n".join(f"V: {f.get('vraag', '')}\nA: {f.get('antwoord', '')}"
+                                         for f in vac["faq"])
+    sourcing = handoff.get("Sourcing") if isinstance(handoff, dict) else None
+    if sourcing and sourcing.get("SearchStrings"):
+        vac["sourcing_zoekstrings"] = "\n".join(str(x) for x in sourcing["SearchStrings"])
+
     # 6. ATS-administrateur — record in Tigris/Salesforce (dry-run zonder creds)
     sf = salesforce.create_vacancy(vac)
     vac["salesforce_id"] = sf["id"]
@@ -424,6 +433,10 @@ def _send_mail(record: dict) -> None:
     meta_html = (f"""<div style="background:#FDECEA;color:#b23b2e;border-radius:6px;padding:12px 14px;font-size:12px;margin-bottom:16px">"""
                  "<b>Let op:</b> de Meta-campagne kon niet automatisch worden aangemaakt (de vacature staat wél in Tigris). "
                  f"Reden: {str(mf)[:220]}</div>") if mf else ""
+    advies = plan.get("media_advies", "")
+    advies_html = ("<div style='background:#EFF6FF;border-radius:6px;padding:12px 14px;font-size:12px;"
+                   "margin-bottom:16px;color:#1e4d8a'><b>Advies performance-marketeer:</b> "
+                   + advies + "</div>") if advies else ""
     varianten_html = "".join(
         "<p style='margin:0 0 8px'><b>Variant {}:</b> {}</p>".format(i + 1, t)
         for i, t in enumerate(plan.get("alle_varianten") or [plan.get("primary_text", "")]))
@@ -437,6 +450,7 @@ def _send_mail(record: dict) -> None:
 <img src="cid:beeld" width="512" style="width:100%;border-radius:6px;margin-bottom:14px">
 <div style="background:#F6F6F6;border-radius:6px;padding:14px;font-size:13px;margin-bottom:16px">{varianten_html}</div>
 {canva_html}
+{advies_html}
 {meta_html}
 {warn_html}
 <table width="100%"><tr>

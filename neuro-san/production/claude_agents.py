@@ -19,8 +19,26 @@ De handoff volgt exact het schema dat handoff_mapper verwacht, dus de rest van
 de pijplijn (Tigris, Meta, mail) blijft ongewijzigd.
 """
 import json
+import os
 
 from config import cfg
+
+# Extra, door de gebruiker beheerde context per agent (agent_context.json).
+# Wordt bij ELKE run vers ingelezen en aan de systeemprompt toegevoegd —
+# zo stuur je agents bij zonder code te wijzigen.
+_CONTEXT_PAD = os.path.join(os.path.dirname(__file__), "agent_context.json")
+
+
+def _extra_context(naam: str) -> str:
+    try:
+        with open(_CONTEXT_PAD, encoding="utf-8") as f:
+            ctx = json.load(f)
+        extra = str(ctx.get(naam, "")).strip()
+        algemeen = str(ctx.get("*", "")).strip()
+        delen = [d for d in (algemeen, extra) if d]
+        return (" EXTRA CONTEXT VAN DE GEBRUIKER: " + " | ".join(delen)) if delen else ""
+    except Exception:
+        return ""
 
 MERKSTEM = (
     "Maintec-merkstem: Nederlands, warm en concreet, geen emoji. Mensen zijn "
@@ -39,7 +57,9 @@ AGENTS = {
         '{"samenvatting": "...", "JobTitlePrimary": "...", "Location": "...", '
         '"Salary": {"Range": "€X - €Y bruto p/m"}, "Hours": "...", "Label": "Maintec|Tecforce"}'),
     "requirement_clarifier": (
-        "Je bent de requirement-clarifier én validator van de kerngegevens. Controleer: "
+        "Je bent de requirement-clarifier én validator van de kerngegevens. Jouw scan bepaalt "
+        "of de ANDERE agents genoeg betrouwbare informatie hebben om kwalitatief goed werk te "
+        "leveren — signaleer alles wat hen zou dwingen te gokken. Controleer: "
         "1) VOLLEDIGHEID — functietitel, standplaats, salaris van/tot (of cao-inschaling), "
         "werkervaring, werkzaamheden. 2) JUISTHEID — salaris-van lager dan salaris-tot; "
         "maandbedragen realistisch voor functie en niveau (fulltime techniek doorgaans "
@@ -61,8 +81,12 @@ AGENTS = {
         "samenvattende zin; Wat bieden wij = 5-8 bullets met concrete arbeidsvoorwaarden "
         "(salaris, vakantiedagen, opleiding, begeleiding, contract); Waar ga je werken = twee "
         "korte alinea's (bedrijf/omgeving en team/begeleiding); Wat vragen wij = 3-6 bullets. "
-        "Gebruik alleen feiten uit de VIF. Activerend, 'je'-vorm. Plus een teaser van "
-        "maximaal 2 zinnen. " + MERKSTEM,
+        "Je ontvangt ook de SEO-analyse: verwerk het focus-keyword in de introductie en de "
+        "secundaire keywords natuurlijk in de lopende tekst (nooit geforceerd) — zo wordt de "
+        "vacature ook organisch gevonden. Schrijf volgens het Maintec-brandingboek: persoonlijk, "
+        "direct tegen de blue collar vakman, prikkelend om verder te lezen, en na het lezen mag "
+        "NIETS meer onduidelijk zijn. Gebruik alleen feiten uit de VIF. Activerend, 'je'-vorm. "
+        "Plus een teaser van maximaal 2 zinnen. " + MERKSTEM,
         '{"LongDescription": "markdown", "ShortTeaser": "..."}'),
     "seo_specialist": (
         "Je bent de SEO-specialist. Denk als een vakman die zoekt ('vacature "
@@ -80,8 +104,11 @@ AGENTS = {
         "varianten met verschillende invalshoeken (inhoud werk / arbeidsvoorwaarden / "
         "ontwikkeling / team & werkgever / trots op vakmanschap). PrimaryTexts max 125 "
         "tekens en ALTIJD volledige zinnen, Headlines max 40, Descriptions max 30. "
-        "Speciale categorie WERK: geen doelgroep-kenmerken benoemen. " + MERKSTEM,
-        '{"PrimaryTexts": ["...x5"], "Headlines": ["...x5"], "Descriptions": ["...x5"]}'),
+        "Speciale categorie WERK: geen doelgroep-kenmerken benoemen. Geef daarnaast in "
+        "MediaAdvice een kort, concreet advies aan marketing: hoe bereik je op basis van deze "
+        "VIF de juiste kandidaten (budgetverdeling, geo-radius, kanaal, timing). " + MERKSTEM,
+        '{"PrimaryTexts": ["...x5"], "Headlines": ["...x5"], "Descriptions": ["...x5"], '
+        '"MediaAdvice": "..."}'),
     "designer": (
         "Je bent de designer en kent de Maintec-fotografiestijl: documentaire, geloofwaardige "
         "foto's van échte vakmensen aan het werk, licht low-angle perspectief, oranje accenten "
@@ -112,7 +139,9 @@ AGENTS = {
         "merkstem, waarheidsgetrouwheid en juridische risico's (discriminatie — ook indirect, "
         "AVG). BLOCKED alleen bij harde risico's; stijlpunten zijn findings bij GO_WITH_WARNINGS. "
         + MERKSTEM,
-        '{"status": "GO|GO_WITH_WARNINGS|BLOCKED", "score": 0, "findings": ["..."]}'),
+        '{"status": "GO|GO_WITH_WARNINGS|BLOCKED", "score": 0, "onderbouwing": "leg per '
+        'beoordeeld aspect (merkstem, waarheid, juridisch, volledigheid) uit wat goed is en wat '
+        'beter kan en hoe dat de score bepaalt", "findings": ["..."]}'),
 }
 
 
@@ -136,7 +165,7 @@ def _vraag(client, naam: str, opdracht: str, transcript: list) -> dict:
                        "text": f"→ {naam}: {opdracht[:400]}"})
     msg = client.messages.create(
         model=cfg.ANTHROPIC_MODEL, max_tokens=2500,
-        system=system + " Antwoord UITSLUITEND met JSON volgens dit schema: " + schema,
+        system=system + _extra_context(naam) + " Antwoord UITSLUITEND met JSON volgens dit schema: " + schema,
         messages=[{"role": "user", "content": opdracht}])
     text = msg.content[0].text.strip()
     text = text[text.find("{"): text.rfind("}") + 1]
@@ -164,11 +193,13 @@ def run_brain(vif_tekst: str) -> tuple[dict, dict]:
     # 2. Requirement-clarifier — poortwachter vóór het schrijfwerk
     open_vragen = _vraag(client, "requirement_clarifier", kern, log)
 
-    # 3-6. Specialisten (copy eerst; SEO/GEO/ads bouwen daarop voort)
-    copy = _vraag(client, "copywriter", kern, log)
+    # 3-6. Specialisten — SEO eerst, zodat de copywriter weet welke woorden waar moeten
+    seo = _vraag(client, "seo_specialist", kern, log)
+    copy = _vraag(client, "copywriter",
+                  kern + "\n\nSEO-analyse (verwerk deze keywords natuurlijk):\n"
+                  + json.dumps(seo, ensure_ascii=False), log)
     copy["LongDescription"] = _fix_bullets(copy.get("LongDescription", ""))
     ctx = kern + "\n\nVacaturetekst:\n" + copy.get("LongDescription", "")
-    seo = _vraag(client, "seo_specialist", ctx, log)
     geo = _vraag(client, "geo_specialist", ctx, log)
     ads = _vraag(client, "performance_marketeer", ctx, log)
     beeld = _vraag(client, "designer", kern, log)
@@ -189,7 +220,8 @@ def run_brain(vif_tekst: str) -> tuple[dict, dict]:
         "SEO": {k: seo.get(k) for k in
                 ("MetaTitle", "MetaDescription", "SuggestedURLSlug", "FocusKeyword", "SecondaryKeywords")},
         "GEO/LLM": {"FAQ": geo.get("FAQ", [])},
-        "Social": {k: ads.get(k, []) for k in ("PrimaryTexts", "Headlines", "Descriptions")},
+        "Social": {**{k: ads.get(k, []) for k in ("PrimaryTexts", "Headlines", "Descriptions")},
+                   "MediaAdvice": ads.get("MediaAdvice", "")},
         "CreativeBrief": beeld.get("CreativeBrief", ""),
         "ImagePrompt": beeld.get("ImagePrompt", ""),
         "Sourcing": sourcing,
