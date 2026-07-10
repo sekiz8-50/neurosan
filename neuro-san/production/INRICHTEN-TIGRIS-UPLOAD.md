@@ -34,30 +34,25 @@ alleen een veld voor de aanleveraar te maken.
 
 ---
 
-## Stap 2 — De koppeling naar Render veilig opslaan (Named Credential)
+## Stap 2 — Render als toegestane externe site registreren
 
-Zo staat de geheime sleutel veilig ín Salesforce; niemand hoeft 'm te typen.
+Salesforce mag alleen externe diensten aanroepen die je vooraf toestaat. Dit is
+een simpel formuliertje (Nederlandse UI: **Instellingen voor externe site**).
 
-1. **Setup → Beveiliging → Named Credentials → New Legacy** (kies de "Legacy"-variant,
-   dat is het eenvoudigst).
-2. Vul in:
-   - **Label**: `Neuro San VIF`
-   - **Naam**: `Neuro_San_VIF` (exact — de Apex verwijst hiernaar)
-   - **URL**: `https://neuro-san-ph63.onrender.com`
-   - **Identity Type**: `Anonymous`
-   - **Authentication Protocol**: `No Authentication`
-   - Vink **Generate Authorization Header** UIT.
-   - Vink **Allow Formulas in HTTP Header** AAN.
-3. **Opslaan**.
-4. Nu de secret als vaste header meesturen. Scroll bij dezelfde Named Credential
-   naar **Custom Headers → New** (of doe dit in de Apex, zie stap 3 — kies één van beide):
-   - Name: `x-tigris-secret`
-   - Value: `{!$Credential.Password}` werkt hier niet bij No-Auth; gebruik daarom
-     de Apex-variant in stap 3 (die zet de header zelf). **Laat Custom Headers hier leeg.**
+Let op: dit is NIET "Vertrouwde URL's" (dat gaat over omleidingen) — je moet bij
+**Instellingen voor externe site** / Remote Site Settings zijn.
 
-> We zetten de secret in stap 3 via Apex, zodat je niets gevoeligs in de UI hoeft te
-> plakken op een plek waar het zichtbaar blijft. De waarde die je gebruikt is de
-> `TIGRIS_SHARED_SECRET` uit je Render → Environment.
+1. In Set-up, zoekvak linksboven: typ **`externe site`** -> klik op
+   **Instellingen voor externe site**.
+2. Klik op **Nieuwe externe site** (New Remote Site).
+3. Vul in:
+   - **Naam externe site**: `Neuro_San_VIF` (geen spaties)
+   - **URL van externe site**: `https://neuro-san-ph63.onrender.com`
+   - **Actief**: aangevinkt laten.
+4. **Opslaan**.
+
+Dat is alles. De geheime sleutel zetten we in de Apex zelf (stap 3), zodat je 'm
+maar op een plek hoeft te beheren.
 
 ---
 
@@ -93,7 +88,7 @@ public with sharing class NeuroSanVIF {
                     'aanleveraar_id'     => in.aanleveraarId
                 };
                 HttpRequest req = new HttpRequest();
-                req.setEndpoint('callout:Neuro_San_VIF/vif-tigris');
+                req.setEndpoint('https://neuro-san-ph63.onrender.com/vif-tigris');
                 req.setMethod('POST');
                 req.setHeader('Content-Type', 'application/json');
                 req.setHeader('x-tigris-secret', 'ZET_HIER_JE_TIGRIS_SECRET');
