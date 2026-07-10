@@ -369,21 +369,24 @@ async def vif_tigris(request: Request, background_tasks: BackgroundTasks,
     with open(path, "wb") as f:
         f.write(data)
 
-    # 4. Synchroon de verplichte velden checken → directe feedback in de Flow
+    # 4. Synchroon de verplichte velden checken → directe feedback in de Flow.
+    #    ALTIJD status 200 met een 'status'-veld, zodat de Flow er netjes op kan
+    #    reageren (een 4xx zou de HTTP-aanroep in Flow laten crashen).
     try:
         _, ontbrekend = pipeline.intake_en_check(path)
     except Exception as e:
-        raise HTTPException(422, f"Kon de VIF niet uitlezen ({e}).")
+        return {"status": "onleesbaar", "detail":
+                f"De VIF kon niet worden uitgelezen ({str(e)[:150]}). Is het een leesbaar Word-/PDF-bestand?"}
     if ontbrekend:
-        return JSONResponse(status_code=422, content={
-            "status": "onvolledig", "ontbrekend": ontbrekend,
-            "detail": ("Deze verplichte velden ontbreken in de VIF: " + ", ".join(ontbrekend)
-                       + ". Vul ze aan en lever opnieuw aan.")})
+        return {"status": "onvolledig", "ontbrekend": ontbrekend,
+                "detail": ("Deze verplichte velden ontbreken in de VIF: " + ", ".join(ontbrekend)
+                           + ". Vul ze aan en lever opnieuw aan.")}
 
     # 5. Compleet → zware keten op de achtergrond (recruiter wordt eigenaar)
     background_tasks.add_task(_process_vif, path, uploader_email, uploader_naam,
                               recruiter_id, uploader_id)
-    return {"status": "queued", "recruiter_id": recruiter_id, "aanleveraar_id": uploader_id}
+    return {"status": "queued", "detail": "",
+            "recruiter_id": recruiter_id, "aanleveraar_id": uploader_id}
 
 
 @app.get("/beeld/{naam}")
