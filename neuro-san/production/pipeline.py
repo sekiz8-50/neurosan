@@ -222,7 +222,8 @@ def intake_en_check(docx_path: str) -> tuple[dict, list]:
     return vac, ontbrekend
 
 
-def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "") -> dict:
+def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
+            recruiter_id: str = "", uploader_id: str = "") -> dict:
     """VIF-orkestrator: geüploade VIF (Word) → volledige keten van specialisten.
 
     Stappen: parse → intake-extractie → copy → SEO → trends → GEO-LLM → brand-bewaker
@@ -338,6 +339,10 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "") -
         vac["sourcing_zoekstrings"] = "\n".join(str(x) for x in sourcing["SearchStrings"])
 
     # 6. ATS-administrateur — record in Tigris/Salesforce (dry-run zonder creds)
+    if recruiter_id:
+        vac["owner_id"] = recruiter_id        # vacature komt op naam van de recruiter
+    if uploader_id:
+        vac["aanleveraar_id"] = uploader_id   # sales-aanleveraar in apart veld
     sf = salesforce.create_vacancy(vac)
     vac["salesforce_id"] = sf["id"]
 

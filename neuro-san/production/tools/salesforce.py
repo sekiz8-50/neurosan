@@ -34,6 +34,8 @@ from config import cfg
 # STRIKT de velden die in Tigris ingevuld moeten worden (bron: Yasar, 2026-06-08).
 # Géén oneliner/keywords/vacature-url/uren/campagne — die horen hier niet.
 FIELD_MAP = {
+    "owner_id":         "OwnerId",                               # eigenaar = gekozen recruiter (User-id)
+    "aanleveraar_id":   "Aanleveraar__c",                        # aanleveraar/sales (User-lookup)
     "faq_tekst": "FAQ__c",
     "sourcing_zoekstrings": "SearchStrings__c",
     "titel":            "Name",                                  # Functietitel (openveld)
@@ -131,6 +133,32 @@ def _auth() -> tuple[str, str]:
                            f"(controleer: My Domain-URL in SF_LOGIN_URL, en 'Uitvoeren als'-gebruiker in de Connected App)")
     j = r.json()
     return j["access_token"], j["instance_url"]
+
+
+def get_user(user_id: str) -> dict:
+    """Haalt {Id, Name, Email} van een Tigris/Salesforce-gebruiker op (leeg bij fout)."""
+    if not user_id or not cfg.salesforce_ready():
+        return {}
+    try:
+        token, instance = _auth()
+        url = (f"{instance}/services/data/{cfg.SF_API_VERSION}/sobjects/User/"
+               f"{user_id}?fields=Id,Name,Email")
+        r = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=30)
+        return r.json() if r.ok else {}
+    except Exception as e:
+        print(f"[ATS-administrateur] gebruiker {user_id} ophalen faalde: {e}")
+        return {}
+
+
+def download_content_version(cv_id: str) -> bytes:
+    """Downloadt de binaire inhoud van een geüpload bestand (ContentVersion) uit Tigris."""
+    token, instance = _auth()
+    url = (f"{instance}/services/data/{cfg.SF_API_VERSION}/sobjects/"
+           f"ContentVersion/{cv_id}/VersionData")
+    r = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=60)
+    if not r.ok:
+        raise RuntimeError(f"Bestand ophalen uit Tigris faalde: {r.status_code} {r.text}")
+    return r.content
 
 
 def create_vacancy(vacancy: dict) -> dict:

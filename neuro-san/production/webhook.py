@@ -279,10 +279,12 @@ async function go(){
 </script></body>"""
 
 
-def _process_vif(path: str, uploader_email: str = "", uploader_naam: str = "") -> None:
+def _process_vif(path: str, uploader_email: str = "", uploader_naam: str = "",
+                 recruiter_id: str = "", uploader_id: str = "") -> None:
     """Draait de VIF-keten op de achtergrond (zwaar werk: LLM + beeld + Meta + mail)."""
     try:
-        rec = pipeline.run_vif(path, uploader_email=uploader_email, uploader_naam=uploader_naam)
+        rec = pipeline.run_vif(path, uploader_email=uploader_email, uploader_naam=uploader_naam,
+                               recruiter_id=recruiter_id, uploader_id=uploader_id)
         if rec.get("state") == "BLOCKED":
             print(f"[vif] GEBLOKKEERD — onvolledige VIF, terugmail naar {uploader_email or cfg.APPROVAL_TO}")
         elif rec.get("meta_fout"):
@@ -327,6 +329,61 @@ async def vif_upload(background_tasks: BackgroundTasks, file: UploadFile = File(
     # Compleet → zware keten op de achtergrond (beeld + Tigris + Meta + mail).
     background_tasks.add_task(_process_vif, path, uploader_email.strip(), uploader_naam.strip())
     return {"status": "queued", "bestand": safe}
+
+
+@app.post("/vif-tigris")
+async def vif_tigris(request: Request, background_tasks: BackgroundTasks,
+                     x_tigris_secret: str = Header(default="")):
+    """Aanlevering vanuit Tigris/Salesforce (Route A). De Flow stuurt alleen ID's;
+    wij halen het VIF-bestand zélf op uit Tigris en verwerken het.
+
+    Verwacht JSON: {content_version_id, recruiter_id, aanleveraar_id (=sales)}.
+    Toegang is beveiligd door: (1) dit endpoint zit achter x-tigris-secret die de
+    Named Credential automatisch meestuurt, en (2) de Flow draait alleen binnen een
+    ingelogde Tigris-sessie (met 2FA). Er wordt dus geen secret meer getypt."""
+    if x_tigris_secret.strip() != cfg.TIGRIS_SHARED_SECRET:
+        raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
+    body = await request.json()
+    cv_id = str(body.get("content_version_id", "")).strip()
+    recruiter_id = str(body.get("recruiter_id", "")).strip()
+    uploader_id = str(body.get("aanleveraar_id") or body.get("sales_id", "")).strip()
+    if not cv_id:
+        raise HTTPException(400, "content_version_id ontbreekt")
+
+    # 1. Bestand ophalen uit Tigris (server-to-server, met de bestaande SF-credentials)
+    from tools import salesforce
+    try:
+        data = salesforce.download_content_version(cv_id)
+    except Exception as e:
+        raise HTTPException(502, f"Kon het VIF-bestand niet uit Tigris ophalen: {e}")
+
+    # 2. Wie is de aanleveraar (sales)? → voor de terugkoppeling bij onvolledigheid
+    sales = salesforce.get_user(uploader_id) if uploader_id else {}
+    uploader_email = sales.get("Email", "") or cfg.APPROVAL_TO
+    uploader_naam = sales.get("Name", "")
+
+    # 3. Bestand opslaan; extensie raden (docx als default, VIF's zijn Word/PDF)
+    os.makedirs(VIF_DIR, exist_ok=True)
+    ext = ".pdf" if data[:5] == b"%PDF-" else ".docx"
+    path = os.path.join(VIF_DIR, f"{int(time.time())}-tigris-vif{ext}")
+    with open(path, "wb") as f:
+        f.write(data)
+
+    # 4. Synchroon de verplichte velden checken → directe feedback in de Flow
+    try:
+        _, ontbrekend = pipeline.intake_en_check(path)
+    except Exception as e:
+        raise HTTPException(422, f"Kon de VIF niet uitlezen ({e}).")
+    if ontbrekend:
+        return JSONResponse(status_code=422, content={
+            "status": "onvolledig", "ontbrekend": ontbrekend,
+            "detail": ("Deze verplichte velden ontbreken in de VIF: " + ", ".join(ontbrekend)
+                       + ". Vul ze aan en lever opnieuw aan.")})
+
+    # 5. Compleet → zware keten op de achtergrond (recruiter wordt eigenaar)
+    background_tasks.add_task(_process_vif, path, uploader_email, uploader_naam,
+                              recruiter_id, uploader_id)
+    return {"status": "queued", "recruiter_id": recruiter_id, "aanleveraar_id": uploader_id}
 
 
 @app.get("/beeld/{naam}")
