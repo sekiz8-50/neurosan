@@ -172,8 +172,9 @@ def find_opdrachtgever(naam: str, token=None, instance=None) -> str:
     veld = cfg.SF_OPDRACHTGEVER_NAAMVELD
     obj = cfg.SF_OPDRACHTGEVER_OBJECT
     safe = naam.replace("\\", "\\\\").replace("'", "\\'")
+    extra = (" AND (" + cfg.SF_OPDRACHTGEVER_FILTER + ")") if cfg.SF_OPDRACHTGEVER_FILTER else ""
     for waar in (f"{veld} = '{safe}'", f"{veld} LIKE '{safe}%'", f"{veld} LIKE '%{safe}%'"):
-        q = f"SELECT Id,{veld} FROM {obj} WHERE {waar} LIMIT 1"
+        q = f"SELECT Id,{veld} FROM {obj} WHERE ({waar}){extra} LIMIT 1"
         try:
             url = f"{instance}/services/data/{cfg.SF_API_VERSION}/query?q={requests.utils.quote(q)}"
             r = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=30)

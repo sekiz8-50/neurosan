@@ -76,6 +76,9 @@ class Config:
     SF_OPDRACHTGEVER_FIELD = _opt("SF_OPDRACHTGEVER_FIELD")            # bv. Tigris__Account__c
     SF_OPDRACHTGEVER_OBJECT = _opt("SF_OPDRACHTGEVER_OBJECT", "Account")
     SF_OPDRACHTGEVER_NAAMVELD = _opt("SF_OPDRACHTGEVER_NAAMVELD", "Name")
+    # Optioneel extra SOQL-filter (ge-AND) om de lookup-filter te respecteren,
+    # bv. RecordType.Name = 'Company'. Leeg = geen extra filter.
+    SF_OPDRACHTGEVER_FILTER = _opt("SF_OPDRACHTGEVER_FILTER")
 
     # Neuro San — het draaiende AAOSA-netwerk dat de VIF tot een handoff verwerkt ('brein').
     NEURO_SAN_URL = _opt("NEURO_SAN_URL", "http://localhost:8080").rstrip("/")
