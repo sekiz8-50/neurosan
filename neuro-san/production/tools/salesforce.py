@@ -105,8 +105,46 @@ def build_payload(vacancy: dict) -> dict:
     for okey, sf_field in OMSCHRIJVING_MAP.items():
         val = (vacancy.get("omschrijving") or {}).get(okey)
         if val:
-            payload[sf_field] = _as_plaintext(val)
+            # Tigris-omschrijvingsvelden zijn rich-text → ALTIJD HTML met echte <ul><li>-bullets.
+            payload[sf_field] = _omschrijving_html(val)
     return payload
+
+
+def _omschrijving_html(text) -> str:
+    """Zet een omschrijvingsblok om naar veilige rich-text-HTML met echte bullets.
+    Al-HTML blijft ongemoeid; platte tekst met '- '-bullets (ook inline 'a - b - c')
+    wordt een <ul><li>-lijst, losse regels worden <p>. Zelfstandig (geen imports)."""
+    s = str(text or "").strip()
+    if not s:
+        return ""
+    if "<li>" in s or "<ul>" in s or "<p>" in s or "<br" in s:
+        return s
+    regels = []
+    for ln in s.splitlines():
+        t = ln.strip()
+        if not t:
+            continue
+        kern = t[1:].strip() if t[:1] in "-*•" else t
+        delen = [d.strip(" -•\t") for d in re.split(r"\s+[-•]\s+", kern) if d.strip(" -•\t")]
+        is_bullet = t[:1] in "-*•" or len(delen) >= 2
+        if is_bullet:
+            regels += [("li", d) for d in (delen or [kern])]
+        else:
+            regels.append(("p", t))
+    out, in_ul = [], False
+    for typ, txt in regels:
+        veilig = txt.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        if typ == "li":
+            if not in_ul:
+                out.append("<ul>"); in_ul = True
+            out.append(f"<li>{veilig}</li>")
+        else:
+            if in_ul:
+                out.append("</ul>"); in_ul = False
+            out.append(f"<p>{veilig}</p>")
+    if in_ul:
+        out.append("</ul>")
+    return "".join(out)
 
 
 def _as_plaintext(text: str) -> str:
