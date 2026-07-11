@@ -291,6 +291,36 @@ def _match_blok(kop: str) -> str | None:
     return None
 
 
+def _split_inline_bullets(md: str) -> str:
+    """Zet regels met meerdere ' - '-scheidingen (ook regels die met '-' beginnen) om naar
+    aparte markdown-bullets, zodat md_to_html er een echte lijst van maakt."""
+    uit = []
+    for ln in (md or "").splitlines():
+        s = ln.strip()
+        if s.startswith("#"):
+            uit.append(ln); continue
+        kern = s[1:].strip() if s[:1] in "-*\u2022" else s
+        delen = [d.strip(" -\u2022\t") for d in re.split(r"\s+[-\u2022]\s+", kern) if d.strip(" -\u2022\t")]
+        if len(delen) >= 2:
+            uit.extend("- " + d for d in delen)
+        else:
+            uit.append(ln)
+    return "\n".join(uit)
+
+
+def blokken_naar_html(oms) -> dict:
+    """Normaliseert de omschrijvingsblokken naar HTML met echte <ul><li>-lijsten.
+    Al-HTML blijft ongemoeid; platte-tekst-bullets worden omgezet. Zo landen bullets
+    ALTIJD als opsomming in de Tigris rich-text-velden, ongeacht welke copywriter."""
+    if not isinstance(oms, dict):
+        return oms
+    uit = {}
+    for k, v in oms.items():
+        s = str(v or "")
+        uit[k] = s if ("<li>" in s or "<p>" in s or "<ul>" in s) else md_to_html(_split_inline_bullets(s))
+    return uit
+
+
 def md_to_html(text: str) -> str:
     """Lichte markdown → HTML voor Tigris rich-text (bullets, **bold**, alinea's)."""
     def bold(s):

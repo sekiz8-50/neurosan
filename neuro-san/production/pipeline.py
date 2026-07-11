@@ -358,6 +358,8 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
         vac["owner_id"] = recruiter_id        # vacature komt op naam van de recruiter
     if uploader_id:
         vac["aanleveraar_id"] = uploader_id   # sales-aanleveraar in apart veld
+    # Omschrijvingsblokken → HTML met echte bullets (welke copywriter ze ook schreef)
+    vac["omschrijving"] = handoff_mapper.blokken_naar_html(vac.get("omschrijving") or {})
     sf = salesforce.create_vacancy(vac)
     vac["salesforce_id"] = sf["id"]
 

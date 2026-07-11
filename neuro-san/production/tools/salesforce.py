@@ -161,6 +161,34 @@ def download_content_version(cv_id: str) -> bytes:
     return r.content
 
 
+def find_opdrachtgever(naam: str, token=None, instance=None) -> str:
+    """Zoekt een bestaande opdrachtgever in Tigris op naam en geeft het record-Id terug.
+    Probeert exact → begint-met → bevat. Leeg als er niets (betrouwbaar) matcht."""
+    naam = (naam or "").strip()
+    if not naam or not cfg.SF_OPDRACHTGEVER_FIELD:
+        return ""
+    if token is None:
+        token, instance = _auth()
+    veld = cfg.SF_OPDRACHTGEVER_NAAMVELD
+    obj = cfg.SF_OPDRACHTGEVER_OBJECT
+    safe = naam.replace("\\", "\\\\").replace("'", "\\'")
+    for waar in (f"{veld} = '{safe}'", f"{veld} LIKE '{safe}%'", f"{veld} LIKE '%{safe}%'"):
+        q = f"SELECT Id,{veld} FROM {obj} WHERE {waar} LIMIT 1"
+        try:
+            url = f"{instance}/services/data/{cfg.SF_API_VERSION}/query?q={requests.utils.quote(q)}"
+            r = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=30)
+            recs = r.json().get("records", []) if r.ok else []
+            if recs:
+                print(f"[ATS-administrateur] opdrachtgever '{naam}' gematcht op "
+                      f"'{recs[0].get(veld)}' ({recs[0]['Id']})")
+                return recs[0]["Id"]
+        except Exception as e:
+            print(f"[ATS-administrateur] opdrachtgever zoeken faalde: {e}")
+            return ""
+    print(f"[ATS-administrateur] geen bestaande opdrachtgever gevonden voor '{naam}'")
+    return ""
+
+
 def create_vacancy(vacancy: dict) -> dict:
     """Maakt de Vacatures-record aan. Geeft {id, url, dry_run} terug.
 
@@ -178,6 +206,12 @@ def create_vacancy(vacancy: dict) -> dict:
     token, instance = _auth()
     url = f"{instance}/services/data/{cfg.SF_API_VERSION}/sobjects/{cfg.SF_VACANCY_OBJECT}/"
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+    # Opdrachtgever uit de VIF matchen op een bestaande Tigris-opdrachtgever (opzoekveld).
+    if cfg.SF_OPDRACHTGEVER_FIELD and vacancy.get("bedrijf"):
+        oid = find_opdrachtgever(vacancy["bedrijf"], token, instance)
+        if oid:
+            payload[cfg.SF_OPDRACHTGEVER_FIELD] = oid
 
     # Keuzelijst-velden eerst naar geldige Tigris-picklist-waarden mappen.
     payload = _resolve_picklists(payload, vacancy, token, instance)
