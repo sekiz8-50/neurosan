@@ -111,15 +111,17 @@ def build_payload(vacancy: dict) -> dict:
 
 
 def _omschrijving_html(text) -> str:
-    """Zet een omschrijvingsblok om naar veilige rich-text-HTML met echte bullets.
-    Al-HTML blijft ongemoeid; platte tekst met '- '-bullets (ook inline 'a - b - c')
-    wordt een <ul><li>-lijst, losse regels worden <p>. Zelfstandig (geen imports)."""
+    """Zet een omschrijvingsblok om voor de Tigris-velden.
+    - Blok ZONDER opsomming (pure alinea) → PLATTE TEKST. Dit is veilig voor zowel
+      rich-text- als gewone-tekstvelden (bv. Introductie); geen zichtbare <p>-tags.
+    - Blok MET opsomming → HTML met echte <ul><li>-bullets (rich-text-velden).
+    Al-HTML blijft ongemoeid. Zelfstandig (geen imports naast re)."""
     s = str(text or "").strip()
     if not s:
         return ""
     if "<li>" in s or "<ul>" in s or "<p>" in s or "<br" in s:
         return s
-    regels = []
+    regels, heeft_bullet = [], False
     for ln in s.splitlines():
         t = ln.strip()
         if not t:
@@ -128,9 +130,13 @@ def _omschrijving_html(text) -> str:
         delen = [d.strip(" -•\t") for d in re.split(r"\s+[-•]\s+", kern) if d.strip(" -•\t")]
         is_bullet = t[:1] in "-*•" or len(delen) >= 2
         if is_bullet:
+            heeft_bullet = True
             regels += [("li", d) for d in (delen or [kern])]
         else:
             regels.append(("p", t))
+    if not heeft_bullet:
+        # Pure alinea('s) → platte tekst (geen zichtbare tags in een gewoon tekstveld).
+        return "\n".join(txt for _, txt in regels)
     out, in_ul = [], False
     for typ, txt in regels:
         veilig = txt.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
