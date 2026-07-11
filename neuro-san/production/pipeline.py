@@ -238,7 +238,8 @@ def intake_en_check(docx_path: str) -> tuple[dict, list]:
 
 
 def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
-            recruiter_id: str = "", uploader_id: str = "", opdrachtgever_id: str = "") -> dict:
+            recruiter_id: str = "", uploader_id: str = "", opdrachtgever_id: str = "",
+            content_version_id: str = "") -> dict:
     """VIF-orkestrator: geüploade VIF (Word) → volledige keten van specialisten.
 
     Stappen: parse → intake-extractie → copy → SEO → trends → GEO-LLM → brand-bewaker
@@ -358,12 +359,23 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
         vac["owner_id"] = recruiter_id        # vacature komt op naam van de recruiter
     if uploader_id:
         vac["aanleveraar_id"] = uploader_id   # sales-aanleveraar in apart veld
-    if opdrachtgever_id:
-        vac["opdrachtgever_id"] = opdrachtgever_id   # handmatig gekozen opdrachtgever (Flow)
     # Omschrijvingsblokken → HTML met echte bullets (welke copywriter ze ook schreef)
     vac["omschrijving"] = handoff_mapper.blokken_naar_html(vac.get("omschrijving") or {})
+    # Opdrachtgever vooraf bepalen (handmatige keuze óf naam-match) zodat we het bestand
+    # straks aan het juiste Account kunnen koppelen én het vacatureveld kunnen vullen.
+    if not opdrachtgever_id and vac.get("bedrijf") and cfg.SF_OPDRACHTGEVER_FIELD:
+        try:
+            opdrachtgever_id = salesforce.find_opdrachtgever(vac["bedrijf"])
+        except Exception as e:
+            print(f"[orkestrator] opdrachtgever-match faalde: {e}")
+    if opdrachtgever_id:
+        vac["opdrachtgever_id"] = opdrachtgever_id
+
     sf = salesforce.create_vacancy(vac)
     vac["salesforce_id"] = sf["id"]
+    # Origineel VIF-bestand koppelen: aan de OPDRACHTGEVER (klantdossier) én de vacature.
+    if content_version_id:
+        salesforce.link_file_to_records(content_version_id, [opdrachtgever_id, sf["id"]])
 
     # 7. Campagnemanager Meta + goedkeur-mail (lead-gen; open vragen gaan mee naar de goedkeurder)
     record = run(vac, plan=plan, image_path=img_path, warnings=warnings, lead_gen=True)

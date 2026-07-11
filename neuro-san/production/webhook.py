@@ -280,12 +280,13 @@ async function go(){
 
 
 def _process_vif(path: str, uploader_email: str = "", uploader_naam: str = "",
-                 recruiter_id: str = "", uploader_id: str = "", opdrachtgever_id: str = "") -> None:
+                 recruiter_id: str = "", uploader_id: str = "", opdrachtgever_id: str = "",
+                 content_version_id: str = "") -> None:
     """Draait de VIF-keten op de achtergrond (zwaar werk: LLM + beeld + Meta + mail)."""
     try:
         rec = pipeline.run_vif(path, uploader_email=uploader_email, uploader_naam=uploader_naam,
                                recruiter_id=recruiter_id, uploader_id=uploader_id,
-                               opdrachtgever_id=opdrachtgever_id)
+                               opdrachtgever_id=opdrachtgever_id, content_version_id=content_version_id)
         if rec.get("state") == "BLOCKED":
             print(f"[vif] GEBLOKKEERD — onvolledige VIF, terugmail naar {uploader_email or cfg.APPROVAL_TO}")
         elif rec.get("meta_fout"):
@@ -386,7 +387,7 @@ async def vif_tigris(request: Request, background_tasks: BackgroundTasks,
 
     # 5. Compleet → zware keten op de achtergrond (recruiter wordt eigenaar)
     background_tasks.add_task(_process_vif, path, uploader_email, uploader_naam,
-                              recruiter_id, uploader_id, opdrachtgever_id)
+                              recruiter_id, uploader_id, opdrachtgever_id, cv_id)
     return {"status": "queued", "detail": "",
             "recruiter_id": recruiter_id, "aanleveraar_id": uploader_id}
 

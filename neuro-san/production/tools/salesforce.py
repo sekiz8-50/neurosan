@@ -194,6 +194,39 @@ def get_user(user_id: str) -> dict:
         return {}
 
 
+def link_file_to_records(content_version_id: str, record_ids: list) -> None:
+    """Koppelt het al geüploade VIF-bestand (ContentDocument) aan één of meer records
+    (bv. de opdrachtgever/Account én de vacature), zodat het origineel onder
+    'Bestanden/Documenten' verschijnt. Faalt stil — mag de keten niet blokkeren."""
+    doelen = [r for r in (record_ids or []) if r and not str(r).startswith("DRYRUN")]
+    if not content_version_id or not doelen:
+        return
+    try:
+        token, instance = _auth()
+        base = f"{instance}/services/data/{cfg.SF_API_VERSION}"
+        q = f"SELECT ContentDocumentId FROM ContentVersion WHERE Id = '{content_version_id}'"
+        r = requests.get(f"{base}/query?q={requests.utils.quote(q)}",
+                         headers={"Authorization": f"Bearer {token}"}, timeout=30)
+        recs = r.json().get("records", []) if r.ok else []
+        if not recs:
+            print(f"[ATS-administrateur] ContentDocument niet gevonden voor {content_version_id}")
+            return
+        cd_id = recs[0]["ContentDocumentId"]
+        hdr = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        for rid in doelen:
+            rl = requests.post(f"{base}/sobjects/ContentDocumentLink", headers=hdr,
+                               data=json.dumps({"ContentDocumentId": cd_id, "LinkedEntityId": rid,
+                                                "ShareType": "V", "Visibility": "AllUsers"}), timeout=30)
+            if rl.ok:
+                print(f"[ATS-administrateur] VIF-bestand gekoppeld aan {rid}")
+            elif "already" in rl.text.lower() or "duplicate" in rl.text.lower():
+                pass  # al gekoppeld — prima
+            else:
+                print(f"[ATS-administrateur] VIF-bestand koppelen aan {rid} faalde: {rl.status_code} {rl.text[:160]}")
+    except Exception as e:
+        print(f"[ATS-administrateur] VIF-bestand koppelen faalde: {e}")
+
+
 def download_content_version(cv_id: str) -> bytes:
     """Downloadt de binaire inhoud van een geüpload bestand (ContentVersion) uit Tigris."""
     token, instance = _auth()
