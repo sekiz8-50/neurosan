@@ -20,6 +20,7 @@ de pijplijn (Tigris, Meta, mail) blijft ongewijzigd.
 """
 import json
 import os
+import re
 
 from config import cfg
 
@@ -146,13 +147,19 @@ AGENTS = {
 
 
 def _fix_bullets(md: str) -> str:
-    """Vangnet: zet 'punt - punt - punt'-regels om naar echte markdown-bullets."""
+    """Vangnet: zet regels met meerdere ' - '-scheidingen om naar echte markdown-bullets,
+    óók als de regel zelf met '- ' begint (bv. '- taak A - taak B - taak C' op één regel)."""
     uit = []
     for ln in (md or "").splitlines():
         s = ln.strip()
-        if s.count(" - ") >= 2 and not s.startswith(("-", "#")):
-            delen = [d.strip() for d in s.split(" - ") if d.strip()]
-            uit.extend("- " + d.lstrip("- ").strip() for d in delen)
+        if s.startswith("#"):                       # koppen ongemoeid laten
+            uit.append(ln)
+            continue
+        kern = s[1:].strip() if s[:1] in "-*•" else s
+        # Splits op ' - ' (of ' • '); alleen als er echt meerdere delen ontstaan.
+        delen = [d.strip(" -•\t") for d in re.split(r"\s+[-•]\s+", kern) if d.strip(" -•\t")]
+        if len(delen) >= 2:
+            uit.extend("- " + d for d in delen)
         else:
             uit.append(ln)
     return "\n".join(uit)

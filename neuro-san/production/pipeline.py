@@ -116,7 +116,9 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
     try:
         image_hash = meta.upload_image(img_path)
         if lead_gen:
-            # LEAD-GEN: campagne + ad sets nu; lead-formulier + advertenties pas bij goedkeuring.
+            # LEAD-GEN: campagne + ad sets + het Instant Form + ALLE advertentievarianten
+            # worden NU al aangemaakt (alles PAUSED), zodat ze meteen in Meta klaarstaan.
+            # Bij goedkeuring worden ze alleen nog geactiveerd.
             campaign_id = meta.create_campaign(naam, "OUTCOME_LEADS")
             for spec in plan["targeting"].get("ad_sets", []):
                 if spec.get("use_lookalike") and not saa:
@@ -127,7 +129,20 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
             if not adset_ids:
                 adset_ids.append(meta.create_lead_adset(f"{vacancy['plaats']} | Breed", campaign_id,
                                                         15, _targeting_geo(vacancy)))
+            # Instant Form + advertenties (5 varianten × elke ad set), allemaal PAUSED.
+            form_id = meta.create_lead_form(
+                f"{vacancy['titel']} — sollicitatie · {campaign_id}"[:200],
+                follow_up_url=vacancy["url"])
+            for adset_id in adset_ids:
+                for i, v in enumerate(variants, 1):
+                    ad_ids.append(meta.create_lead_ad(
+                        f"{vacancy['titel']} — variant {i}", adset_id, image_hash,
+                        v["headline"], v["primary_text"], v.get("description", ""),
+                        form_id, vacancy["url"], "SIGN_UP"))
+            print(f"[campagne-meta] {len(adset_ids)} ad set(s) + {len(ad_ids)} advertentie(s) "
+                  f"aangemaakt (PAUSED), form {form_id}")
             _bewaar_campagne_build(vacancy, {"image_hash": image_hash, "adset_ids": adset_ids,
+                                             "form_id": form_id, "ad_ids": ad_ids, "ads_created": True,
                                              "variants": variants, "cta": "SIGN_UP",
                                              "url": vacancy["url"], "titel": vacancy["titel"]})
         else:
@@ -499,8 +514,9 @@ def publiceer(campaign_id: str, sf_id: str = "") -> dict:
     meta_res = None
     try:
         build = _lees_campagne_build(sf_id)
-        if build:
-            # Unieke naam (campagne-id erachter) → voorkomt Meta 1892019 "naam bestaat al".
+        # Advertenties zijn al bij de upload aangemaakt (ads_created). Alleen als dat
+        # (nog) niet zo is, maken we ze hier alsnog — vangnet voor oudere builds.
+        if build and not build.get("ads_created"):
             form_naam = f"{build.get('titel', 'Vacature')} — sollicitatie · {campaign_id}"[:200]
             form_id = meta.create_lead_form(form_naam, app_id=app_id, follow_up_url=build.get("url"))
             for adset_id in build.get("adset_ids", []):
