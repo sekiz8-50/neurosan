@@ -247,8 +247,10 @@ def create_vacancy(vacancy: dict) -> dict:
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
     # Opdrachtgever uit de VIF matchen op een bestaande Tigris-opdrachtgever (opzoekveld).
-    if cfg.SF_OPDRACHTGEVER_FIELD and vacancy.get("bedrijf"):
-        oid = find_opdrachtgever(vacancy["bedrijf"], token, instance)
+    if cfg.SF_OPDRACHTGEVER_FIELD:
+        # Handmatig gekozen opdrachtgever (uit de Flow) heeft voorrang; anders match op naam.
+        oid = vacancy.get("opdrachtgever_id") or (
+            find_opdrachtgever(vacancy["bedrijf"], token, instance) if vacancy.get("bedrijf") else "")
         if oid:
             payload[cfg.SF_OPDRACHTGEVER_FIELD] = oid
 

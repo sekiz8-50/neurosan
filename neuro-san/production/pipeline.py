@@ -238,7 +238,7 @@ def intake_en_check(docx_path: str) -> tuple[dict, list]:
 
 
 def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
-            recruiter_id: str = "", uploader_id: str = "") -> dict:
+            recruiter_id: str = "", uploader_id: str = "", opdrachtgever_id: str = "") -> dict:
     """VIF-orkestrator: geüploade VIF (Word) → volledige keten van specialisten.
 
     Stappen: parse → intake-extractie → copy → SEO → trends → GEO-LLM → brand-bewaker
@@ -358,6 +358,8 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
         vac["owner_id"] = recruiter_id        # vacature komt op naam van de recruiter
     if uploader_id:
         vac["aanleveraar_id"] = uploader_id   # sales-aanleveraar in apart veld
+    if opdrachtgever_id:
+        vac["opdrachtgever_id"] = opdrachtgever_id   # handmatig gekozen opdrachtgever (Flow)
     # Omschrijvingsblokken → HTML met echte bullets (welke copywriter ze ook schreef)
     vac["omschrijving"] = handoff_mapper.blokken_naar_html(vac.get("omschrijving") or {})
     sf = salesforce.create_vacancy(vac)
