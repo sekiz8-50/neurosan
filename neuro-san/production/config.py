@@ -106,6 +106,28 @@ class Config:
                        _opt("ALLOWED_ORIGINS", "https://www.maintec.nl,https://maintec.nl").split(",")
                        if o.strip()]
 
+    # --- Beveiligingsrails -------------------------------------------------
+    # KILL_SWITCH=1 → noodstop: geen nieuwe VIF-verwerking én geen publicaties meer.
+    KILL_SWITCH = _opt("KILL_SWITCH").lower() in ("1", "true", "ja", "yes")
+    # Maximale grootte van een aangeleverd VIF-bestand (MB).
+    MAX_VIF_MB = float(_opt("MAX_VIF_MB", "10") or "10")
+    # Goedkeurlink-geldigheid in uren (was 7 dagen; korter = veiliger).
+    APPROVAL_TTL_UREN = int(_opt("APPROVAL_TTL_UREN", "72") or "72")
+    # Budget-rails: het agentvoorstel wordt hierop geklemd (harde grens, geen advies).
+    MIN_DAGBUDGET_EUR = int(_opt("MIN_DAGBUDGET_EUR", "5") or "5")
+    MAX_DAGBUDGET_EUR = int(_opt("MAX_DAGBUDGET_EUR", "50") or "50")
+    MIN_LOOPTIJD_DAGEN = int(_opt("MIN_LOOPTIJD_DAGEN", "7") or "7")
+    MAX_LOOPTIJD_DAGEN = int(_opt("MAX_LOOPTIJD_DAGEN", "60") or "60")
+    # Volledig agent-gesprek als mailbijlage meesturen (privacy-risico) — standaard UIT;
+    # het gesprek blijft altijd inzichtelijk via /neuro-debug (achter het secret).
+    MAIL_TRANSCRIPT = _opt("MAIL_TRANSCRIPT").lower() in ("1", "true", "ja", "yes")
+    # Domeinen die in publiceerbare tekst (advertenties/omschrijving/FAQ) mogen voorkomen.
+    TOEGESTANE_LINK_DOMEINEN = [d.strip().lower() for d in
+                                _opt("TOEGESTANE_LINK_DOMEINEN",
+                                     "maintec.nl,tecforce.nl,tecqgroep.nl").split(",") if d.strip()]
+    # Eenvoudige rate-limit op de aanlever-endpoints (verzoeken per minuut per IP).
+    RATE_LIMIT_PER_MIN = int(_opt("RATE_LIMIT_PER_MIN", "10") or "10")
+
     @classmethod
     def salesforce_ready(cls) -> bool:
         return all([cls.SF_CLIENT_ID, cls.SF_CLIENT_SECRET])

@@ -75,7 +75,17 @@ def activate_all(campaign_id: str, app_id: str | None = None) -> dict:
     for adset in adsets:
         set_status(adset["id"], "ACTIVE")
     set_status(campaign_id, "ACTIVE")
-    return {"campaign_id": campaign_id, "adsets": len(adsets), "ads": len(ads), "status": "ACTIVE"}
+    # Read-back-verificatie: vertrouw niet op de POST-response maar lees de werkelijke
+    # status terug bij Meta — dát is wat er echt staat (kan bv. PENDING_REVIEW zijn).
+    try:
+        terug = _get(campaign_id, {"fields": "status,effective_status"})
+        effectief = terug.get("effective_status") or terug.get("status") or "?"
+    except Exception as e:
+        effectief = f"onbekend ({str(e)[:80]})"
+    print(f"[campagne-meta] read-back na activeren: campagne {campaign_id} → {effectief}")
+    return {"campaign_id": campaign_id, "adsets": len(adsets), "ads": len(ads),
+            "status": "ACTIVE", "effective_status": effectief,
+            "verified": str(effectief).upper() in ("ACTIVE", "PENDING_REVIEW", "IN_PROCESS")}
 
 
 def upload_image(image_path: str) -> str:

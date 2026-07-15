@@ -9,6 +9,7 @@ import shutil
 import time
 
 import agents
+import beveiliging
 import claude_agents
 import handoff_mapper
 import kosten
@@ -113,6 +114,11 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
         vacancy["url"] = f"{cfg.VACANCY_URL_BASE}/{vacancy.get('slug', '')}".rstrip("/")
     campaign_id, adset_ids, ad_ids, meta_fout = "", [], [], None
 
+    # Release-hash: bindt de goedkeuring aan exact déze inhoud (advertenties + budget +
+    # looptijd + landingspagina). Wijzigt er daarna iets, dan weigert de publicatie.
+    inhoud_hash = store.release_hash(vacancy.get("salesforce_id", ""), vacancy.get("url", ""),
+                                     variants, plan.get("budget_eur"), plan.get("looptijd_dagen"))
+
     # 3. Meta-campagne (PAUSED). RESILIENT: een Meta-fout mag de Tigris-vacature en de
     #    goedkeur-mail NIET blokkeren — de mail moet altijd komen.
     try:
@@ -152,7 +158,10 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
             _bewaar_campagne_build(vacancy, {"image_hash": image_hash, "adset_ids": adset_ids,
                                              "form_id": form_id, "ad_ids": ad_ids, "ads_created": True,
                                              "variants": variants, "cta": "SIGN_UP",
-                                             "url": vacancy["url"], "titel": vacancy["titel"]})
+                                             "url": vacancy["url"], "titel": vacancy["titel"],
+                                             "inhoud_hash": inhoud_hash,
+                                             "budget_eur": plan.get("budget_eur"),
+                                             "looptijd_dagen": plan.get("looptijd_dagen")})
         else:
             # TRAFFIC (oude /tigris-flow): campagne + ad sets + advertenties nu.
             campaign_id = meta.create_campaign(naam)
@@ -192,7 +201,7 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                  "warnings": warnings or [], "meta_fout": meta_fout}
     record = {"campaign_id": campaign_id, "adset_ids": adset_ids, "ad_ids": ad_ids, "lead_gen": lead_gen,
               "state": "PENDING", "vacancy": vacancy, "plan": mail_plan, "image_path": img_path,
-              "meta_fout": meta_fout}
+              "inhoud_hash": inhoud_hash, "meta_fout": meta_fout}
     # RESILIENT: een mailfout mag het record (Tigris staat al) niet laten crashen.
     try:
         _send_mail(record)
@@ -340,6 +349,50 @@ def _scrub_opdrachtgever(vac: dict, plan: dict | None = None) -> None:
     print(f"[dirigent] opdrachtgeversnaam gescrubd uit publieke tekst ({len(patronen)} patroon/patronen)")
 
 
+def _klem_budget(plan: dict | None) -> list:
+    """Harde budget-rails (geen advies): klemt het agentvoorstel voor dagbudget en
+    looptijd op de geconfigureerde grenzen. Retour: waarschuwingen voor de goedkeurder."""
+    if not isinstance(plan, dict):
+        return []
+    meldingen = []
+    b = plan.get("budget_eur")
+    if b is not None:
+        geklemd = max(cfg.MIN_DAGBUDGET_EUR, min(cfg.MAX_DAGBUDGET_EUR, int(b)))
+        if geklemd != b:
+            meldingen.append(f"Budgetvoorstel van de agent (€ {b}/dag) is begrensd naar "
+                             f"€ {geklemd}/dag (toegestaan: € {cfg.MIN_DAGBUDGET_EUR}–{cfg.MAX_DAGBUDGET_EUR}).")
+            plan["budget_eur"] = geklemd
+    l = plan.get("looptijd_dagen")
+    if l is not None:
+        geklemd = max(cfg.MIN_LOOPTIJD_DAGEN, min(cfg.MAX_LOOPTIJD_DAGEN, int(l)))
+        if geklemd != l:
+            meldingen.append(f"Looptijdvoorstel ({l} dagen) is begrensd naar {geklemd} dagen "
+                             f"(toegestaan: {cfg.MIN_LOOPTIJD_DAGEN}–{cfg.MAX_LOOPTIJD_DAGEN}).")
+            plan["looptijd_dagen"] = geklemd
+    return meldingen
+
+
+def _scrub_output_links(vac: dict, plan: dict | None) -> None:
+    """Verwijdert URL's buiten de eigen domein-allowlist en gevaarlijke schema's uit
+    alle publiceerbare tekst (LLM-output is onbetrouwbare input voor publicatie)."""
+    oms = vac.get("omschrijving")
+    if isinstance(oms, dict):
+        vac["omschrijving"] = {k: beveiliging.scrub_links(v) for k, v in oms.items()}
+    if vac.get("quote"):
+        vac["quote"] = beveiliging.scrub_links(vac["quote"])
+    for f in (vac.get("faq") or []):
+        if isinstance(f, dict):
+            f["antwoord"] = beveiliging.scrub_links(f.get("antwoord", ""))
+    if vac.get("faq_tekst"):
+        vac["faq_tekst"] = beveiliging.scrub_links(vac["faq_tekst"])
+    if isinstance(plan, dict):
+        for v in plan.get("variants", []) or []:
+            if isinstance(v, dict):
+                for veld in ("headline", "primary_text", "description"):
+                    if v.get(veld):
+                        v[veld] = beveiliging.scrub_links(v[veld])
+
+
 def _mail_kop(titel_regel: str) -> str:
     return (f'<tr><td style="background:#000;padding:18px 24px">'
             f'<span style="color:#FF7D2F;font-weight:800;font-size:18px">MAINTEC</span>'
@@ -406,8 +459,14 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     # 0. Start de AI-kostenteller voor deze run (tokens + beelden → € in de marketingmail)
     kosten.start()
 
-    # 1. VIF inlezen + feiten extraheren
+    # 1. VIF inlezen + feiten extraheren. Eerst prompt-injectie-scrub: regels die het
+    #    model proberen te sturen worden uit de documenttekst verwijderd en gemeld —
+    #    documentinhoud is data, geen instructie.
     raw = vif_parser.parse_vif(docx_path)
+    raw, injectie_meldingen = beveiliging.strip_injectie(raw)
+    if injectie_meldingen:
+        print(f"[beveiliging] {len(injectie_meldingen)} verdachte instructieregel(s) uit de VIF "
+              f"verwijderd — wordt gemeld aan de goedkeurder")
     vac = agents.vif_to_vacancy(raw)
     vac.setdefault("id", f"VIF-{int(time.time())}")
     print(f"[orkestrator] VIF verwerkt → {vac.get('titel')} ({vac.get('label')}) in {vac.get('plaats')}")
@@ -471,6 +530,10 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
         plan = agents.plan_campaign(vac)
         gate, warnings = "GO", []
 
+    # 2b. Beveiligingsrails: injectie-meldingen zichtbaar voor de goedkeurder, en het
+    #     budgetvoorstel van de agent hard klemmen op de geconfigureerde grenzen.
+    warnings = (warnings or []) + injectie_meldingen + _klem_budget(plan)
+
     # 3. Vacature-URL (uit de SEO-slug) + Google Trends
     slug = (vac.get("seo") or {}).get("slug") or vac["id"]
     vac["vacature_url"] = f"{cfg.VACANCY_URL_BASE}/{slug}"
@@ -515,9 +578,11 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     if sourcing and sourcing.get("SearchStrings"):
         vac["sourcing_zoekstrings"] = "\n".join(str(x) for x in sourcing["SearchStrings"])
 
-    # 5c. DIRIGENT-eindcheck (punt 1): opdrachtgeversnaam uit ALLE publieke tekst strippen
-    #     (omschrijving, FAQ/faq_tekst, teaser, keywords, advertenties, media-advies).
+    # 5c. DIRIGENT-eindcheck: (1) opdrachtgeversnaam uit ALLE publieke tekst strippen
+    #     (omschrijving, FAQ/faq_tekst, teaser, keywords, advertenties, media-advies),
+    #     (2) alleen eigen domeinen in publiceerbare links (LLM-output saneren).
     _scrub_opdrachtgever(vac, plan)
+    _scrub_output_links(vac, plan)
 
     # 6. ATS-administrateur — record in Tigris/Salesforce (dry-run zonder creds)
     if recruiter_id:
@@ -620,14 +685,22 @@ def _gesprek_bijlage(vac: dict, titel: str) -> list:
 def _send_mail(record: dict) -> None:
     v, plan, cid = record["vacancy"], record["plan"], record["campaign_id"]
     sf = v.get("salesforce_id", "") or ""
-    bijlagen = _gesprek_bijlage(v, f"{v.get('titel', '')} {v.get('plaats', '')}")
+    # Volledig agent-gesprek alleen als bijlage bij expliciete opt-in (MAIL_TRANSCRIPT=1);
+    # standaard UIT — e-mail is doorstuurbaar en het gesprek kan gevoelige inhoud bevatten.
+    # Het gesprek blijft altijd in te zien via /neuro-debug (achter het secret).
+    bijlagen = (_gesprek_bijlage(v, f"{v.get('titel', '')} {v.get('plaats', '')}")
+                if cfg.MAIL_TRANSCRIPT else [])
     from tools import canva
     canva_url = canva.maak_design(record.get("image_path"), f"{v.get('titel', '')} {v.get('plaats', '')}")
     canva_html = (f'<p style="font-size:12px;margin:0 0 14px"><a href="{canva_url}" '
                   f'style="color:#E8631C;font-weight:700">🖌 Ontwerp openen in Canva</a> — '
                   f'pas het beeld direct aan als er nog iets moet veranderen.</p>') if canva_url else ""
-    approve = f"{cfg.PUBLIC_BASE_URL}/approve?campaign={cid}&sf={sf}&token={store.sign(cid, 'approve', sf)}"
-    reject = f"{cfg.PUBLIC_BASE_URL}/reject?campaign={cid}&sf={sf}&token={store.sign(cid, 'reject', sf)}"
+    # Goedkeurlinks: HMAC dekt campagne + record + INHOUDS-HASH; kortlevend (APPROVAL_TTL_UREN).
+    ih = record.get("inhoud_hash", "") or ""
+    approve = (f"{cfg.PUBLIC_BASE_URL}/approve?campaign={cid}&sf={sf}&h={ih}"
+               f"&token={store.sign(cid, 'approve', sf, ih)}")
+    reject = (f"{cfg.PUBLIC_BASE_URL}/reject?campaign={cid}&sf={sf}&h={ih}"
+              f"&token={store.sign(cid, 'reject', sf, ih)}")
     warn = plan.get("warnings") or []
     warn_html = ("""<div style="background:#FFF3E8;border-radius:6px;padding:12px 14px;font-size:12px;margin-bottom:16px;color:#9a5b1e">"""
                  "<b>Open vragen van de kwaliteitslaag</b> (mag live, liefst eerst aanvullen):"
@@ -689,7 +762,7 @@ def _send_mail(record: dict) -> None:
 <td width="50%" style="padding-right:6px"><a href="{approve}" style="display:block;text-align:center;background:#FF7D2F;color:#fff;text-decoration:none;font-weight:700;padding:14px;border-radius:4px">✓ Goedkeuren &amp; publiceren</a></td>
 <td width="50%" style="padding-left:6px"><a href="{reject}" style="display:block;text-align:center;background:#fff;color:#121212;border:1px solid #DCDCDD;text-decoration:none;font-weight:700;padding:13px;border-radius:4px">✗ Afkeuren</a></td>
 </tr></table>
-<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Campagne staat op PAUSED tot je goedkeurt. Link 7 dagen geldig.</p>
+<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Campagne staat op PAUSED tot je goedkeurt. Link {cfg.APPROVAL_TTL_UREN} uur geldig en gebonden aan exact deze inhoud — wijzigt de campagne, dan is opnieuw goedkeuren nodig.</p>
 </td></tr></table></td></tr></table></body></html>"""
     try:
         emailer.send_approval_mail(f"[Akkoord nodig] Vacature {v['titel']} {v['plaats']}", html,
@@ -706,12 +779,37 @@ def _send_mail(record: dict) -> None:
             print(f"[mail] goedkeur-mail definitief mislukt: {e2}")
 
 
-def publiceer(campaign_id: str, sf_id: str = "") -> dict:
+def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
     """Na goedkeuring: zet de vacature op de website (Tigris) én de Meta-campagne ACTIVE.
 
     1. Tigris: 'Op website geplaatst' = true → App Id + livegangsdatum → 'offline per' = +2 mnd.
     2. Meta: leadform met 'APP ID'-trackingparameter (fase 4) + campagne ACTIVE.
+
+    Beveiliging (fail-closed):
+    * KILL_SWITCH aan → geen enkele publicatie.
+    * inhoud_hash uit de goedkeurlink moet matchen met de in Tigris bewaarde build —
+      is de campagne-inhoud ná de goedkeur-mail gewijzigd, dan wordt geweigerd.
+    * Idempotent over herstarts heen: staat de vacature in Tigris al op 'Geplaatst',
+      dan wordt er niets opnieuw geactiveerd.
     """
+    if cfg.KILL_SWITCH:
+        raise RuntimeError("KILL_SWITCH staat aan — publicaties zijn tijdelijk geblokkeerd.")
+
+    build = _lees_campagne_build(sf_id)
+    if build and build.get("inhoud_hash") and inhoud_hash and build["inhoud_hash"] != inhoud_hash:
+        raise RuntimeError("De campagne-inhoud is gewijzigd ná de goedkeur-mail — deze goedkeuring "
+                           "is vervallen. Vraag een nieuwe goedkeur-mail aan.")
+
+    # Idempotentie over herstarts: al live in Tigris? Dan niets opnieuw doen.
+    if sf_id and not str(sf_id).startswith("DRYRUN") and cfg.salesforce_ready():
+        try:
+            rec = salesforce.get_record(sf_id, ["Tigris__Geplaatst__c"])
+            if rec.get("Tigris__Geplaatst__c"):
+                print(f"[publicatie] {sf_id} staat al op 'Geplaatst' — geen dubbele activatie")
+                return {"website": {"al_gepubliceerd": True}, "meta": None, "app_id": None}
+        except Exception as e:
+            print(f"[publicatie] Geplaatst-check faalde (gaat door): {e}")
+
     website = salesforce.op_website_plaatsen(sf_id) if sf_id else {"app_id": None, "dry_run": True}
     app_id = website.get("app_id")
 
@@ -725,7 +823,6 @@ def publiceer(campaign_id: str, sf_id: str = "") -> dict:
     # uit de bij upload bewaarde build-content. App Id is nu bekend uit de website-plaatsing.
     meta_res = None
     try:
-        build = _lees_campagne_build(sf_id)
         # Advertenties zijn al bij de upload aangemaakt (ads_created). Alleen als dat
         # (nog) niet zo is, maken we ze hier alsnog — vangnet voor oudere builds.
         if build and not build.get("ads_created"):

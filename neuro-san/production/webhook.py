@@ -16,12 +16,54 @@ from fastapi import (BackgroundTasks, FastAPI, File, Form, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
+import beveiliging
 import pipeline
 import store
 from config import cfg
 from tools import emailer
 
 app = FastAPI(title="Neuro San — recruitment automatisering")
+
+# --- Beveiligingshulpen -------------------------------------------------------
+# Noodstop: KILL_SWITCH=1 in de env blokkeert nieuwe verwerking én publicaties.
+def _kill_check() -> None:
+    if cfg.KILL_SWITCH:
+        raise HTTPException(503, "De VIF-keten is tijdelijk uitgeschakeld (noodstop actief).")
+
+
+# Eenvoudige rate-limit per client-IP (schuivend venster van 60s) op de aanlever-
+# endpoints — beschermt tegen scripts/scanners; legitiem gebruik zit hier ruim onder.
+_rate_venster: dict = {}
+_rate_lock = threading.Lock()
+
+
+def _rate_ok(request: Request) -> None:
+    ip = (request.client.host if request.client else "?") or "?"
+    nu = time.time()
+    with _rate_lock:
+        stamps = [t for t in _rate_venster.get(ip, []) if nu - t < 60]
+        if len(stamps) >= cfg.RATE_LIMIT_PER_MIN:
+            raise HTTPException(429, "Te veel verzoeken — probeer het over een minuut opnieuw.")
+        stamps.append(nu)
+        _rate_venster[ip] = stamps
+
+
+# Replay-/dubbel-aanleverbescherming: een content_version_id die recent al is verwerkt
+# wordt niet opnieuw de keten in gestuurd (voorkomt dubbele vacatures + campagnes bij
+# Flow-retries of het opnieuw afspelen van een onderschept verzoek).
+_verwerkte_cv: dict = {}
+_CV_ONTHOUD_SEC = 24 * 3600
+
+
+def _cv_al_verwerkt(cv_id: str) -> bool:
+    nu = time.time()
+    with _rate_lock:
+        for k in [k for k, t in _verwerkte_cv.items() if nu - t > _CV_ONTHOUD_SEC]:
+            _verwerkte_cv.pop(k, None)
+        if cv_id in _verwerkte_cv:
+            return True
+        _verwerkte_cv[cv_id] = nu
+        return False
 
 # Sta de MODX-landingspagina (maintec.nl) toe om de /vif-upload aan te roepen.
 app.add_middleware(CORSMiddleware, allow_origins=cfg.ALLOWED_ORIGINS,
@@ -230,6 +272,8 @@ def _process(vacancy: dict) -> None:
 @app.post("/tigris")
 async def tigris(request: Request, background_tasks: BackgroundTasks,
                  x_tigris_secret: str = Header(default="")):
+    _kill_check()
+    _rate_ok(request)
     if x_tigris_secret.strip() != cfg.TIGRIS_SHARED_SECRET:
         raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
     body = await request.json()
@@ -301,9 +345,11 @@ def _process_vif(path: str, uploader_email: str = "", uploader_naam: str = "",
 
 
 @app.post("/vif")
-async def vif_upload(background_tasks: BackgroundTasks, file: UploadFile = File(...),
+async def vif_upload(request: Request, background_tasks: BackgroundTasks, file: UploadFile = File(...),
                      uploader_email: str = Form(default=""), uploader_naam: str = Form(default=""),
                      x_tigris_secret: str = Header(default="")):
+    _kill_check()
+    _rate_ok(request)
     if x_tigris_secret.strip() != cfg.TIGRIS_SHARED_SECRET:
         raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
     if not (file.filename or "").lower().endswith((".docx", ".pdf")):
@@ -311,6 +357,11 @@ async def vif_upload(background_tasks: BackgroundTasks, file: UploadFile = File(
     if "@" not in uploader_email:
         raise HTTPException(400, "Vul een geldig e-mailadres in (voor terugkoppeling bij onvolledigheid)")
     data = await file.read()
+    # Diepe bestandscontrole: magic bytes, macro's, JavaScript, versleuteling, zip-bom, grootte.
+    fout = beveiliging.controleer_vif_bestand(data, file.filename or "")
+    if fout:
+        print(f"[beveiliging] VIF geweigerd ({file.filename}): {fout}")
+        raise HTTPException(422, fout)
     os.makedirs(VIF_DIR, exist_ok=True)
     safe = os.path.basename(file.filename)
     path = os.path.join(VIF_DIR, f"{int(time.time())}-{safe}")
@@ -343,6 +394,8 @@ async def vif_tigris(request: Request, background_tasks: BackgroundTasks,
     Toegang is beveiligd door: (1) dit endpoint zit achter x-tigris-secret die de
     Named Credential automatisch meestuurt, en (2) de Flow draait alleen binnen een
     ingelogde Tigris-sessie (met 2FA). Er wordt dus geen secret meer getypt."""
+    _kill_check()
+    _rate_ok(request)
     if x_tigris_secret.strip() != cfg.TIGRIS_SHARED_SECRET:
         raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
     body = await request.json()
@@ -352,13 +405,24 @@ async def vif_tigris(request: Request, background_tasks: BackgroundTasks,
     opdrachtgever_id = str(body.get("opdrachtgever_id", "")).strip()
     if not cv_id:
         raise HTTPException(400, "content_version_id ontbreekt")
+    # Replay-/dubbelbescherming: hetzelfde bestand niet twee keer de keten in
+    # (Flow-retry, dubbelklik of een opnieuw afgespeeld verzoek).
+    if _cv_al_verwerkt(cv_id):
+        return {"status": "al_verwerkt", "detail":
+                "Deze VIF is al in behandeling of recent verwerkt — geen dubbele vacature aangemaakt."}
 
     # 1. Bestand ophalen uit Tigris (server-to-server, met de bestaande SF-credentials)
     from tools import salesforce
     try:
         data = salesforce.download_content_version(cv_id)
     except Exception as e:
-        raise HTTPException(502, f"Kon het VIF-bestand niet uit Tigris ophalen: {e}")
+        raise HTTPException(502, f"Kon het VIF-bestand niet uit Tigris ophalen: {str(e)[:150]}")
+
+    # Diepe bestandscontrole (magic bytes, macro's, JavaScript, versleuteling, zip-bom, grootte).
+    fout = beveiliging.controleer_vif_bestand(data)
+    if fout:
+        print(f"[beveiliging] VIF uit Tigris geweigerd (cv {cv_id}): {fout}")
+        return {"status": "geweigerd", "detail": fout}
 
     # 2. Wie is de aanleveraar (sales)? → voor de terugkoppeling bij onvolledigheid
     sales = salesforce.get_user(uploader_id) if uploader_id else {}
@@ -466,9 +530,9 @@ _gepubliceerd: set = set()
 
 
 @app.get("/approve")
-def approve_page(campaign: str, token: str, sf: str = ""):
+def approve_page(campaign: str, token: str, sf: str = "", h: str = ""):
     """Toont een bevestigingspagina. Géén publicatie hier — zo kan e-mail-prefetch niets triggeren."""
-    if not store.verify(campaign, "approve", token, sf):
+    if not store.verify(campaign, "approve", token, sf, h):
         return _page("Link ongeldig of verlopen", "Vraag een nieuwe goedkeur-mail aan.", "#C0392B")
     if campaign in _gepubliceerd:
         return _page("Al gepubliceerd ✓", "Deze vacature is al live gezet.", "#2E7D32")
@@ -482,30 +546,37 @@ en de Meta-campagne te activeren.</p>
 <input type="hidden" name="campaign" value="{campaign}">
 <input type="hidden" name="token" value="{token}">
 <input type="hidden" name="sf" value="{sf}">
+<input type="hidden" name="h" value="{h}">
 <button type="submit" style="background:#FF7D2F;color:#fff;border:0;border-radius:6px;
 padding:14px 28px;font-size:16px;cursor:pointer;margin-top:10px">Ja, publiceren 🚀</button>
 </form></div></body>""")
 
 
 @app.post("/approve")
-def approve_confirm(campaign: str = Form(...), token: str = Form(...), sf: str = Form(default="")):
-    """De daadwerkelijke publicatie — alleen via de bevestigingsknop. Idempotent."""
-    if not store.verify(campaign, "approve", token, sf):
+def approve_confirm(campaign: str = Form(...), token: str = Form(...), sf: str = Form(default=""),
+                    h: str = Form(default="")):
+    """De daadwerkelijke publicatie — alleen via de bevestigingsknop. Idempotent.
+    De inhouds-hash (h) is door de HMAC gedekt en wordt in publiceer() vergeleken met de
+    bewaarde build — gewijzigde inhoud na de goedkeur-mail wordt geweigerd (fail-closed)."""
+    if cfg.KILL_SWITCH:
+        return _page("Publicatie geblokkeerd", "De noodstop (kill switch) staat aan — er wordt "
+                     "nu niets gepubliceerd.", "#C0392B")
+    if not store.verify(campaign, "approve", token, sf, h):
         return _page("Link ongeldig of verlopen", "Vraag een nieuwe goedkeur-mail aan.", "#C0392B")
     with _publish_lock:
         if campaign in _gepubliceerd:
             return _page("Al gepubliceerd ✓", "Deze vacature is al live gezet.", "#2E7D32")
         try:
-            pipeline.publiceer(campaign, sf)
+            pipeline.publiceer(campaign, sf, inhoud_hash=h)
             _gepubliceerd.add(campaign)
         except Exception as e:
-            return _page("Publiceren mislukt", f"Probeer opnieuw of check Tigris/Ads Manager. ({e})", "#C0392B")
+            return _page("Publiceren mislukt", f"Probeer opnieuw of check Tigris/Ads Manager. ({str(e)[:200]})", "#C0392B")
     return _page("Vacature gepubliceerd 🚀",
                  "De vacature staat live op de website (Tigris) en de Meta-campagne is actief.")
 
 
 @app.get("/reject")
-def reject(campaign: str, token: str, sf: str = ""):
-    if not store.verify(campaign, "reject", token, sf):
+def reject(campaign: str, token: str, sf: str = "", h: str = ""):
+    if not store.verify(campaign, "reject", token, sf, h):
         return _page("Link ongeldig of verlopen", "Vraag een nieuwe goedkeur-mail aan.", "#C0392B")
     return _page("Afgekeurd", "De campagne blijft op PAUSED staan en gaat niet live.", "#69696A")

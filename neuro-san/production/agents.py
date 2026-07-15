@@ -30,9 +30,10 @@ def _client():
 
 
 def _ask_json(system: str, user: str, max_tokens: int = 1300) -> dict:
+    from beveiliging import DATA_REGEL
     msg = _client().messages.create(
         model=cfg.ANTHROPIC_MODEL, max_tokens=max_tokens,
-        system=system + "\n\nAntwoord UITSLUITEND met geldige JSON, geen tekst eromheen.",
+        system=system + DATA_REGEL + "\n\nAntwoord UITSLUITEND met geldige JSON, geen tekst eromheen.",
         messages=[{"role": "user", "content": user}],
     )
     import kosten
