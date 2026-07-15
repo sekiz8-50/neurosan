@@ -35,6 +35,8 @@ def _ask_json(system: str, user: str, max_tokens: int = 1300) -> dict:
         system=system + "\n\nAntwoord UITSLUITEND met geldige JSON, geen tekst eromheen.",
         messages=[{"role": "user", "content": user}],
     )
+    import kosten
+    kosten.add_llm(msg.usage)
     text = msg.content[0].text.strip()
     return json.loads(text[text.find("{"): text.rfind("}") + 1])
 

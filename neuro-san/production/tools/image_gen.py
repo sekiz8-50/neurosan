@@ -25,4 +25,9 @@ def generate_image(prompt: str, out_path: str, size: str = "1024x1024") -> str:
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, "wb") as f:
         f.write(base64.b64decode(b64))
+    try:
+        import kosten
+        kosten.add_beeld()
+    except Exception:
+        pass
     return out_path

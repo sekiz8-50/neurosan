@@ -9,6 +9,7 @@ BELANGRIJK — vacatures = Speciale Advertentiecategorie 'EMPLOYMENT':
 Alles wordt op PAUSED aangemaakt; activeren gebeurt pas na goedkeuring.
 """
 import json
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -101,9 +102,13 @@ def create_campaign(name: str, objective: str = "OUTCOME_TRAFFIC") -> str:
 
 
 # --- Lead-gen (Instant Form) — leads herleidbaar via de 'APP ID'-trackingparameter -----
-def create_lead_adset(name: str, campaign_id: str, daily_budget_eur: int, targeting: dict) -> str:
-    """Ad set voor lead-generatie (leads via een Instant Form op de advertentie zelf)."""
-    res = _post(f"{ACT}/adsets", {
+def create_lead_adset(name: str, campaign_id: str, daily_budget_eur: int, targeting: dict,
+                      looptijd_dagen: int | None = None) -> str:
+    """Ad set voor lead-generatie (leads via een Instant Form op de advertentie zelf).
+
+    looptijd_dagen (optioneel, van de performance-marketeer): legt de looptijd als concept
+    vast via een einddatum (start = nu, eind = nu + looptijd). De ad set blijft PAUSED."""
+    payload = {
         "name": name,
         "campaign_id": campaign_id,
         "status": "PAUSED",
@@ -114,7 +119,12 @@ def create_lead_adset(name: str, campaign_id: str, daily_budget_eur: int, target
         "promoted_object": json.dumps({"page_id": cfg.META_PAGE_ID}),
         "destination_type": "ON_AD",                    # Instant Form opent in de advertentie
         "targeting": json.dumps(targeting),
-    })
+    }
+    if looptijd_dagen and looptijd_dagen > 0:
+        nu = datetime.now(timezone.utc)
+        payload["start_time"] = nu.strftime("%Y-%m-%dT%H:%M:%S%z")
+        payload["end_time"] = (nu + timedelta(days=looptijd_dagen)).strftime("%Y-%m-%dT%H:%M:%S%z")
+    res = _post(f"{ACT}/adsets", payload)
     return res["id"]
 
 

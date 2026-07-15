@@ -48,6 +48,17 @@ MERKSTEM = (
     "Meta EMPLOYMENT-regels: nooit leeftijd, geslacht of afkomst benoemen of impliceren."
 )
 
+# HARDE regel voor ELKE agent: de naam van de opdrachtgever/eindklant mag NOOIT in
+# naar buiten tredende tekst (vacaturetekst, FAQ, teaser, advertenties, beeld) belanden.
+# Maintec/Tecforce werven namens de opdrachtgever; die blijft anoniem. Verwijs ernaar
+# als 'onze opdrachtgever'. De dirigent controleert dit bovendien met een code-scrub.
+GEEN_KLANTNAAM = (
+    " GEHEIMHOUDING (verplicht): noem NOOIT de naam van de opdrachtgever/eindklant in je "
+    "output. Ook geen herkenbare bedrijfsnaam, merknaam of vestigingsnaam van de klant. "
+    "Verwijs er neutraal naar als 'onze opdrachtgever' (of 'een toonaangevende opdrachtgever "
+    "in de regio'). Dit geldt voor alle tekst die naar buiten gaat."
+)
+
 # (agentnaam, systeemprompt, gevraagde JSON-sleutels)
 AGENTS = {
     "vif_parser": (
@@ -107,9 +118,13 @@ AGENTS = {
         "tekens en ALTIJD volledige zinnen, Headlines max 40, Descriptions max 30. "
         "Speciale categorie WERK: geen doelgroep-kenmerken benoemen. Geef daarnaast in "
         "MediaAdvice een kort, concreet advies aan marketing: hoe bereik je op basis van deze "
-        "VIF de juiste kandidaten (budgetverdeling, geo-radius, kanaal, timing). " + MERKSTEM,
+        "VIF de juiste kandidaten (budgetverdeling, geo-radius, kanaal, timing). "
+        "Stel ook een concreet MEDIABUDGET voor: DailyBudgetEur = het dagbudget in hele euro's "
+        "voor de advertentieset (realistisch voor werving in deze regio/functie, doorgaans "
+        "€10-€40 per dag), en LooptijdDagen = het aantal dagen dat de campagne zou moeten lopen "
+        "(doorgaans 14-30). Onderbouw je keuze kort in MediaAdvice. " + MERKSTEM,
         '{"PrimaryTexts": ["...x5"], "Headlines": ["...x5"], "Descriptions": ["...x5"], '
-        '"MediaAdvice": "..."}'),
+        '"MediaAdvice": "...", "DailyBudgetEur": 20, "LooptijdDagen": 21}'),
     "designer": (
         "Je bent de designer en kent de Maintec-fotografiestijl: geloofwaardige, professionele "
         "foto's van échte vakmensen die met TROTS en VAKMANSCHAP werken. Harde eisen die je in "
@@ -181,8 +196,11 @@ def _vraag(client, naam: str, opdracht: str, transcript: list) -> dict:
                        "text": f"→ {naam}: {opdracht[:400]}"})
     msg = client.messages.create(
         model=cfg.ANTHROPIC_MODEL, max_tokens=2500,
-        system=system + _extra_context(naam) + " Antwoord UITSLUITEND met JSON volgens dit schema: " + schema,
+        system=system + GEEN_KLANTNAAM + _extra_context(naam)
+        + " Antwoord UITSLUITEND met JSON volgens dit schema: " + schema,
         messages=[{"role": "user", "content": opdracht}])
+    import kosten
+    kosten.add_llm(msg.usage)
     text = msg.content[0].text.strip()
     text = text[text.find("{"): text.rfind("}") + 1]
     out = json.loads(text)
@@ -237,7 +255,9 @@ def run_brain(vif_tekst: str) -> tuple[dict, dict]:
                 ("MetaTitle", "MetaDescription", "SuggestedURLSlug", "FocusKeyword", "SecondaryKeywords")},
         "GEO/LLM": {"FAQ": geo.get("FAQ", [])},
         "Social": {**{k: ads.get(k, []) for k in ("PrimaryTexts", "Headlines", "Descriptions")},
-                   "MediaAdvice": ads.get("MediaAdvice", "")},
+                   "MediaAdvice": ads.get("MediaAdvice", ""),
+                   "DailyBudgetEur": ads.get("DailyBudgetEur"),
+                   "LooptijdDagen": ads.get("LooptijdDagen")},
         "CreativeBrief": beeld.get("CreativeBrief", ""),
         "ImagePrompt": beeld.get("ImagePrompt", ""),
         "Sourcing": sourcing,

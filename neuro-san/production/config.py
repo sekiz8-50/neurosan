@@ -54,6 +54,15 @@ class Config:
     # Optioneel: Claude voor teksten/prompt
     ANTHROPIC_API_KEY = _opt("ANTHROPIC_API_KEY")
     ANTHROPIC_MODEL = _opt("ANTHROPIC_MODEL", "claude-opus-4-8")
+
+    # AI-kostentelling — laat in de marketingmail zien wat één VIF-aanvraag kostte.
+    # Prijzen per 1M tokens (USD) voor het gebruikte model (standaard Claude Opus 4.8:
+    # $5 input / $25 output). Beeldprijs per gegenereerd beeld (gpt-image-1, high 1024²
+    # ≈ $0,17). USD→EUR-koers. Allemaal aanpasbaar via env als de tarieven wijzigen.
+    PRIJS_INPUT_PER_MILJOEN_USD = float(_opt("PRIJS_INPUT_PER_MILJOEN_USD", "5") or "5")
+    PRIJS_OUTPUT_PER_MILJOEN_USD = float(_opt("PRIJS_OUTPUT_PER_MILJOEN_USD", "25") or "25")
+    PRIJS_BEELD_PER_STUK_USD = float(_opt("PRIJS_BEELD_PER_STUK_USD", "0.17") or "0.17")
+    USD_EUR_KOERS = float(_opt("USD_EUR_KOERS", "0.92") or "0.92")
     # Het ingebouwde Claude-brein (11 agents, claude_agents.py) — standaard AAN
     # zodra er een ANTHROPIC_API_KEY is. Zet CLAUDE_BRAIN=0 om terug te vallen
     # op de simpele agents (sneller/goedkoper, minder rijk).

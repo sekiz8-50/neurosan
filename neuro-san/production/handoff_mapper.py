@@ -420,6 +420,16 @@ def campagne_plan(vac: dict, handoff: dict) -> dict:
     """Bouwt het plan-dict dat pipeline.run() verwacht, met de Meta-copy uit de handoff."""
     social = handoff.get("Social") or {}
     media_advies = str(social.get("MediaAdvice") or "")
+
+    def _pos_int(v):
+        try:
+            n = int(round(float(v)))
+            return n if n > 0 else None
+        except (TypeError, ValueError):
+            return None
+
+    budget_eur = _pos_int(social.get("DailyBudgetEur"))
+    looptijd_dagen = _pos_int(social.get("LooptijdDagen"))
     pts = social.get("PrimaryTexts") or []
     hls = social.get("Headlines") or []
     dcs = social.get("Descriptions") or []
@@ -452,5 +462,6 @@ def campagne_plan(vac: dict, handoff: dict) -> dict:
     return {"label": vac.get("label", "Maintec"), "image_prompt": image_prompt,
             "variants": variants, "cta": "APPLY_NOW", "targeting": targeting,
         "media_advies": media_advies,
+            "budget_eur": budget_eur, "looptijd_dagen": looptijd_dagen,
             "review": {"approved": str(blc.get("status", "")).upper().startswith("APPROVED"),
                        "score": None, "feedback": blc.get("status")}}

@@ -179,6 +179,18 @@ def _auth() -> tuple[str, str]:
     return j["access_token"], j["instance_url"]
 
 
+def record_url(sf_id: str) -> str:
+    """Bouwt de Lightning-record-URL van de vacature in Tigris (leeg bij dry-run/geen creds)."""
+    if not sf_id or str(sf_id).startswith("DRYRUN") or not cfg.salesforce_ready():
+        return ""
+    try:
+        _, instance = _auth()
+        return f"{instance}/lightning/r/{cfg.SF_VACANCY_OBJECT}/{sf_id}/view"
+    except Exception as e:
+        print(f"[ATS-administrateur] record-URL bouwen faalde: {e}")
+        return ""
+
+
 def get_user(user_id: str) -> dict:
     """Haalt {Id, Name, Email} van een Tigris/Salesforce-gebruiker op (leeg bij fout)."""
     if not user_id or not cfg.salesforce_ready():

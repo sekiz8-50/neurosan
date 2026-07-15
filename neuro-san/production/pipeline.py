@@ -4,12 +4,14 @@ Roept de echte tools aan. Activeren gebeurt los, vanuit de webhook, na goedkeuri
 """
 import json
 import os
+import re
 import shutil
 import time
 
 import agents
 import claude_agents
 import handoff_mapper
+import kosten
 import neuro_san_client
 import store
 import vif_parser
@@ -120,15 +122,21 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
             # worden NU al aangemaakt (alles PAUSED), zodat ze meteen in Meta klaarstaan.
             # Bij goedkeuring worden ze alleen nog geactiveerd.
             campaign_id = meta.create_campaign(naam, "OUTCOME_LEADS")
+            # Budget + looptijd zoals voorgesteld door de performance-marketeer (concept in META).
+            budget_eur = plan.get("budget_eur")
+            looptijd = plan.get("looptijd_dagen")
             for spec in plan["targeting"].get("ad_sets", []):
                 if spec.get("use_lookalike") and not saa:
                     continue
                 targeting = _targeting_geo(vacancy, spec.get("radius_km", 25))
-                adset_ids.append(meta.create_lead_adset(spec.get("name", "Ad set"), campaign_id,
-                                                        spec.get("daily_budget_eur", 15), targeting))
+                adset_ids.append(meta.create_lead_adset(
+                    spec.get("name", "Ad set"), campaign_id,
+                    budget_eur or spec.get("daily_budget_eur", 15), targeting,
+                    looptijd_dagen=looptijd))
             if not adset_ids:
-                adset_ids.append(meta.create_lead_adset(f"{vacancy['plaats']} | Breed", campaign_id,
-                                                        15, _targeting_geo(vacancy)))
+                adset_ids.append(meta.create_lead_adset(
+                    f"{vacancy['plaats']} | Breed", campaign_id,
+                    budget_eur or 15, _targeting_geo(vacancy), looptijd_dagen=looptijd))
             # Instant Form + advertenties (5 varianten × elke ad set), allemaal PAUSED.
             form_id = meta.create_lead_form(
                 f"{vacancy['titel']} — sollicitatie · {campaign_id}"[:200],
@@ -179,6 +187,8 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                  "n_adsets": len(adset_ids), "n_ads": len(ad_ids), "n_variants": len(variants),
                  "alle_varianten": [x.get("primary_text", "") for x in variants],
                  "media_advies": plan.get("media_advies", ""),
+                 "budget_eur": plan.get("budget_eur"), "looptijd_dagen": plan.get("looptijd_dagen"),
+                 "kosten": kosten.samenvatting(),
                  "warnings": warnings or [], "meta_fout": meta_fout}
     record = {"campaign_id": campaign_id, "adset_ids": adset_ids, "ad_ids": ad_ids, "lead_gen": lead_gen,
               "state": "PENDING", "vacancy": vacancy, "plan": mail_plan, "image_path": img_path,
@@ -237,6 +247,154 @@ def intake_en_check(docx_path: str) -> tuple[dict, list]:
     return vac, ontbrekend
 
 
+# Woorden die we bij het strippen van de opdrachtgeversnaam nooit los vervangen
+# (te generiek / juridische toevoegingen) — anders zou 'de', 'group' e.d. sneuvelen.
+_KLANT_STOPWOORDEN = {"bv", "b.v.", "b.v", "nv", "n.v.", "n.v", "vof", "cv", "holding",
+                      "group", "groep", "company", "de", "het", "en", "van", "der", "den",
+                      "the", "&", "co", "int", "international", "nederland", "benelux"}
+
+
+# Nederlandse tussenvoegsels die vóór een klantnaam-woord horen (van der, den, de, ...);
+# we 'eten' ze mee bij het vervangen, zodat 'Van der Berg' → 'onze opdrachtgever' wordt
+# (en niet 'Van der onze opdrachtgever').
+_TUSSEN = r"(?:\b(?:van|von|der|den|de|het|te|ter|ten|op|aan|'t)\s+)*"
+
+
+def _klant_patronen(naam: str) -> list:
+    """Bouwt regex-patronen om de opdrachtgeversnaam (en herkenbare varianten) te vinden."""
+    naam = (naam or "").strip()
+    if not naam or len(naam) < 3:
+        return []
+    varianten = {naam}
+    # Naam zonder juridische toevoeging (B.V., N.V., Holding, Group, ...)
+    kaal = re.sub(r"\b(b\.?v\.?|n\.?v\.?|vof|holding|group|groep|company|co)\b\.?", "",
+                  naam, flags=re.I).strip(" .,-&")
+    if len(kaal) >= 3:
+        varianten.add(kaal)
+    # Losse, onderscheidende woorden uit de naam (geen generieke/juridische termen)
+    for w in re.split(r"[\s/,&-]+", naam):
+        w = w.strip(" .,-&")
+        if len(w) >= 4 and w.lower() not in _KLANT_STOPWOORDEN:
+            varianten.add(w)
+    # Langste eerst, zodat de volledige naam vóór losse woorden wordt vervangen. Elk patroon
+    # mag voorafgaande tussenvoegsels meenemen (zie _TUSSEN).
+    patronen = []
+    for v in sorted(varianten, key=len, reverse=True):
+        patronen.append(re.compile(_TUSSEN + r"\b" + re.escape(v) + r"\b", re.I))
+    return patronen
+
+
+def _scrub_str(s, patronen: list, vervanging: str = "onze opdrachtgever") -> str:
+    if not isinstance(s, str) or not s:
+        return s
+    for pat in patronen:
+        s = pat.sub(vervanging, s)
+    # Dubbele vervanging opruimen ('onze opdrachtgever onze opdrachtgever' → 1x)
+    s = re.sub(r"(onze opdrachtgever)(\s+\1)+", r"\1", s, flags=re.I)
+    return s
+
+
+def _scrub_opdrachtgever(vac: dict, plan: dict | None = None) -> None:
+    """DIRIGENT-eindcheck: verwijder de opdrachtgeversnaam uit ALLE naar buiten tredende
+    tekst (omschrijving, FAQ, teaser, keywords, advertenties, media-advies). De klantnaam
+    mag nooit publiek worden gecommuniceerd — dit is de gegarandeerde code-backstop naast
+    de instructie aan de agents."""
+    naam = (vac.get("bedrijf") or "").strip()
+    patronen = _klant_patronen(naam)
+    if not patronen:
+        return
+    # Omschrijvingsblokken (dict van strings)
+    oms = vac.get("omschrijving")
+    if isinstance(oms, dict):
+        vac["omschrijving"] = {k: _scrub_str(v, patronen) for k, v in oms.items()}
+    elif isinstance(oms, str):
+        vac["omschrijving"] = _scrub_str(oms, patronen)
+    # Teaser / quote
+    if vac.get("quote"):
+        vac["quote"] = _scrub_str(vac["quote"], patronen)
+    # FAQ (lijst van {vraag, antwoord})
+    faq = vac.get("faq")
+    if isinstance(faq, list):
+        for f in faq:
+            if isinstance(f, dict):
+                f["vraag"] = _scrub_str(f.get("vraag", ""), patronen)
+                f["antwoord"] = _scrub_str(f.get("antwoord", ""), patronen)
+    if vac.get("faq_tekst"):
+        vac["faq_tekst"] = _scrub_str(vac["faq_tekst"], patronen)
+    # SEO / keywords — een keyword dat de klantnaam bevat filteren we volledig weg
+    kws = vac.get("keywords")
+    if isinstance(kws, list):
+        vac["keywords"] = [k for k in kws if not any(p.search(str(k)) for p in patronen)]
+    if isinstance(vac.get("seo"), dict) and isinstance(vac["seo"].get("keywords"), list):
+        vac["seo"]["keywords"] = [k for k in vac["seo"]["keywords"]
+                                  if not any(p.search(str(k)) for p in patronen)]
+    # Advertentievarianten + media-advies in het campagneplan
+    if isinstance(plan, dict):
+        for v in plan.get("variants", []) or []:
+            if isinstance(v, dict):
+                for veld in ("headline", "primary_text", "description"):
+                    if v.get(veld):
+                        v[veld] = _scrub_str(v[veld], patronen)
+        if plan.get("media_advies"):
+            plan["media_advies"] = _scrub_str(plan["media_advies"], patronen)
+    print(f"[dirigent] opdrachtgeversnaam gescrubd uit publieke tekst ({len(patronen)} patroon/patronen)")
+
+
+def _mail_kop(titel_regel: str) -> str:
+    return (f'<tr><td style="background:#000;padding:18px 24px">'
+            f'<span style="color:#FF7D2F;font-weight:800;font-size:18px">MAINTEC</span>'
+            f'<span style="color:#fff;font-size:13px"> · {titel_regel}</span></td></tr>')
+
+
+def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str,
+                                  sf_id: str) -> None:
+    """Punt 4: mail de recruiter (er is een VIF ingevuld + vacature aangemaakt) én de
+    aanleveraar/sales (de VIF is succesvol; recruitment en marketing gaan aan de slag),
+    elk met een hyperlink naar de vacature in Tigris. Faalt stil — mag de keten niet stoppen."""
+    url = salesforce.record_url(sf_id)
+    titel = vac.get("titel", "vacature")
+    plaats = vac.get("plaats", "")
+    knop = (f'<p style="margin:18px 0"><a href="{url}" style="display:inline-block;'
+            f'background:#FF7D2F;color:#fff;text-decoration:none;font-weight:700;'
+            f'padding:12px 22px;border-radius:4px">Open de vacature in Tigris →</a></p>'
+            if url else '<p style="color:#8A8A8B;font-size:12px">(De vacature staat in Tigris.)</p>')
+
+    def _stuur(naar: str, aanhef: str, boodschap: str, onderwerp: str) -> None:
+        if not naar or "@" not in naar:
+            return
+        html = (f'<!doctype html><html lang="nl"><meta charset="utf-8">'
+                f'<body style="margin:0;background:#f6f6f6;font-family:Inter,system-ui,sans-serif;color:#121212">'
+                f'<table width="100%"><tr><td align="center" style="padding:24px">'
+                f'<table width="560" style="background:#fff;border-radius:8px;overflow:hidden">'
+                + _mail_kop("Tigris — vacature aangemaakt") +
+                f'<tr><td style="padding:24px">'
+                f'<h2 style="margin:0 0 8px">{titel}{(" · " + plaats) if plaats else ""}</h2>'
+                f'<p style="color:#121212;font-size:13px">{aanhef}</p>'
+                f'<p style="color:#69696A;font-size:13px">{boodschap}</p>{knop}'
+                f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch bericht van Neuro San.</p>'
+                f'</td></tr></table></td></tr></table></body></html>')
+        try:
+            emailer.send_approval_mail(onderwerp, html, to=naar)
+            print(f"[dirigent] notificatiemail verstuurd naar {naar}")
+        except Exception as e:
+            print(f"[dirigent] notificatiemail naar {naar} faalde: {e}")
+
+    recruiter = salesforce.get_user(recruiter_id) if recruiter_id else {}
+    aanleveraar = salesforce.get_user(uploader_id) if uploader_id else {}
+    r_naam = recruiter.get("Name", "").split(" ")[0] if recruiter.get("Name") else ""
+    a_naam = aanleveraar.get("Name", "").split(" ")[0] if aanleveraar.get("Name") else ""
+    _stuur(recruiter.get("Email", ""),
+           f"Hoi {r_naam}," if r_naam else "Hoi,",
+           "Er is een VIF ingevuld en er is automatisch een vacature voor je aangemaakt in "
+           "Tigris — jij bent de eigenaar. Marketing bereidt de campagne voor.",
+           f"[Nieuwe vacature] {titel} {plaats}".strip())
+    _stuur(aanleveraar.get("Email", ""),
+           f"Hoi {a_naam}," if a_naam else "Hoi,",
+           "Je VIF is succesvol verwerkt en de vacature is aangemaakt in Tigris. Recruitment "
+           "en marketing gaan er nu mee aan de slag. Dank voor je aanlevering!",
+           f"[VIF verwerkt] {titel} {plaats}".strip())
+
+
 def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
             recruiter_id: str = "", uploader_id: str = "", opdrachtgever_id: str = "",
             content_version_id: str = "") -> dict:
@@ -245,6 +403,9 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     Stappen: parse → intake-extractie → copy → SEO → trends → GEO-LLM → brand-bewaker
     → designer (beeld) → ATS-administrateur (Tigris) → campagnemanager Meta + goedkeur-mail.
     """
+    # 0. Start de AI-kostenteller voor deze run (tokens + beelden → € in de marketingmail)
+    kosten.start()
+
     # 1. VIF inlezen + feiten extraheren
     raw = vif_parser.parse_vif(docx_path)
     vac = agents.vif_to_vacancy(raw)
@@ -354,6 +515,10 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     if sourcing and sourcing.get("SearchStrings"):
         vac["sourcing_zoekstrings"] = "\n".join(str(x) for x in sourcing["SearchStrings"])
 
+    # 5c. DIRIGENT-eindcheck (punt 1): opdrachtgeversnaam uit ALLE publieke tekst strippen
+    #     (omschrijving, FAQ/faq_tekst, teaser, keywords, advertenties, media-advies).
+    _scrub_opdrachtgever(vac, plan)
+
     # 6. ATS-administrateur — record in Tigris/Salesforce (dry-run zonder creds)
     if recruiter_id:
         vac["owner_id"] = recruiter_id        # vacature komt op naam van de recruiter
@@ -376,6 +541,8 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     # Origineel VIF-bestand koppelen: aan de OPDRACHTGEVER (klantdossier) én de vacature.
     if content_version_id:
         salesforce.link_file_to_records(content_version_id, [opdrachtgever_id, sf["id"]])
+    # Punt 4: recruiter (nieuwe vacature) + aanleveraar (VIF verwerkt) mailen met hyperlink.
+    _notify_recruiter_aanleveraar(vac, recruiter_id, uploader_id, sf["id"])
 
     # 7. Campagnemanager Meta + goedkeur-mail (lead-gen; open vragen gaan mee naar de goedkeurder)
     record = run(vac, plan=plan, image_path=img_path, warnings=warnings, lead_gen=True)
@@ -473,6 +640,33 @@ def _send_mail(record: dict) -> None:
     advies_html = ("<div style='background:#EFF6FF;border-radius:6px;padding:12px 14px;font-size:12px;"
                    "margin-bottom:16px;color:#1e4d8a'><b>Advies performance-marketeer:</b> "
                    + advies + "</div>") if advies else ""
+
+    # Budget + looptijd van de performance-marketeer (staat als concept in META)
+    budget = plan.get("budget_eur")
+    looptijd = plan.get("looptijd_dagen")
+    budget_html = ""
+    if budget or looptijd:
+        regels = []
+        if budget:
+            totaal = f" · totaal ± € {budget * looptijd:,}".replace(",", ".") if looptijd else ""
+            regels.append(f"<b>Dagbudget:</b> € {budget} per advertentieset{totaal}")
+        if looptijd:
+            regels.append(f"<b>Looptijd:</b> {looptijd} dagen")
+        budget_html = ("<div style='background:#F0FBF4;border-radius:6px;padding:12px 14px;font-size:12px;"
+                       "margin-bottom:16px;color:#1c6b3f'><b>Mediabudget (concept in META):</b><br>"
+                       + "<br>".join(regels) + "</div>")
+
+    # AI-kosten van deze aanvraag (tokens → USD → €)
+    k = plan.get("kosten")
+    kosten_html = ""
+    if k:
+        kosten_html = (
+            "<div style='background:#FBF6FF;border-radius:6px;padding:12px 14px;font-size:12px;"
+            "margin-bottom:16px;color:#5b2a86'><b>AI-kosten van deze aanvraag:</b><br>"
+            f"± € {k.get('eur', 0):.2f} (${k.get('usd', 0):.2f}) · {k.get('totaal_tokens', 0):,} tokens".replace(",", ".")
+            + f" over {k.get('calls', 0)} AI-aanroepen"
+            + (f" + {k.get('beelden', 0)} beeld(en)" if k.get("beelden") else "")
+            + f"<br><span style='color:#9a7bb8'>Model {k.get('model', '')}</span></div>")
     varianten_html = "".join(
         "<p style='margin:0 0 8px'><b>Variant {}:</b> {}</p>".format(i + 1, t)
         for i, t in enumerate(plan.get("alle_varianten") or [plan.get("primary_text", "")]))
@@ -487,6 +681,8 @@ def _send_mail(record: dict) -> None:
 <div style="background:#F6F6F6;border-radius:6px;padding:14px;font-size:13px;margin-bottom:16px">{varianten_html}</div>
 {canva_html}
 {advies_html}
+{budget_html}
+{kosten_html}
 {meta_html}
 {warn_html}
 <table width="100%"><tr>
