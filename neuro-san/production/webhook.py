@@ -572,6 +572,32 @@ def laatste_bestanden(token: str = ""):
         return {"fout": str(e)[:300]}
 
 
+@app.get("/appid")
+def appid(token: str = "", vacature: str = ""):
+    """Leest het App Id (+ publicatiestatus) van een vacature uit Tigris. Zo test je WANNEER
+    Tigris het App Id-veld vult: op een net-aangemaakte vacature (nog niet 'Op website') zou
+    het leeg moeten zijn, en gevuld zodra de vacature op de website is geplaatst.
+    Gebruik: /appid?token=<secret>&vacature=a0m..."""
+    if token.strip() != cfg.TIGRIS_SHARED_SECRET:
+        raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
+    from tools import salesforce
+    vac = _clean_sf_id(vacature)
+    if not vac:
+        return {"hint": "Geef vacature=a0m... (het vacature-Id uit de Tigris-URL)."}
+    try:
+        rec = salesforce.get_record(vac, ["Name", "Tigris__App_Id__c", "Tigris__Geplaatst__c",
+                                          "Tigris__Date_Activated__c"])
+        app_id = rec.get("Tigris__App_Id__c")
+        return {"vacature": vac, "naam": rec.get("Name"),
+                "app_id": app_id or None,
+                "op_website_geplaatst": rec.get("Tigris__Geplaatst__c"),
+                "live_sinds": rec.get("Tigris__Date_Activated__c"),
+                "conclusie": ("App Id AANWEZIG ✅ — leadkoppeling kan hierop" if app_id else
+                              "App Id nog LEEG — waarschijnlijk pas gevuld ná 'Op website plaatsen'")}
+    except Exception as e:
+        return {"fout": f"{str(e)[:250]} (klopt het vacature-Id, en bestaat het veld Tigris__App_Id__c?)"}
+
+
 @app.get("/beeld/{naam}")
 def beeld(naam: str):
     """Serveert een gegenereerd vacaturebeeld (gebruikt als Tigris Photo_URL + in de mail)."""
