@@ -491,29 +491,36 @@ def koppel_diagnose(token: str = "", cv: str = "", records: str = ""):
 
 
 @app.get("/doc-test")
-def doc_test(token: str = "", cv: str = "", account: str = "", type: str = ""):
-    """Test los het aanmaken van een Tigris-'Documenten'-record bij de opdrachtgever met een
-    VIF-bestand. Geeft de exacte uitkomst (record-id of de precieze Salesforce-fout — bv. een
-    ontbrekend verplicht veld of ongeldige Documenttype-waarde). Zo stemmen we de velden af
-    zonder de hele keten te draaien.
-    Gebruik: /doc-test?token=<secret>&cv=068...&account=001...   (type optioneel)"""
+def doc_test(token: str = "", cv: str = "", account: str = "", vacature: str = "", type: str = ""):
+    """Test los het aanmaken van een Tigris-'Documenten'-record bij de opdrachtgever (en, als je
+    'vacature' meegeeft én TIGRIS_DOC_VACANCY_FIELD is gezet, óók aan de vacature) met een
+    VIF-bestand. Geeft de exacte uitkomst (record-id of de precieze Salesforce-fout). Zo stem je
+    de velden af zonder de hele keten (AI/beeld/Meta) te draaien.
+    Gebruik: /doc-test?token=<secret>&cv=068...&account=001...&vacature=a0m...   (vacature/type optioneel)"""
     if token.strip() != cfg.TIGRIS_SHARED_SECRET:
         raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
     from tools import salesforce
     cv = _clean_sf_id(cv)
     account = _clean_sf_id(account)
+    vacature = _clean_sf_id(vacature)
     if not cv or not account:
         return {"hint": "Geef cv (ContentVersion-Id, 068...) en account (Account-Id van de "
-                        "opdrachtgever, 001...). type = optionele Documenttype-keuzelijstwaarde.",
+                        "opdrachtgever, 001...). vacature = optioneel vacature-Id; type = optionele "
+                        "Documenttype-keuzelijstwaarde.",
                 "object": cfg.TIGRIS_DOC_OBJECT, "account_veld": cfg.TIGRIS_DOC_ACCOUNT_FIELD,
-                "bestand_veld": cfg.TIGRIS_DOC_CONTENTID_FIELD}
+                "bestand_veld": cfg.TIGRIS_DOC_CONTENTID_FIELD,
+                "vacature_veld": cfg.TIGRIS_DOC_VACANCY_FIELD or "(niet geconfigureerd)"}
     if not cv.startswith("068"):
         return {"waarschuwing": f"'{cv}' lijkt geen ContentVersion-Id (die begint met 068). "
                 "Haal het juiste Id op via /laatste-bestanden — NIET je secret gebruiken.",
                 "cv_ontvangen": cv}
-    rid = salesforce.maak_tigris_document(account, cv, "VIF - test", type.strip())
+    rid = salesforce.maak_tigris_document(account, cv, "VIF - test", type.strip(), vacancy_id=vacature)
     return {"documenten_record_id": rid or None,
             "resultaat": "aangemaakt" if rid else "mislukt — zie de Render-logs voor de exacte fout",
+            "vacature_veld_geconfigureerd": bool(cfg.TIGRIS_DOC_VACANCY_FIELD),
+            "vacature_meegegeven": bool(vacature),
+            "let_op": ("Staat de record maar op één van beide lijsten? Kijk in de Render-log naar "
+                       "'overgeslagen velden' — dan is het vacature-veld (API-naam) niet geaccepteerd."),
             "object": cfg.TIGRIS_DOC_OBJECT}
 
 
