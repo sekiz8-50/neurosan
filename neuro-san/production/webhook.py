@@ -456,6 +456,52 @@ async def vif_tigris(request: Request, background_tasks: BackgroundTasks,
             "recruiter_id": recruiter_id, "aanleveraar_id": uploader_id}
 
 
+@app.get("/koppel-diagnose")
+def koppel_diagnose(token: str = "", cv: str = "", records: str = ""):
+    """Diagnose voor de VIF-bestandskoppeling. Test met een echte ContentVersion-Id (cv)
+    en één of meer record-Id's (records, komma-gescheiden — bv. het Account-Id van de
+    opdrachtgever én het vacature-Id). Toont per record óf koppelen lukt en anders de
+    EXACTE Salesforce-fout (rechten, niet gevonden, ...).
+
+    ContentVersion-Id vinden: open het geüploade bestand in Salesforce → in de URL
+    staat 069... (ContentDocument). Of gebruik /laatste-bestanden hieronder.
+    Gebruik: /koppel-diagnose?token=<secret>&cv=068...&records=001...,a0m..."""
+    if token.strip() != cfg.TIGRIS_SHARED_SECRET:
+        raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
+    from tools import salesforce
+    rids = [r.strip() for r in records.split(",") if r.strip()]
+    if not cv.strip() or not rids:
+        return {"hint": "Geef cv (ContentVersion-Id, 068...) en records (komma-gescheiden "
+                        "record-Id's, bv. Account-Id + vacature-Id). Zie /laatste-bestanden "
+                        "voor recente ContentVersion-Id's."}
+    return salesforce.koppel_diagnose(cv.strip(), rids)
+
+
+@app.get("/laatste-bestanden")
+def laatste_bestanden(token: str = ""):
+    """Toont de laatst geüploade bestanden (ContentVersion-Id's + titel + wie/wanneer),
+    zodat je snel een cv-Id hebt voor /koppel-diagnose. Gebruik: /laatste-bestanden?token=<secret>"""
+    if token.strip() != cfg.TIGRIS_SHARED_SECRET:
+        raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
+    from tools import salesforce
+    if not cfg.salesforce_ready():
+        return {"fout": "Geen Salesforce-credentials actief."}
+    try:
+        token_sf, instance = salesforce._auth()
+        import requests as _rq
+        q = ("SELECT Id, Title, FileExtension, ContentDocumentId, CreatedDate, CreatedBy.Name "
+             "FROM ContentVersion WHERE IsLatest = true ORDER BY CreatedDate DESC LIMIT 10")
+        r = _rq.get(f"{instance}/services/data/{cfg.SF_API_VERSION}/query?q={_rq.utils.quote(q)}",
+                    headers={"Authorization": f"Bearer {token_sf}"}, timeout=30)
+        recs = r.json().get("records", []) if r.ok else []
+        return {"bestanden": [{"content_version_id": x["Id"], "titel": x.get("Title"),
+                               "ext": x.get("FileExtension"), "content_document_id": x.get("ContentDocumentId"),
+                               "aangemaakt": x.get("CreatedDate"),
+                               "door": (x.get("CreatedBy") or {}).get("Name")} for x in recs]}
+    except Exception as e:
+        return {"fout": str(e)[:300]}
+
+
 @app.get("/beeld/{naam}")
 def beeld(naam: str):
     """Serveert een gegenereerd vacaturebeeld (gebruikt als Tigris Photo_URL + in de mail)."""

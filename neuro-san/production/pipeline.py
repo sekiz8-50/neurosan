@@ -613,7 +613,15 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     vac["app_id"] = salesforce.wacht_op_app_id(sf["id"])
     # Origineel VIF-bestand koppelen: aan de OPDRACHTGEVER (klantdossier) én de vacature.
     if content_version_id:
+        doelen = [d for d in [opdrachtgever_id, sf["id"]] if d]
+        og_status = "gezet" if opdrachtgever_id else "LEEG (Flow stuurt opdrachtgever_id niet mee)"
+        print(f"[orkestrator] VIF-bestand koppelen — cv={content_version_id} -> {doelen} "
+              f"(opdrachtgever_id={og_status})")
         salesforce.link_file_to_records(content_version_id, [opdrachtgever_id, sf["id"]])
+    else:
+        print("[orkestrator] GEEN content_version_id ontvangen — VIF-bestand wordt NIET gekoppeld. "
+              "Komt de aanlevering wel via /vif-tigris (Route A)? Bij /vif (losse upload) is er geen "
+              "Tigris-bestand om te koppelen.")
     # Punt 4: recruiter (nieuwe vacature) + aanleveraar (VIF verwerkt) mailen met hyperlink.
     _notify_recruiter_aanleveraar(vac, recruiter_id, uploader_id, sf["id"])
 

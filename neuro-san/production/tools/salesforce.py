@@ -262,6 +262,45 @@ def link_file_to_records(content_version_id: str, record_ids: list) -> None:
         print(f"[ATS-administrateur] VIF-bestand koppelen faalde: {e}")
 
 
+def koppel_diagnose(content_version_id: str, record_ids: list) -> dict:
+    """Diagnostische variant van link_file_to_records: geeft per stap terug wat er
+    gebeurt (ContentDocument gevonden? koppeling per record incl. de EXACTE Salesforce-
+    fout), zodat je precies ziet waaróm een koppeling wel of niet lukt."""
+    uit: dict = {"content_version_id": content_version_id, "salesforce_ready": cfg.salesforce_ready(),
+                 "content_document_id": None, "koppelingen": []}
+    if not cfg.salesforce_ready():
+        uit["fout"] = "Geen Salesforce-credentials actief (dry-run) — controleer SF_CLIENT_ID/SECRET in Render."
+        return uit
+    try:
+        token, instance = _auth()
+    except Exception as e:
+        uit["fout"] = f"Salesforce-auth faalde: {str(e)[:200]}"
+        return uit
+    base = f"{instance}/services/data/{cfg.SF_API_VERSION}"
+    q = f"SELECT ContentDocumentId, Title FROM ContentVersion WHERE Id = '{content_version_id}'"
+    r = requests.get(f"{base}/query?q={requests.utils.quote(q)}",
+                     headers={"Authorization": f"Bearer {token}"}, timeout=30)
+    recs = r.json().get("records", []) if r.ok else []
+    if not recs:
+        uit["fout"] = (f"ContentDocument niet gevonden voor deze ContentVersion "
+                       f"(query {r.status_code}: {r.text[:200]}). Klopt het cv-Id, en mag de "
+                       f"integratiegebruiker dit bestand zien?")
+        return uit
+    cd_id = recs[0]["ContentDocumentId"]
+    uit["content_document_id"] = cd_id
+    uit["titel"] = recs[0].get("Title")
+    hdr = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    for rid in [x for x in record_ids if x]:
+        rl = requests.post(f"{base}/sobjects/ContentDocumentLink", headers=hdr,
+                           data=json.dumps({"ContentDocumentId": cd_id, "LinkedEntityId": rid,
+                                            "ShareType": "V", "Visibility": "AllUsers"}), timeout=30)
+        al_gekoppeld = ("already" in rl.text.lower() or "duplicate" in rl.text.lower())
+        uit["koppelingen"].append({
+            "record": rid, "status": rl.status_code, "ok": bool(rl.ok or al_gekoppeld),
+            "al_gekoppeld": al_gekoppeld, "resultaat": (rl.text or "")[:300]})
+    return uit
+
+
 def download_content_version(cv_id: str) -> bytes:
     """Downloadt de binaire inhoud van een geüpload bestand (ContentVersion) uit Tigris."""
     token, instance = _auth()
