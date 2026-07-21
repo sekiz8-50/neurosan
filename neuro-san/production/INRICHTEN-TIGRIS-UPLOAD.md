@@ -162,20 +162,41 @@ opdrachtgever (Account) én de nieuwe vacature. Ook wordt het opzoekveld
 
 ### 3B-2 — Het veld meesturen in de HTTP-aanroep
 
-De actie `verstuurVIF` kent het veld `opdrachtgever_id` nog niet; dat leer je 'm zo:
+> Deze Flow bouwt de body als een **Apex-getypte variabele `vifBody`**, die in een
+> **Toewijzing `vulBody`** wordt gevuld en daarna door de actie als `body` wordt
+> meegestuurd. Het veld `opdrachtgever_id` moet daarom op TWEE plekken bij:
+> (A) in het schema, zodat `vifBody` de eigenschap `opdrachtgever_id` krijgt, en
+> (B) als extra regel in de toewijzing `vulBody`. NIET in de actie zelf.
 
-1. Open de actie **verstuurVIF** → klik bij de HTTP-aanroep op **Bewerken**
-   (potloodje bij de externe service).
-2. Vervang het **Voorbeeld van aanvraaginhoud** door:
+**A. Schema uitbreiden (zodat `vifBody` het veld kent).** De Apex-typen zijn
+gegenereerd uit het voorbeeld-JSON van de HTTP-aanroep; voeg het veld daar toe:
+
+1. **Set-up → Externe services** (External Services) → open **NeuroSanVIF**
+   *(of klik in het actiepaneel op de oranje link **NeuroSanVIF**).*
+2. Open de bewerking (Edit/Wijzig) van de operatie **POST /vif-tigris** en vervang het
+   **voorbeeld van de aanvraaginhoud** door:
    ```json
    {"content_version_id":"0680000000000000","recruiter_id":"0050000000000000","aanleveraar_id":"0050000000000000","opdrachtgever_id":"0010000000000000"}
    ```
-   → **Opslaan**. *(Lukt bewerken niet in jouw versie: maak binnen dezelfde service een
-   nieuwe invocable actie `verstuurVIF2` met dit voorbeeld en gebruik die in de Flow.)*
-3. Terug in de Flow, in de actie: koppel het nieuwe invoerveld
-   `opdrachtgever_id` = `{!opdrachtgever.recordId}` *(of `{!opdrachtgever}` als jouw
-   lookup-component direct een ID teruggeeft — check het datatype)*.
-4. **Opslaan** → **Activeren** (nieuwe versie).
+   → **Opslaan**. Salesforce regenereert de Apex-typen; `vifBody` heeft nu
+   `opdrachtgever_id`.
+3. Lukt bewerken niet in jouw org (sommige versies laten een bestaande HTTP-Callout
+   niet meer wijzigen)? Verwijder dan de actie **Actie 1** en maak 'm opnieuw met
+   **Nieuwe HTTP-aanroep**, exact zoals in stap 2 van deze gids maar met het JSON
+   hierboven (mét `opdrachtgever_id`). De nieuwe body-variabele (bv. `vifBody`) koppel
+   je daarna weer als `body`.
+
+**B. De toewijzing `vulBody` uitbreiden.**
+
+1. Open het element **vulBody** (Toewijzing). Je ziet daar al regels als
+   `vifBody.content_version_id = {!getCV.Id}` en `vifBody.recruiter_id = …`.
+2. Voeg één nieuwe regel toe en **kopieer exact het patroon van de `recruiter_id`-regel**
+   (zo weet je zeker of je `.recordId` moet gebruiken of niet):
+   - Veld: `{!vifBody.opdrachtgever_id}`
+   - Operator: **Is gelijk aan** (Equals)
+   - Waarde: `{!opdrachtgever.recordId}` *(net als recruiter; biedt de autocomplete alleen
+     `{!opdrachtgever}` aan, gebruik dan die)*
+3. **Opslaan** → **Opslaan als nieuwe versie** → **Activeren**.
 
 ### 3B-3 — Render-omgeving (eenmalig, 2 minuten)
 
