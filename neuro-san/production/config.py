@@ -47,6 +47,10 @@ class Config:
     RESEND_API_KEY = _req("RESEND_API_KEY")
     RESEND_FROM = _opt("RESEND_FROM", "onboarding@resend.dev")
     APPROVAL_TO = _req("APPROVAL_TO")
+    # TESTMODUS: stuur ÁLLE uitgaande mail naar dit ene adres (bv. je Gmail dat Resend toestaat),
+    # ongeacht de bedoelde ontvanger. Zo zie je tijdens testen ook de recruiter-/aanleveraar-mails.
+    # Leeg = normaal (elke mail naar de echte ontvanger). Bij livegang: leegmaken + domein verifiëren.
+    MAIL_OVERRIDE_TO = _opt("MAIL_OVERRIDE_TO")
 
     # Webhook / hosting — op Render wordt RENDER_EXTERNAL_URL automatisch gezet,
     # dus PUBLIC_BASE_URL hoef je daar niet zelf in te vullen.

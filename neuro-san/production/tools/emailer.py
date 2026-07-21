@@ -36,6 +36,14 @@ def send_approval_mail(subject: str, html: str, inline_image_path: str | None = 
                        image_cid: str = "beeld", to: str | None = None,
                        attachments: list | None = None) -> None:
     """attachments: extra bijlagen als [{"filename": ..., "content": <base64>}]."""
+    beoogd = (to or cfg.APPROVAL_TO)
+    ontvanger = beoogd
+    # TESTMODUS: alles naar één adres (bv. je Gmail). Toon bovenaan voor wie het bedoeld was.
+    if cfg.MAIL_OVERRIDE_TO:
+        if beoogd and beoogd.strip().lower() != cfg.MAIL_OVERRIDE_TO.strip().lower():
+            html = ('<div style="background:#FFF3E8;padding:8px 12px;font-size:12px;color:#9a5b1e">'
+                    f'[TEST] Oorspronkelijk bedoeld voor: {beoogd}</div>' + html)
+        ontvanger = cfg.MAIL_OVERRIDE_TO
     if cfg.DEV_MODE:
         _naar_outbox(subject, html, inline_image_path)
         for a in (attachments or []):
@@ -45,7 +53,7 @@ def send_approval_mail(subject: str, html: str, inline_image_path: str | None = 
         return
     payload = {
         "from": cfg.RESEND_FROM,
-        "to": [to or cfg.APPROVAL_TO],
+        "to": [ontvanger],
         "subject": subject,
         "html": html,
     }
