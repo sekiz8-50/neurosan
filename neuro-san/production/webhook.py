@@ -72,6 +72,18 @@ app.add_middleware(CORSMiddleware, allow_origins=cfg.ALLOWED_ORIGINS,
 VIF_DIR = os.path.join(os.path.dirname(__file__), "data", "vif")
 
 
+def _clean_sf_id(x: str) -> str:
+    """Maakt een geplakt Salesforce-Id schoon: strip spaties, een afsluitende '/view'
+    en pak het laatste pad-segment (zodat een hele Lightning-URL ook werkt)."""
+    x = (x or "").strip()
+    if x.endswith("/view"):
+        x = x[:-len("/view")]
+    x = x.rstrip("/")
+    if "/" in x:
+        x = x.rsplit("/", 1)[-1]
+    return x
+
+
 def _page(titel: str, tekst: str, kleur: str = "#FF7D2F") -> HTMLResponse:
     return HTMLResponse(f"""<!doctype html><meta charset="utf-8">
 <body style="font-family:system-ui;background:#f6f6f6;text-align:center;padding:60px">
@@ -469,12 +481,13 @@ def koppel_diagnose(token: str = "", cv: str = "", records: str = ""):
     if token.strip() != cfg.TIGRIS_SHARED_SECRET:
         raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
     from tools import salesforce
-    rids = [r.strip() for r in records.split(",") if r.strip()]
-    if not cv.strip() or not rids:
+    rids = [_clean_sf_id(r) for r in records.split(",") if r.strip()]
+    cv = _clean_sf_id(cv)
+    if not cv or not rids:
         return {"hint": "Geef cv (ContentVersion-Id, 068...) en records (komma-gescheiden "
                         "record-Id's, bv. Account-Id + vacature-Id). Zie /laatste-bestanden "
                         "voor recente ContentVersion-Id's."}
-    return salesforce.koppel_diagnose(cv.strip(), rids)
+    return salesforce.koppel_diagnose(cv, rids)
 
 
 @app.get("/doc-test")
@@ -487,13 +500,18 @@ def doc_test(token: str = "", cv: str = "", account: str = "", type: str = ""):
     if token.strip() != cfg.TIGRIS_SHARED_SECRET:
         raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
     from tools import salesforce
-    if not cv.strip() or not account.strip():
+    cv = _clean_sf_id(cv)
+    account = _clean_sf_id(account)
+    if not cv or not account:
         return {"hint": "Geef cv (ContentVersion-Id, 068...) en account (Account-Id van de "
                         "opdrachtgever, 001...). type = optionele Documenttype-keuzelijstwaarde.",
                 "object": cfg.TIGRIS_DOC_OBJECT, "account_veld": cfg.TIGRIS_DOC_ACCOUNT_FIELD,
                 "bestand_veld": cfg.TIGRIS_DOC_CONTENTID_FIELD}
-    rid = salesforce.maak_tigris_document(account.strip(), cv.strip(),
-                                          "VIF - test", type.strip())
+    if not cv.startswith("068"):
+        return {"waarschuwing": f"'{cv}' lijkt geen ContentVersion-Id (die begint met 068). "
+                "Haal het juiste Id op via /laatste-bestanden — NIET je secret gebruiken.",
+                "cv_ontvangen": cv}
+    rid = salesforce.maak_tigris_document(account, cv, "VIF - test", type.strip())
     return {"documenten_record_id": rid or None,
             "resultaat": "aangemaakt" if rid else "mislukt — zie de Render-logs voor de exacte fout",
             "object": cfg.TIGRIS_DOC_OBJECT}
