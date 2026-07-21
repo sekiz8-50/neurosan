@@ -477,6 +477,28 @@ def koppel_diagnose(token: str = "", cv: str = "", records: str = ""):
     return salesforce.koppel_diagnose(cv.strip(), rids)
 
 
+@app.get("/doc-test")
+def doc_test(token: str = "", cv: str = "", account: str = "", type: str = ""):
+    """Test los het aanmaken van een Tigris-'Documenten'-record bij de opdrachtgever met een
+    VIF-bestand. Geeft de exacte uitkomst (record-id of de precieze Salesforce-fout — bv. een
+    ontbrekend verplicht veld of ongeldige Documenttype-waarde). Zo stemmen we de velden af
+    zonder de hele keten te draaien.
+    Gebruik: /doc-test?token=<secret>&cv=068...&account=001...   (type optioneel)"""
+    if token.strip() != cfg.TIGRIS_SHARED_SECRET:
+        raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
+    from tools import salesforce
+    if not cv.strip() or not account.strip():
+        return {"hint": "Geef cv (ContentVersion-Id, 068...) en account (Account-Id van de "
+                        "opdrachtgever, 001...). type = optionele Documenttype-keuzelijstwaarde.",
+                "object": cfg.TIGRIS_DOC_OBJECT, "account_veld": cfg.TIGRIS_DOC_ACCOUNT_FIELD,
+                "bestand_veld": cfg.TIGRIS_DOC_CONTENTID_FIELD}
+    rid = salesforce.maak_tigris_document(account.strip(), cv.strip(),
+                                          "VIF - test", type.strip())
+    return {"documenten_record_id": rid or None,
+            "resultaat": "aangemaakt" if rid else "mislukt — zie de Render-logs voor de exacte fout",
+            "object": cfg.TIGRIS_DOC_OBJECT}
+
+
 @app.get("/laatste-bestanden")
 def laatste_bestanden(token: str = ""):
     """Toont de laatst geüploade bestanden (ContentVersion-Id's + titel + wie/wanneer),

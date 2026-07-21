@@ -80,6 +80,17 @@ class Config:
     # Publieke basis voor de vacaturepagina-URL (Meta-link) zolang Tigris er geen teruggeeft.
     VACANCY_URL_BASE = _opt("VACANCY_URL_BASE", "https://www.maintec.nl/vacatures").rstrip("/")
 
+    # Tigris-Documenten-object: het VIF-origineel wordt als échte 'Documenten'-record
+    # bij de opdrachtgever gezet (i.p.v. standaard Salesforce-bestanden), zodat het in de
+    # vertrouwde Documenten-lijst verschijnt. Object + velden komen uit de Object-Manager.
+    # Leeg TIGRIS_DOC_OBJECT = deze functie uit (dan alleen standaard-bestandkoppeling).
+    TIGRIS_DOC_OBJECT = _opt("TIGRIS_DOC_OBJECT", "Tigris__Overeenkomst__c")
+    TIGRIS_DOC_ACCOUNT_FIELD = _opt("TIGRIS_DOC_ACCOUNT_FIELD", "Tigris__Account__c")     # → Opdrachtgever
+    TIGRIS_DOC_CONTENTID_FIELD = _opt("TIGRIS_DOC_CONTENTID_FIELD", "Tigris__ContentDocumentId__c")  # Bestands ID
+    TIGRIS_DOC_NAME_FIELD = _opt("TIGRIS_DOC_NAME_FIELD", "Name")
+    TIGRIS_DOC_TYPE_FIELD = _opt("TIGRIS_DOC_TYPE_FIELD", "Tigris__Type_document__c")      # Documenttype (keuzelijst)
+    TIGRIS_DOC_TYPE_VALUE = _opt("TIGRIS_DOC_TYPE_VALUE", "Overig")                        # picklist-waarde voor een VIF
+
     # Opdrachtgever-matching: vult het opzoekveld op de vacature met de bestaande
     # opdrachtgever uit de VIF (op naam). Leeg SF_OPDRACHTGEVER_FIELD = functie uit.
     SF_OPDRACHTGEVER_FIELD = _opt("SF_OPDRACHTGEVER_FIELD")            # bv. Tigris__Account__c

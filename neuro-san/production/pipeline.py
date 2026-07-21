@@ -611,17 +611,26 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     # zodat het Meta-leadformulier 'm als 'APP ID'-trackingparameter meekrijgt en
     # leads direct aan de juiste vacature in Tigris worden gekoppeld (geen handwerk).
     vac["app_id"] = salesforce.wacht_op_app_id(sf["id"])
-    # Origineel VIF-bestand koppelen: aan de OPDRACHTGEVER (klantdossier) én de vacature.
+    # Origineel VIF-bestand opslaan. Tigris slaat documenten op in het 'Documenten'-object
+    # (Tigris__Overeenkomst__c), gekoppeld aan de OPDRACHTGEVER — dáár hoort de VIF, niet in
+    # de standaard-bestandenlijst. De vacature heeft geen Documenten-relatie; daar koppelen we
+    # de VIF als standaard Salesforce-bestand (zichtbaar zodra de 'Bestanden'-lijst op de
+    # vacaturelay-out staat).
     if content_version_id:
-        doelen = [d for d in [opdrachtgever_id, sf["id"]] if d]
         og_status = "gezet" if opdrachtgever_id else "LEEG (Flow stuurt opdrachtgever_id niet mee)"
-        print(f"[orkestrator] VIF-bestand koppelen — cv={content_version_id} -> {doelen} "
-              f"(opdrachtgever_id={og_status})")
-        salesforce.link_file_to_records(content_version_id, [opdrachtgever_id, sf["id"]])
+        print(f"[orkestrator] VIF opslaan — cv={content_version_id} · opdrachtgever_id={og_status} · "
+              f"vacature={sf['id']}")
+        if opdrachtgever_id:
+            doc_naam = f"VIF - {vac.get('titel', 'vacature')} {vac.get('plaats', '')}".strip()
+            salesforce.maak_tigris_document(opdrachtgever_id, content_version_id, doc_naam)
+        else:
+            print("[orkestrator] geen opdrachtgever_id — VIF komt NIET in de Documenten-lijst van "
+                  "de opdrachtgever (controleer of de Flow opdrachtgever_id meestuurt).")
+        # Vacature: standaard-bestandkoppeling (Documenten-object kent geen vacature-relatie).
+        salesforce.link_file_to_records(content_version_id, [sf["id"]])
     else:
-        print("[orkestrator] GEEN content_version_id ontvangen — VIF-bestand wordt NIET gekoppeld. "
-              "Komt de aanlevering wel via /vif-tigris (Route A)? Bij /vif (losse upload) is er geen "
-              "Tigris-bestand om te koppelen.")
+        print("[orkestrator] GEEN content_version_id ontvangen — VIF wordt NIET opgeslagen. "
+              "Komt de aanlevering wel via /vif-tigris (Route A)?")
     # Punt 4: recruiter (nieuwe vacature) + aanleveraar (VIF verwerkt) mailen met hyperlink.
     _notify_recruiter_aanleveraar(vac, recruiter_id, uploader_id, sf["id"])
 

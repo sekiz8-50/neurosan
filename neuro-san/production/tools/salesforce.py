@@ -301,6 +301,76 @@ def koppel_diagnose(content_version_id: str, record_ids: list) -> dict:
     return uit
 
 
+def _content_document_id(cv_id: str, token: str, instance: str) -> str:
+    """Haalt de ContentDocumentId op bij een ContentVersion-Id (leeg bij niet gevonden)."""
+    q = f"SELECT ContentDocumentId FROM ContentVersion WHERE Id = '{cv_id}'"
+    r = requests.get(f"{instance}/services/data/{cfg.SF_API_VERSION}/query?q={requests.utils.quote(q)}",
+                     headers={"Authorization": f"Bearer {token}"}, timeout=30)
+    recs = r.json().get("records", []) if r.ok else []
+    return recs[0]["ContentDocumentId"] if recs else ""
+
+
+def maak_tigris_document(account_id: str, content_version_id: str, naam: str,
+                         documenttype: str = "") -> str:
+    """Maakt een Tigris-'Documenten'-record (Tigris__Overeenkomst__c) bij de OPDRACHTGEVER
+    met het VIF-origineel eraan gekoppeld (Bestands ID = ContentDocumentId). Zo verschijnt
+    de VIF in de vertrouwde 'Documenten'-lijst i.p.v. de standaard-bestandenlijst.
+
+    Robuust: een veld dat de insert weigert (bv. een keuzelijst-waarde die niet bestaat) wordt
+    weggelaten en de insert opnieuw geprobeerd; de essentiële velden (opdrachtgever + bestand)
+    blijven staan. Faalt verder stil (gelogd) — mag de keten niet blokkeren. Retour: id of ''."""
+    if not (cfg.salesforce_ready() and cfg.TIGRIS_DOC_OBJECT and account_id and content_version_id):
+        return ""
+    if str(account_id).startswith("DRYRUN"):
+        return ""
+    try:
+        token, instance = _auth()
+        cd_id = _content_document_id(content_version_id, token, instance)
+        if not cd_id:
+            print(f"[ATS-administrateur] geen ContentDocument voor {content_version_id} — "
+                  f"Documenten-record bij opdrachtgever overgeslagen")
+            return ""
+        base = f"{instance}/services/data/{cfg.SF_API_VERSION}"
+        payload: dict = {cfg.TIGRIS_DOC_ACCOUNT_FIELD: account_id,
+                         cfg.TIGRIS_DOC_CONTENTID_FIELD: cd_id}
+        if cfg.TIGRIS_DOC_NAME_FIELD and naam:
+            payload[cfg.TIGRIS_DOC_NAME_FIELD] = naam[:80]
+        typ = documenttype or cfg.TIGRIS_DOC_TYPE_VALUE
+        if cfg.TIGRIS_DOC_TYPE_FIELD and typ:
+            payload[cfg.TIGRIS_DOC_TYPE_FIELD] = typ
+        url = f"{base}/sobjects/{cfg.TIGRIS_DOC_OBJECT}/"
+        hdr = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        essentieel = {cfg.TIGRIS_DOC_ACCOUNT_FIELD, cfg.TIGRIS_DOC_CONTENTID_FIELD}
+        overgeslagen: list[str] = []
+        for _ in range(6):
+            r = requests.post(url, headers=hdr, data=json.dumps(payload), timeout=30)
+            if r.ok:
+                rid = r.json().get("id")
+                # Zeker weten dat het bestand vanaf de Documenten-record te openen is:
+                # naast het Bestands-ID-veld ook een ContentDocumentLink naar deze record.
+                try:
+                    requests.post(f"{base}/sobjects/ContentDocumentLink", headers=hdr,
+                                  data=json.dumps({"ContentDocumentId": cd_id, "LinkedEntityId": rid,
+                                                   "ShareType": "V", "Visibility": "AllUsers"}), timeout=30)
+                except Exception:
+                    pass
+                print(f"[ATS-administrateur] VIF als Documenten-record bij opdrachtgever gezet: {rid}"
+                      + (f" (overgeslagen velden: {overgeslagen})" if overgeslagen else ""))
+                return rid
+            weg = [f for f in _fout_velden(r) if f in payload and f not in essentieel]
+            if not weg:
+                print(f"[ATS-administrateur] Documenten-record bij opdrachtgever aanmaken faalde: "
+                      f"{r.status_code} {r.text[:250]}")
+                return ""
+            for f in weg:
+                payload.pop(f, None)
+                overgeslagen.append(f)
+        return ""
+    except Exception as e:
+        print(f"[ATS-administrateur] Documenten-record bij opdrachtgever aanmaken faalde: {e}")
+        return ""
+
+
 def download_content_version(cv_id: str) -> bytes:
     """Downloadt de binaire inhoud van een geüpload bestand (ContentVersion) uit Tigris."""
     token, instance = _auth()
