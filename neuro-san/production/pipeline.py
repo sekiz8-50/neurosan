@@ -889,7 +889,8 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
             # herbouwen: nieuw form + advertenties MÉT App Id, en ruimen de oude op (die zouden
             # anders zonder App Id mee-activeren → leads koppelen niet).
             print(f"[campagne-meta] leadformulier zonder App Id → herbouwen met App Id {app_id}")
-            form_naam = f"{build.get('titel', 'Vacature')} — sollicitatie · {campaign_id}"[:200]
+            # Unieke naam: Meta weigert een tweede formulier met dezelfde naam als het upload-formulier.
+            form_naam = f"{build.get('titel', 'Vacature')} — sollicitatie · {campaign_id} · {str(app_id)[:8]}"[:200]
             nieuw_form = meta.create_lead_form(form_naam, app_id=app_id, follow_up_url=build.get("url"))
             for adset_id in build.get("adset_ids", []):
                 for i, v in enumerate(build.get("variants", []), 1):

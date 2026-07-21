@@ -223,32 +223,40 @@ _MAX_TOKENS = {"copywriter": 4000, "performance_marketeer": 3500, "brand_markete
 
 def _parse_json_object(text: str) -> dict:
     """Robuust: pak het EERSTE complete JSON-object uit de respons en negeer trailing
-    tekst/extra data. Voorkomt 'Extra data'-fouten als het model iets ná de JSON zet
-    (bv. een toelichting of een tweede blok)."""
+    tekst/extra data. strict=False staat losse regelovergangen/tabs binnen strings toe
+    (komt vaak voor bij markdown-in-JSON). Voorkomt 'Extra data'- en control-char-fouten."""
     s = (text or "").strip()
     start = s.find("{")
     if start == -1:
         raise ValueError("geen JSON-object in de respons")
-    return json.JSONDecoder().raw_decode(s, start)[0]
+    return json.JSONDecoder(strict=False).raw_decode(s, start)[0]
 
 
 def _vraag(client, naam: str, opdracht: str, transcript: list) -> dict:
-    """Eén agent aanroepen (JSON in/uit) — de log-monitor legt alles vast."""
+    """Eén agent aanroepen (JSON in/uit) — de log-monitor legt alles vast. Bij ongeldige
+    JSON wordt het één keer opnieuw gevraagd (LLM's slippen soms op grote JSON-output)."""
     system, schema = AGENTS[naam]
     transcript.append({"from": "orchestrator", "type": "AGENT_FRAMEWORK",
                        "text": f"→ {naam}: {opdracht[:400]}"})
     from beveiliging import DATA_REGEL
-    msg = client.messages.create(
-        model=cfg.ANTHROPIC_MODEL, max_tokens=_MAX_TOKENS.get(naam, 2500),
-        system=system + GEEN_KLANTNAAM + DATA_REGEL + _extra_context(naam)
-        + " Antwoord UITSLUITEND met JSON volgens dit schema: " + schema,
-        messages=[{"role": "user", "content": opdracht}])
     import kosten
-    kosten.add_llm(msg.usage)
-    out = _parse_json_object(msg.content[0].text)
-    transcript.append({"from": naam, "type": "AI",
-                       "text": json.dumps(out, ensure_ascii=False, indent=2)})
-    return out
+    sys = (system + GEEN_KLANTNAAM + DATA_REGEL + _extra_context(naam)
+           + " Antwoord UITSLUITEND met geldige JSON volgens dit schema (escape aanhalingstekens "
+             "en regelovergangen binnen strings): " + schema)
+    laatste = None
+    for _ in range(2):
+        msg = client.messages.create(
+            model=cfg.ANTHROPIC_MODEL, max_tokens=_MAX_TOKENS.get(naam, 2500),
+            system=sys, messages=[{"role": "user", "content": opdracht}])
+        kosten.add_llm(msg.usage)
+        try:
+            out = _parse_json_object(msg.content[0].text)
+            transcript.append({"from": naam, "type": "AI",
+                               "text": json.dumps(out, ensure_ascii=False, indent=2)})
+            return out
+        except (ValueError, json.JSONDecodeError) as e:
+            laatste = e
+    raise ValueError(f"{naam} gaf geen geldige JSON na 2 pogingen: {laatste}")
 
 
 def run_brain(vif_tekst: str) -> tuple[dict, dict]:

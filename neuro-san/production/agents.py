@@ -31,20 +31,25 @@ def _client():
 
 def _ask_json(system: str, user: str, max_tokens: int = 1300) -> dict:
     from beveiliging import DATA_REGEL
-    msg = _client().messages.create(
-        model=cfg.ANTHROPIC_MODEL, max_tokens=max_tokens,
-        system=system + DATA_REGEL + "\n\nAntwoord UITSLUITEND met geldige JSON, geen tekst eromheen.",
-        messages=[{"role": "user", "content": user}],
-    )
     import kosten
-    kosten.add_llm(msg.usage)
-    # Robuust: pak het eerste complete JSON-object en negeer eventuele tekst erachter
-    # (voorkomt 'Extra data'-fouten als het model iets ná de JSON zet).
-    text = (msg.content[0].text or "").strip()
-    start = text.find("{")
-    if start == -1:
-        raise ValueError("geen JSON-object in de respons")
-    return json.JSONDecoder().raw_decode(text, start)[0]
+    sys = (system + DATA_REGEL + "\n\nAntwoord UITSLUITEND met geldige JSON (escape aanhalingstekens "
+           "en regelovergangen binnen strings), geen tekst eromheen.")
+    laatste = None
+    for _ in range(2):
+        msg = _client().messages.create(
+            model=cfg.ANTHROPIC_MODEL, max_tokens=max_tokens, system=sys,
+            messages=[{"role": "user", "content": user}])
+        kosten.add_llm(msg.usage)
+        # Eerste complete JSON-object; strict=False staat regelovergangen in strings toe; negeer
+        # tekst erachter. Bij ongeldige JSON één keer opnieuw (LLM's slippen soms op grote output).
+        text = (msg.content[0].text or "").strip()
+        start = text.find("{")
+        if start != -1:
+            try:
+                return json.JSONDecoder(strict=False).raw_decode(text, start)[0]
+            except json.JSONDecodeError as e:
+                laatste = e
+    raise ValueError(f"geen geldige JSON na 2 pogingen: {laatste}")
 
 
 # --- De agents ---------------------------------------------------------------
