@@ -144,8 +144,11 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                     f"{vacancy['plaats']} | Breed", campaign_id,
                     budget_eur or 15, _targeting_geo(vacancy), looptijd_dagen=looptijd))
             # Instant Form + advertenties (5 varianten × elke ad set), allemaal PAUSED.
+            # Het Tigris App Id gaat als 'APP ID'-trackingparameter mee in het formulier,
+            # zodat binnenkomende leads automatisch aan de juiste vacature koppelen.
             form_id = meta.create_lead_form(
                 f"{vacancy['titel']} — sollicitatie · {campaign_id}"[:200],
+                app_id=vacancy.get("app_id") or None,
                 follow_up_url=vacancy["url"])
             for adset_id in adset_ids:
                 for i, v in enumerate(variants, 1):
@@ -160,6 +163,7 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                                              "variants": variants, "cta": "SIGN_UP",
                                              "url": vacancy["url"], "titel": vacancy["titel"],
                                              "inhoud_hash": inhoud_hash,
+                                             "app_id": vacancy.get("app_id") or "",
                                              "budget_eur": plan.get("budget_eur"),
                                              "looptijd_dagen": plan.get("looptijd_dagen")})
         else:
@@ -197,7 +201,7 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                  "alle_varianten": [x.get("primary_text", "") for x in variants],
                  "media_advies": plan.get("media_advies", ""),
                  "budget_eur": plan.get("budget_eur"), "looptijd_dagen": plan.get("looptijd_dagen"),
-                 "kosten": kosten.samenvatting(),
+                 "kosten": kosten.samenvatting(), "app_id": vacancy.get("app_id") or "",
                  "warnings": warnings or [], "meta_fout": meta_fout}
     record = {"campaign_id": campaign_id, "adset_ids": adset_ids, "ad_ids": ad_ids, "lead_gen": lead_gen,
               "state": "PENDING", "vacancy": vacancy, "plan": mail_plan, "image_path": img_path,
@@ -603,6 +607,10 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
 
     sf = salesforce.create_vacancy(vac)
     vac["salesforce_id"] = sf["id"]
+    # Tigris maakt automatisch een App Id aan bij de vacature — die halen we NU op,
+    # zodat het Meta-leadformulier 'm als 'APP ID'-trackingparameter meekrijgt en
+    # leads direct aan de juiste vacature in Tigris worden gekoppeld (geen handwerk).
+    vac["app_id"] = salesforce.wacht_op_app_id(sf["id"])
     # Origineel VIF-bestand koppelen: aan de OPDRACHTGEVER (klantdossier) én de vacature.
     if content_version_id:
         salesforce.link_file_to_records(content_version_id, [opdrachtgever_id, sf["id"]])
@@ -740,6 +748,12 @@ def _send_mail(record: dict) -> None:
             + f" over {k.get('calls', 0)} AI-aanroepen"
             + (f" + {k.get('beelden', 0)} beeld(en)" if k.get("beelden") else "")
             + f"<br><span style='color:#9a7bb8'>Model {k.get('model', '')}</span></div>")
+    # Leadkoppeling: het Tigris App Id zit als trackingparameter in het Instant Form
+    app_id = plan.get("app_id")
+    leadkoppeling_html = (
+        "<div style='background:#F6F6F6;border-radius:6px;padding:10px 14px;font-size:12px;"
+        "margin-bottom:16px;color:#444'><b>Leadkoppeling:</b> leads uit deze campagne komen via "
+        f"App Id <b>{app_id}</b> automatisch op de juiste vacature in Tigris binnen.</div>") if app_id else ""
     varianten_html = "".join(
         "<p style='margin:0 0 8px'><b>Variant {}:</b> {}</p>".format(i + 1, t)
         for i, t in enumerate(plan.get("alle_varianten") or [plan.get("primary_text", "")]))
@@ -755,6 +769,7 @@ def _send_mail(record: dict) -> None:
 {canva_html}
 {advies_html}
 {budget_html}
+{leadkoppeling_html}
 {kosten_html}
 {meta_html}
 {warn_html}
@@ -822,6 +837,12 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
     # Lead-gen: nu pas het Instant Form (met 'APP ID'-trackingparameter) + advertenties bouwen,
     # uit de bij upload bewaarde build-content. App Id is nu bekend uit de website-plaatsing.
     meta_res = None
+    # Leadformulier is normaal al bij de upload gebouwd MET het App Id als tracking-
+    # parameter. Was het App Id toen (nog) niet beschikbaar, meld dat dan expliciet —
+    # een bestaand Instant Form is niet meer aan te passen.
+    if build and build.get("ads_created") and not build.get("app_id") and app_id:
+        print(f"[campagne-meta] LET OP: het leadformulier is zonder App Id aangemaakt; "
+              f"koppel App Id {app_id} handmatig aan het formulier in Meta (eenmalig).")
     try:
         # Advertenties zijn al bij de upload aangemaakt (ads_created). Alleen als dat
         # (nog) niet zo is, maken we ze hier alsnog — vangnet voor oudere builds.

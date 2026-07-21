@@ -118,9 +118,10 @@ class Config:
     MAX_DAGBUDGET_EUR = int(_opt("MAX_DAGBUDGET_EUR", "50") or "50")
     MIN_LOOPTIJD_DAGEN = int(_opt("MIN_LOOPTIJD_DAGEN", "7") or "7")
     MAX_LOOPTIJD_DAGEN = int(_opt("MAX_LOOPTIJD_DAGEN", "60") or "60")
-    # Volledig agent-gesprek als mailbijlage meesturen (privacy-risico) — standaard UIT;
-    # het gesprek blijft altijd inzichtelijk via /neuro-debug (achter het secret).
-    MAIL_TRANSCRIPT = _opt("MAIL_TRANSCRIPT").lower() in ("1", "true", "ja", "yes")
+    # Volledig agent-gesprek als mailbijlage meesturen — standaard AAN (expliciete keuze
+    # van de eigenaar; het gesprek is een gewenst controle-instrument voor marketing).
+    # Restrisico gedocumenteerd in VEILIGHEID.md; uitzetten kan met MAIL_TRANSCRIPT=0.
+    MAIL_TRANSCRIPT = _opt("MAIL_TRANSCRIPT", "1").lower() not in ("0", "false", "nee", "uit")
     # Domeinen die in publiceerbare tekst (advertenties/omschrijving/FAQ) mogen voorkomen.
     TOEGESTANE_LINK_DOMEINEN = [d.strip().lower() for d in
                                 _opt("TOEGESTANE_LINK_DOMEINEN",

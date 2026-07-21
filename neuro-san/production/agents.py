@@ -273,23 +273,36 @@ def copy_specialist(vacancy: dict) -> dict:
         return _copy_fallback(vacancy)
     try:
         brand = BRAND.get(vacancy.get("label", "Maintec"), BRAND["Maintec"])
-        sys = (f"Je bent senior recruitment-copywriter voor Maintec.\n{brand}\n"
-               "Schrijf een wervende, professionele Nederlandse vacaturetekst in VIJF blokken, "
+        sys = (f"Je bent de senior recruitment-copywriter van Maintec (15+ jaar technische "
+               f"arbeidsmarktcommunicatie).\n{brand}\n"
+               "Schrijf een volwassen, volledig uitgewerkte Nederlandse vacaturetekst in VIJF blokken, "
                "UITSLUITEND op basis van de aangeleverde feiten. Verzin geen arbeidsvoorwaarden of eisen. "
                "Ontbreekt iets? Laat het WEG — schrijf NOOIT 'onbekend', 'n.v.t.', 'wordt aangevuld' of "
                "'niet aangeleverd'. Geen placeholders tussen [ ]. Gebruik waar passend de Maintec-standaard "
                "(je komt in dienst bij Maintec; salaris marktconform volgens de genoemde CAO). "
-               "Spreek de lezer aan met 'je'. GEEN leeftijd/geslacht. GEEN emoji.\n"
+               "Spreek de lezer aan met 'je'. GEEN leeftijd/geslacht. GEEN emoji. Noem NOOIT de naam van "
+               "de opdrachtgever — schrijf 'onze opdrachtgever'.\n"
+               "KWALITEITSLAT: geen telegramstijl of halve zinnen; elke bullet is een volwaardige, "
+               "concrete zin met een sterk werkwoord en een concreet object (machines, installaties, "
+               "materialen uit de feiten — nooit 'diverse werkzaamheden'). Verboden holle frasen: "
+               "'mooie uitdaging', 'dynamische omgeving', 'geen dag is hetzelfde', 'leuk team', 'passie "
+               "voor techniek'. Elke zin moet de hardop-voorlezen-test doorstaan: een mens die tegen een "
+               "vakman praat, geen HR-brochure. Na het lezen mag niets meer onduidelijk zijn.\n"
                "Blok-indeling:\n"
-               "- introductie: pakkende opening (rol, plaats, waarom deze kans), 2-3 zinnen.\n"
-               "- wat_ga_je_doen: de taken/verantwoordelijkheden als '- '-bullets.\n"
-               "- wat_verwachten_wij_van_jou: de eisen/must-haves (en eventueel pré's) als '- '-bullets.\n"
-               "- wat_kun_je_van_ons_verwachten: arbeidsvoorwaarden (CAO/schaal, reiskosten) + passende "
-               "Maintec-voordelen, als '- '-bullets.\n"
-               "- waar_ga_je_werken: over het team en werken bij Maintec als collega.\n"
+               "- introductie: 3-4 zinnen die beginnen bij de situatie en trots van de lezer (niet bij "
+               "de functie), en eindigen met wat deze baan hem concreet oplevert.\n"
+               "- wat_ga_je_doen: korte contextzin over de rol, dan 5-7 '- '-bullets met concrete taken, "
+               "afgesloten met één zin over de impact van dit werk.\n"
+               "- wat_verwachten_wij_van_jou: 4-6 '- '-bullets met alleen échte eisen; pré's expliciet "
+               "markeren met '(pré)'.\n"
+               "- wat_kun_je_van_ons_verwachten: 6-8 '- '-bullets; salaris altijd als eerste bullet met "
+               "de bedragen/CAO uit de feiten; elk voordeel concreet en waar mogelijk gekwantificeerd "
+               "(vakantiedagen, reiskosten per km, opleidingsbudget) + passende Maintec-voordelen.\n"
+               "- waar_ga_je_werken: twee volwaardige alinea's — (a) de werkomgeving en het soort bedrijf "
+               "(anoniem), (b) het team, de begeleiding en hoe je wordt ingewerkt als Maintec-collega.\n"
                'JSON: {"omschrijving":{"introductie":"","wat_ga_je_doen":"","wat_kun_je_van_ons_verwachten":"",'
-               '"waar_ga_je_werken":"","wat_verwachten_wij_van_jou":""},"quote":"pakkende oneliner"}.')
-        out = _ask_json(sys, f"Feiten (gebruik alleen deze):\n{json.dumps(vacancy, ensure_ascii=False)}", max_tokens=1800)
+               '"waar_ga_je_werken":"","wat_verwachten_wij_van_jou":""},"quote":"pakkende oneliner die de kern van het aanbod raakt"}.')
+        out = _ask_json(sys, f"Feiten (gebruik alleen deze):\n{json.dumps(vacancy, ensure_ascii=False)}", max_tokens=3000)
         if "omschrijving" not in out:
             return _copy_fallback(vacancy)
         return out

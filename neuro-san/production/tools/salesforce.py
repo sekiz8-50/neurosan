@@ -179,6 +179,29 @@ def _auth() -> tuple[str, str]:
     return j["access_token"], j["instance_url"]
 
 
+def wacht_op_app_id(sf_id: str, pogingen: int = 10) -> str:
+    """Tigris maakt na het aanmaken van een vacature automatisch een App Id aan
+    (Tigris__App_Id__c). Die halen we hier op (korte retry, het veld wordt door
+    Tigris async gevuld) zodat het Meta-leadformulier 'm als trackingparameter
+    meekrijgt en leads DIRECT goed in Tigris binnenkomen — zonder handwerk.
+    Leeg bij dry-run of als het veld (nog) niet gevuld is."""
+    if not sf_id or str(sf_id).startswith("DRYRUN") or not cfg.salesforce_ready():
+        return ""
+    try:
+        token, instance = _auth()
+        for _ in range(max(1, pogingen)):
+            rec = get_record(sf_id, ["Tigris__App_Id__c"], token, instance)
+            app_id = rec.get("Tigris__App_Id__c")
+            if app_id:
+                print(f"[ATS-administrateur] Tigris App Id: {app_id}")
+                return str(app_id)
+            time.sleep(1.2)
+    except Exception as e:
+        print(f"[ATS-administrateur] App Id ophalen faalde: {e}")
+    print(f"[ATS-administrateur] geen App Id gevonden voor {sf_id} (leadform krijgt 'm bij publicatie)")
+    return ""
+
+
 def record_url(sf_id: str) -> str:
     """Bouwt de Lightning-record-URL van de vacature in Tigris (leeg bij dry-run/geen creds)."""
     if not sf_id or str(sf_id).startswith("DRYRUN") or not cfg.salesforce_ready():

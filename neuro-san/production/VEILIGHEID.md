@@ -44,7 +44,7 @@ Laatste update: juli 2026.
 | Maatregel | Waar |
 |---|---|
 | Opdrachtgeversnaam wordt **nooit** extern gecommuniceerd: instructie aan elke agent + deterministische scrub over alle publieke tekst (incl. tussenvoegsels) | `GEEN_KLANTNAAM`, `pipeline._scrub_opdrachtgever` |
-| **Volledig agent-gesprek NIET meer als mailbijlage** (standaard). E-mail is doorstuurbaar en niet te herroepen. Inzien kan via `/neuro-debug` achter het secret. Opt-in via `MAIL_TRANSCRIPT=1` (afgeraden) | `pipeline._send_mail`, `config.py` |
+| Agent-gesprek als mailbijlage: **bewuste keuze eigenaar = AAN** (controle-instrument voor marketing). Geaccepteerd restrisico: e-mail is doorstuurbaar; de bijlage bevat interne afwegingen en salarisdata. Uitzetten kan per direct met `MAIL_TRANSCRIPT=0`; inzien kan ook altijd via `/neuro-debug` achter het secret | `pipeline._send_mail`, `config.py` |
 | Foutdetails naar buiten toe ingekort (geen stacktraces in HTTP-responses) | `webhook.py` |
 
 ### Budget- en campagnerails (hard, geen advies)
@@ -97,7 +97,7 @@ Deze punten uit de review zijn terecht en vergen instellingen buiten de code:
 | 1 | **DPIA** over de hele keten (VIF → Salesforce → Render → Anthropic/OpenAI → Meta → Resend → Canva, incl. logs/retentie/subverwerkers) | Privacy/DPO |
 | 2 | **AI Act-classificatie** documenteren — recruitment/targeting staat in Annex III; niet informeel aannemen dat dit buiten high-risk valt. Deadline stand-alone high-risk employment: volgen (nu: dec 2027) | Legal + Privacy |
 | 3 | **Verwerkersafspraken** per leverancier vastleggen: doel, velden, opslaglocatie, retentie, training-uitsluiting, DPA/SCC | Legal/Inkoop |
-| 4 | **Leadketen ontwerpen** (Meta-lead → geverifieerde webhook → dedupe → ATS-record → recruiter-routing → SLA → verwijderproces). Nu eindigt de automatisering bij campagne-activatie — leads mogen niet alleen in Meta blijven staan | Product + Dev |
+| 4 | **Leadketen**: de koppeling Meta→Tigris bestaat al via het Tigris App Id en zit nu geautomatiseerd in de keten (App Id wordt direct na vacature-aanmaak opgehaald en als 'APP ID'-trackingparameter in het Instant Form gezet). Nog te beleggen: monitoring op leads die niet in Tigris landen, SLA voor opvolging, retentie-/verwijderproces voor leaddata | Product + Ops |
 | 5 | **Ablation-test 11 agents vs. compacte keten** (kosten, correcties, doorlooptijd, reproduceerbaarheid) — behoud alleen agents die aantoonbaar kwaliteit toevoegen | Dev + Marketing |
 | 6 | **Bias-monitoring**: periodieke controle op woordkeuze, beeldrepresentatie en (vooral) Meta-délivery per functietype — menselijke approval vangt scheve delivery niet | Marketing + HR |
 | 7 | **Gecontroleerde pilot** i.p.v. onbeperkte productie: één label, beperkt aantal gebruikers, laag budgetplafond, dagelijkse controle, kill switch getest | Allen |
@@ -132,7 +132,7 @@ Deze punten uit de review zijn terecht en vergen instellingen buiten de code:
 | `APPROVAL_TTL_UREN` | `72` | geldigheid goedkeurlink |
 | `MIN/MAX_DAGBUDGET_EUR` | `5`/`50` | harde budget-rails |
 | `MIN/MAX_LOOPTIJD_DAGEN` | `7`/`60` | harde looptijd-rails |
-| `MAIL_TRANSCRIPT` | `0` | `1` = agent-gesprek als mailbijlage (afgeraden) |
+| `MAIL_TRANSCRIPT` | `1` | `0` = agent-gesprek NIET als mailbijlage (aan = bewuste keuze eigenaar) |
 | `TOEGESTANE_LINK_DOMEINEN` | `maintec.nl,tecforce.nl,tecqgroep.nl` | allowlist voor links in publiceerbare tekst |
 | `RATE_LIMIT_PER_MIN` | `10` | verzoeken/minuut/IP op aanlever-endpoints |
 

@@ -130,6 +130,65 @@ Dit stapje wordt vaak vergeten en is de nummer-1 oorzaak van een mislukte aanroe
 
 ---
 
+## Stap 3B — Opdrachtgever kiezen (VIF-bestand automatisch bij het klantdossier)
+
+Met deze stap kiest sales bij het aanleveren de **opdrachtgever**. Render koppelt het
+originele VIF-bestand dan meteen aan **twee** plekken: het documentenoverzicht van de
+opdrachtgever (Account) én de nieuwe vacature. Ook wordt het opzoekveld
+*Opdrachtgever* op de vacature gevuld.
+
+### 3B-1 — Opzoekveld toevoegen aan het scherm
+
+1. Open de Flow **VIF aanleveren** → open het scherm `VIF aanleveren`.
+2. Sleep er een extra **Opzoeken** (Lookup)-component in, tussen *Recruiter* en
+   *Aanleveraar*:
+   - **Label**: `Opdrachtgever`
+   - **API-naam**: `opdrachtgever`
+   - **Object-API-naam**: `Account`
+   - **Veld-API-naam**: `Tigris__Opdrachtgever__c` *(het bestaande opzoekveld op het
+     Vacatures-object — zo neemt de component automatisch de lookup-filter over,
+     bijvoorbeeld alleen accounts met recordtype Company)*
+   - **Verplicht**: Ja
+3. **Gereed**.
+
+### 3B-2 — Het veld meesturen in de HTTP-aanroep
+
+De actie `verstuurVIF` kent het veld `opdrachtgever_id` nog niet; dat leer je 'm zo:
+
+1. Open de actie **verstuurVIF** → klik bij de HTTP-aanroep op **Bewerken**
+   (potloodje bij de externe service).
+2. Vervang het **Voorbeeld van aanvraaginhoud** door:
+   ```json
+   {"content_version_id":"0680000000000000","recruiter_id":"0050000000000000","aanleveraar_id":"0050000000000000","opdrachtgever_id":"0010000000000000"}
+   ```
+   → **Opslaan**. *(Lukt bewerken niet in jouw versie: maak binnen dezelfde service een
+   nieuwe invocable actie `verstuurVIF2` met dit voorbeeld en gebruik die in de Flow.)*
+3. Terug in de Flow, in de actie: koppel het nieuwe invoerveld
+   `opdrachtgever_id` = `{!opdrachtgever.recordId}` *(of `{!opdrachtgever}` als jouw
+   lookup-component direct een ID teruggeeft — check het datatype)*.
+4. **Opslaan** → **Activeren** (nieuwe versie).
+
+### 3B-3 — Render-omgeving (eenmalig, 2 minuten)
+
+In **Render → je service → Environment** deze variabelen zetten, anders vult de code
+het opzoekveld niet:
+
+| Variabele | Waarde |
+|---|---|
+| `SF_OPDRACHTGEVER_FIELD` | `Tigris__Opdrachtgever__c` |
+| `SF_OPDRACHTGEVER_OBJECT` | `Account` (is al de default) |
+| `SF_OPDRACHTGEVER_FILTER` | `RecordType.Name = 'Company'` *(zelfde filter als je lookup)* |
+
+Daarna **Save & deploy**. Wat er dan automatisch gebeurt bij elke aanlevering:
+de gekozen opdrachtgever komt in het opzoekveld op de vacature, en het originele
+VIF-bestand verschijnt onder **Bestanden** bij zowel de opdrachtgever als de vacature.
+
+> Let op (rechten): wie de vacature of het klantdossier kan zien, kan dan ook het
+> VIF-origineel openen. Jullie hebben de rechten al goed ingericht — controleer na de
+> eerste test even met een sales- én een recruiter-account of dat klopt.
+
+---
+
 ## Stap 4 — De Flow bereikbaar maken in Tigris
 
 - **Als tabblad**: Set-up → **Gebruikersinterface → Tabbladen → Lightning-pagina-
@@ -145,14 +204,21 @@ diezelfde mensen ook de machtigingenset **Neuro San toegang** (stap 2C) te geven
 ## Stap 5 — Testen
 
 1. Open de Flow als een sales-gebruiker.
-2. Upload een test-VIF, kies jezelf als aanleveraar en een recruiter.
+2. Upload een test-VIF, kies de opdrachtgever, jezelf als aanleveraar en een recruiter.
 3. Verzend. Controleer:
    - In **Render → Logs**: `POST /vif-tigris ... 200`, daarna `[orkestrator]
-     Claude-brein gestart` en `[ATS-administrateur] Vacatures-record aangemaakt`.
-   - In **Tigris**: nieuwe vacature met **Eigenaar = de recruiter** en
-     **Aanleveraar = de sales-gebruiker**.
-   - De **goedkeur-mail** bij marketing (met de agent-gespreksbijlage).
-   - Onvolledige VIF → de Flow krijgt een 422 terug en er gaat niets naar Tigris.
+     Claude-brein gestart`, `[ATS-administrateur] Vacatures-record aangemaakt`,
+     `Tigris App Id: ...` en 2× `VIF-bestand gekoppeld aan ...`.
+   - In **Tigris**: nieuwe vacature met **Eigenaar = de recruiter**, **Aanleveraar =
+     de sales-gebruiker** en **Opdrachtgever = de gekozen account**; het VIF-origineel
+     staat onder **Bestanden** bij de opdrachtgever én bij de vacature.
+   - In **Meta (Ads Manager)**: het Instant Form van de campagne heeft de tracking-
+     parameter **APP ID** met het Tigris App Id — leads komen dus automatisch op de
+     juiste vacature binnen (geen handmatige koppeling meer).
+   - De **goedkeur-mail** bij marketing (met de agent-gespreksbijlage en de regel
+     "Leadkoppeling: ... App Id ...").
+   - Onvolledige VIF → de Flow krijgt een nette statusmelding terug en er gaat niets
+     naar Tigris.
 
 ---
 
