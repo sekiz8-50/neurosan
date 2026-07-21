@@ -227,3 +227,12 @@ def create_ad(name: str, adset_id: str, image_hash: str, headline: str,
 def set_status(object_id: str, status: str) -> None:
     """status = 'ACTIVE' of 'PAUSED'. Werkt voor campaign/adset/ad."""
     _post(object_id, {"status": status})
+
+
+def campagne_url(campaign_id: str) -> str:
+    """Directe link naar de campagne in Meta Ads Manager (gefilterd op déze campagne),
+    zodat marketing 'm daar zelf online zet. Leeg voor test/dry-run-id's."""
+    if not campaign_id or str(campaign_id).startswith(("MAILTEST", "DRYRUN")):
+        return ""
+    return (f"https://adsmanager.facebook.com/adsmanager/manage/campaigns"
+            f"?act={cfg.META_AD_ACCOUNT_ID}&selected_campaign_ids={campaign_id}")

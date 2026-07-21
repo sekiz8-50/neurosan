@@ -870,6 +870,7 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
     # Lead-gen: nu pas het Instant Form (met 'APP ID'-trackingparameter) + advertenties bouwen,
     # uit de bij upload bewaarde build-content. App Id is nu bekend uit de website-plaatsing.
     meta_res = None
+    geactiveerd = False
     try:
         if build and not build.get("ads_created"):
             # Oudere build: form + advertenties zijn nog niet gemaakt → nu maken (mét App Id).
@@ -907,11 +908,21 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
                 except Exception:
                     pass
             print(f"[campagne-meta] herbouwd met App Id {app_id} (nieuw form {nieuw_form})")
-        meta_res = meta.activate_all(campaign_id, app_id=app_id)
+        if cfg.META_AUTO_ACTIVEER:
+            meta_res = meta.activate_all(campaign_id, app_id=app_id)
+            geactiveerd = True
+        else:
+            # Campagne blijft PAUSED — marketing zet 'm zelf online in Meta (na doorverwijzing).
+            print(f"[campagne-meta] campagne {campaign_id} staat klaar (PAUSED); marketing activeert "
+                  f"handmatig in Meta")
+            meta_res = {"status": "PAUSED", "manueel_activeren_in_meta": True}
+            geactiveerd = False
     except Exception as e:
         print(f"[campagne-meta] leadform/activeren faalde: {e}")
         meta_res = {"fout": str(e)[:300]}
-    return {"website": website, "meta": meta_res, "app_id": app_id}
+        geactiveerd = False
+    return {"website": website, "meta": meta_res, "app_id": app_id,
+            "campagne_url": meta.campagne_url(campaign_id), "geactiveerd": geactiveerd}
 
 
 # Backwards-compat alias (oude /tigris-flow zonder Salesforce-record).

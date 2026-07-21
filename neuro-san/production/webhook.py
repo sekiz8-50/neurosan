@@ -682,15 +682,16 @@ def approve_page(campaign: str, token: str, sf: str = "", h: str = ""):
 <body style="font-family:system-ui;background:#f6f6f6;text-align:center;padding:60px">
 <div style="max-width:440px;margin:auto;background:#fff;border-radius:8px;padding:40px">
 <div style="font-size:40px">●</div><h2 style="color:#FF7D2F">Vacature publiceren?</h2>
-<p style="color:#69696A">Klik op bevestigen om de vacature live te zetten op de website (Tigris)
-en de Meta-campagne te activeren.</p>
+<p style="color:#69696A">Klik op bevestigen: de vacature gaat live op de website (Tigris) en de
+Meta-campagne wordt klaargezet. Daarna ga je door naar Meta om de campagne <b>zelf online te
+zetten</b>.</p>
 <form method="post" action="/approve">
 <input type="hidden" name="campaign" value="{campaign}">
 <input type="hidden" name="token" value="{token}">
 <input type="hidden" name="sf" value="{sf}">
 <input type="hidden" name="h" value="{h}">
 <button type="submit" style="background:#FF7D2F;color:#fff;border:0;border-radius:6px;
-padding:14px 28px;font-size:16px;cursor:pointer;margin-top:10px">Ja, publiceren 🚀</button>
+padding:14px 28px;font-size:16px;cursor:pointer;margin-top:10px">Ja, publiceren → naar Meta</button>
 </form></div></body>""")
 
 
@@ -709,12 +710,36 @@ def approve_confirm(campaign: str = Form(...), token: str = Form(...), sf: str =
         if campaign in _gepubliceerd:
             return _page("Al gepubliceerd ✓", "Deze vacature is al live gezet.", "#2E7D32")
         try:
-            pipeline.publiceer(campaign, sf, inhoud_hash=h)
+            res = pipeline.publiceer(campaign, sf, inhoud_hash=h)
             _gepubliceerd.add(campaign)
         except Exception as e:
             return _page("Publiceren mislukt", f"Probeer opnieuw of check Tigris/Ads Manager. ({str(e)[:200]})", "#C0392B")
-    return _page("Vacature gepubliceerd 🚀",
-                 "De vacature staat live op de website (Tigris) en de Meta-campagne is actief.")
+    if res.get("geactiveerd"):
+        return _page("Vacature gepubliceerd 🚀",
+                     "De vacature staat live op de website (Tigris) en de Meta-campagne is actief.")
+    # Standaard: vacature live op de website, campagne klaargezet (PAUSED) → door naar Meta,
+    # waar marketing de campagne zelf online zet.
+    return _meta_activatie_pagina(res.get("campagne_url") or "")
+
+
+def _meta_activatie_pagina(url: str) -> HTMLResponse:
+    """Bevestigt dat de vacature live staat en stuurt door naar de campagne in Meta,
+    zodat marketing 'm daar zelf online zet."""
+    doorlink = f'<meta http-equiv="refresh" content="3;url={url}">' if url else ""
+    knop = (f'<a href="{url}" style="display:inline-block;background:#1877F2;color:#fff;'
+            f'text-decoration:none;font-weight:700;padding:14px 26px;border-radius:6px;margin-top:14px">'
+            f'Open de campagne in Meta →</a>'
+            if url else '<p style="color:#C0392B;font-size:13px">Geen Meta-campagne-URL beschikbaar '
+                        '(check Ads Manager handmatig).</p>')
+    return HTMLResponse(f"""<!doctype html><meta charset="utf-8">{doorlink}
+<body style="font-family:system-ui;background:#f6f6f6;text-align:center;padding:60px">
+<div style="max-width:460px;margin:auto;background:#fff;border-radius:8px;padding:40px">
+<div style="font-size:40px">●</div><h2 style="color:#FF7D2F">Vacature staat live 🚀</h2>
+<p style="color:#69696A">De vacature staat live op de website (Tigris). De Meta-campagne staat
+klaar (op pauze). Je wordt doorgestuurd naar Meta — <b>zet de campagne daar zelf online</b>.</p>
+{knop}
+<p style="color:#8A8A8B;font-size:11px;margin-top:16px">Word je niet automatisch doorgestuurd?
+Klik op de knop hierboven.</p></div></body>""")
 
 
 @app.get("/reject")

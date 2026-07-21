@@ -23,6 +23,11 @@ class Config:
     # Meta/Salesforce falen dan gecontroleerd (dry-run/fout in de mail), de keten loopt door.
     DEV_MODE = _opt("DEV_MODE").lower() in ("1", "true", "ja", "yes")
 
+    # Bij goedkeuring de Meta-campagne automatisch ACTIVE zetten? Standaard NEE:
+    # de vacature gaat wél live op de website, maar marketing zet de campagne zélf online
+    # in Meta (na de doorverwijzing). Zet META_AUTO_ACTIVEER=1 voor de oude automatische flow.
+    META_AUTO_ACTIVEER = _opt("META_AUTO_ACTIVEER").lower() in ("1", "true", "ja", "yes")
+
     # Meta
     META_TOKEN = _req("META_ACCESS_TOKEN")
     META_AD_ACCOUNT_ID = _req("META_AD_ACCOUNT_ID").replace("act_", "")
