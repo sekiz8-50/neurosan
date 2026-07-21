@@ -860,16 +860,9 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
     # Lead-gen: nu pas het Instant Form (met 'APP ID'-trackingparameter) + advertenties bouwen,
     # uit de bij upload bewaarde build-content. App Id is nu bekend uit de website-plaatsing.
     meta_res = None
-    # Leadformulier is normaal al bij de upload gebouwd MET het App Id als tracking-
-    # parameter. Was het App Id toen (nog) niet beschikbaar, meld dat dan expliciet —
-    # een bestaand Instant Form is niet meer aan te passen.
-    if build and build.get("ads_created") and not build.get("app_id") and app_id:
-        print(f"[campagne-meta] LET OP: het leadformulier is zonder App Id aangemaakt; "
-              f"koppel App Id {app_id} handmatig aan het formulier in Meta (eenmalig).")
     try:
-        # Advertenties zijn al bij de upload aangemaakt (ads_created). Alleen als dat
-        # (nog) niet zo is, maken we ze hier alsnog — vangnet voor oudere builds.
         if build and not build.get("ads_created"):
+            # Oudere build: form + advertenties zijn nog niet gemaakt → nu maken (mét App Id).
             form_naam = f"{build.get('titel', 'Vacature')} — sollicitatie · {campaign_id}"[:200]
             form_id = meta.create_lead_form(form_naam, app_id=app_id, follow_up_url=build.get("url"))
             for adset_id in build.get("adset_ids", []):
@@ -879,6 +872,31 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
                                         v.get("description", ""), form_id, build.get("url"),
                                         build.get("cta", "SIGN_UP"))
             print(f"[campagne-meta] leadformulier {form_id} + advertenties aangemaakt (App Id {app_id})")
+        elif build and build.get("ads_created") and not build.get("app_id") and app_id:
+            # VANGNET: het leadformulier is bij upload ZONDER App Id gebouwd (Tigris was toen nog
+            # niet klaar). Nu is het App Id er wél. Een Instant Form is niet te wijzigen, dus we
+            # herbouwen: nieuw form + advertenties MÉT App Id, en ruimen de oude op (die zouden
+            # anders zonder App Id mee-activeren → leads koppelen niet).
+            print(f"[campagne-meta] leadformulier zonder App Id → herbouwen met App Id {app_id}")
+            form_naam = f"{build.get('titel', 'Vacature')} — sollicitatie · {campaign_id}"[:200]
+            nieuw_form = meta.create_lead_form(form_naam, app_id=app_id, follow_up_url=build.get("url"))
+            for adset_id in build.get("adset_ids", []):
+                for i, v in enumerate(build.get("variants", []), 1):
+                    meta.create_lead_ad(f"{build.get('titel', '')} — variant {i}", adset_id,
+                                        build["image_hash"], v["headline"], v["primary_text"],
+                                        v.get("description", ""), nieuw_form, build.get("url"),
+                                        build.get("cta", "SIGN_UP"))
+            for oud_ad in build.get("ad_ids", []):
+                try:
+                    meta.delete_object(oud_ad)
+                except Exception as de:
+                    print(f"[campagne-meta] oude advertentie {oud_ad} opruimen faalde: {de}")
+            if build.get("form_id"):
+                try:
+                    meta.delete_object(build["form_id"], meta.page_token())
+                except Exception:
+                    pass
+            print(f"[campagne-meta] herbouwd met App Id {app_id} (nieuw form {nieuw_form})")
         meta_res = meta.activate_all(campaign_id, app_id=app_id)
     except Exception as e:
         print(f"[campagne-meta] leadform/activeren faalde: {e}")

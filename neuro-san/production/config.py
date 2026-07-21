@@ -77,6 +77,12 @@ class Config:
     SF_CLIENT_SECRET = _opt("SF_CLIENT_SECRET")    # Consumer Secret van de Connected App
     SF_API_VERSION = _opt("SF_API_VERSION", "v60.0")
     SF_VACANCY_OBJECT = _opt("SF_VACANCY_OBJECT", "Tigris__Vacancy__c")
+    # App Id-veld op de vacature (Tigris vult dit kort ná het aanmaken automatisch). Wordt als
+    # 'APP ID'-trackingparameter in het Meta-leadformulier gezet zodat leads automatisch aan de
+    # juiste vacature in Tigris koppelen. Wachttijd = POGINGEN × INTERVAL (standaard ~60s).
+    TIGRIS_APPID_FIELD = _opt("TIGRIS_APPID_FIELD", "Tigris__App_Id__c")
+    APPID_WACHT_POGINGEN = int(_opt("APPID_WACHT_POGINGEN", "30") or "30")
+    APPID_WACHT_INTERVAL = float(_opt("APPID_WACHT_INTERVAL", "2") or "2")
     # Publieke basis voor de vacaturepagina-URL (Meta-link) zolang Tigris er geen teruggeeft.
     VACANCY_URL_BASE = _opt("VACANCY_URL_BASE", "https://www.maintec.nl/vacatures").rstrip("/")
 

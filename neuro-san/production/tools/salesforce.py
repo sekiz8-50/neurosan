@@ -179,26 +179,31 @@ def _auth() -> tuple[str, str]:
     return j["access_token"], j["instance_url"]
 
 
-def wacht_op_app_id(sf_id: str, pogingen: int = 10) -> str:
-    """Tigris maakt na het aanmaken van een vacature automatisch een App Id aan
-    (Tigris__App_Id__c). Die halen we hier op (korte retry, het veld wordt door
-    Tigris async gevuld) zodat het Meta-leadformulier 'm als trackingparameter
-    meekrijgt en leads DIRECT goed in Tigris binnenkomen — zonder handwerk.
+def wacht_op_app_id(sf_id: str, pogingen: int = 0, interval: float = 0.0) -> str:
+    """Tigris vult kort ná het aanmaken van een vacature automatisch het App Id-veld
+    (Tigris__App_Id__c) — asynchroon, doorgaans binnen enkele tellen tot ~een minuut.
+    We wachten er hier op (standaard ~60s, instelbaar) zodat het Meta-leadformulier het
+    App Id als trackingparameter meekrijgt en leads DIRECT aan de juiste vacature in
+    Tigris koppelen. Komt het niet op tijd, dan is er een vangnet bij publicatie.
     Leeg bij dry-run of als het veld (nog) niet gevuld is."""
     if not sf_id or str(sf_id).startswith("DRYRUN") or not cfg.salesforce_ready():
         return ""
+    pogingen = pogingen or cfg.APPID_WACHT_POGINGEN
+    interval = interval or cfg.APPID_WACHT_INTERVAL
+    veld = cfg.TIGRIS_APPID_FIELD
     try:
         token, instance = _auth()
         for _ in range(max(1, pogingen)):
-            rec = get_record(sf_id, ["Tigris__App_Id__c"], token, instance)
-            app_id = rec.get("Tigris__App_Id__c")
+            rec = get_record(sf_id, [veld], token, instance)
+            app_id = rec.get(veld)
             if app_id:
                 print(f"[ATS-administrateur] Tigris App Id: {app_id}")
                 return str(app_id)
-            time.sleep(1.2)
+            time.sleep(interval)
     except Exception as e:
         print(f"[ATS-administrateur] App Id ophalen faalde: {e}")
-    print(f"[ATS-administrateur] geen App Id gevonden voor {sf_id} (leadform krijgt 'm bij publicatie)")
+    print(f"[ATS-administrateur] App Id na ~{int(pogingen * interval)}s nog niet gevuld voor {sf_id} "
+          f"— leadformulier krijgt 'm alsnog bij publicatie (vangnet)")
     return ""
 
 
@@ -602,8 +607,8 @@ def op_website_plaatsen(sf_id: str, maanden_online: int = 2, pogingen: int = 15)
     # App Id + livegangsdatum komen direct; korte retry als vangnet.
     app_id, date_activated = None, None
     for _ in range(pogingen):
-        rec = get_record(sf_id, ["Tigris__App_Id__c", "Tigris__Date_Activated__c"], token, instance)
-        app_id = rec.get("Tigris__App_Id__c")
+        rec = get_record(sf_id, [cfg.TIGRIS_APPID_FIELD, "Tigris__Date_Activated__c"], token, instance)
+        app_id = rec.get(cfg.TIGRIS_APPID_FIELD)
         date_activated = rec.get("Tigris__Date_Activated__c")
         if app_id and date_activated:
             break
