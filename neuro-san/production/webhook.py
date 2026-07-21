@@ -515,12 +515,35 @@ def doc_test(token: str = "", cv: str = "", account: str = "", vacature: str = "
                 "Haal het juiste Id op via /laatste-bestanden — NIET je secret gebruiken.",
                 "cv_ontvangen": cv}
     rid = salesforce.maak_tigris_document(account, cv, "VIF - test", type.strip(), vacancy_id=vacature)
+    # Lees het aangemaakte record terug: zo zie je zwart-op-wit welke koppelvelden gevuld zijn
+    # (opdrachtgever + eventueel vacature). Zo weten we of Vacature__c écht is gezet.
+    velden_terug: dict = {}
+    if rid:
+        try:
+            import requests as _rq
+            tok, inst = salesforce._auth()
+            velden = [f for f in (cfg.TIGRIS_DOC_ACCOUNT_FIELD, cfg.TIGRIS_DOC_VACANCY_FIELD,
+                                  cfg.TIGRIS_DOC_CONTENTID_FIELD) if f]
+            q = f"SELECT {','.join(velden)} FROM {cfg.TIGRIS_DOC_OBJECT} WHERE Id = '{rid}'"
+            r = _rq.get(f"{inst}/services/data/{cfg.SF_API_VERSION}/query?q={_rq.utils.quote(q)}",
+                        headers={"Authorization": f"Bearer {tok}"}, timeout=30)
+            recs = r.json().get("records", []) if r.ok else []
+            if recs:
+                velden_terug = {k: recs[0].get(k) for k in velden}
+        except Exception as e:
+            velden_terug = {"query_fout": str(e)[:200]}
+    vac_veld = cfg.TIGRIS_DOC_VACANCY_FIELD
+    vac_gevuld = bool(vac_veld and velden_terug.get(vac_veld))
     return {"documenten_record_id": rid or None,
             "resultaat": "aangemaakt" if rid else "mislukt — zie de Render-logs voor de exacte fout",
-            "vacature_veld_geconfigureerd": bool(cfg.TIGRIS_DOC_VACANCY_FIELD),
-            "vacature_meegegeven": bool(vacature),
-            "let_op": ("Staat de record maar op één van beide lijsten? Kijk in de Render-log naar "
-                       "'overgeslagen velden' — dan is het vacature-veld (API-naam) niet geaccepteerd."),
+            "vacature_veld_geconfigureerd": bool(vac_veld),
+            "vacature_veld_api_naam": vac_veld or "(niet geconfigureerd — zet TIGRIS_DOC_VACANCY_FIELD in Render)",
+            "vacature_koppeling_gelukt": vac_gevuld,
+            "record_velden": velden_terug,
+            "conclusie": ("VIF hangt aan opdrachtgever ÉN vacature ✅" if vac_gevuld else
+                          ("Alleen aan de opdrachtgever — Vacature-veld niet gevuld. "
+                           "Check: staat TIGRIS_DOC_VACANCY_FIELD in Render op de EXACTE API-naam "
+                           "van je nieuwe opzoekveld, en is die deploy live?")),
             "object": cfg.TIGRIS_DOC_OBJECT}
 
 
