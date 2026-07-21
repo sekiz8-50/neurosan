@@ -620,14 +620,20 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
         og_status = "gezet" if opdrachtgever_id else "LEEG (Flow stuurt opdrachtgever_id niet mee)"
         print(f"[orkestrator] VIF opslaan — cv={content_version_id} · opdrachtgever_id={og_status} · "
               f"vacature={sf['id']}")
+        doc_id = ""
         if opdrachtgever_id:
             doc_naam = f"VIF - {vac.get('titel', 'vacature')} {vac.get('plaats', '')}".strip()
-            salesforce.maak_tigris_document(opdrachtgever_id, content_version_id, doc_naam)
+            # vacancy_id wordt alleen gebruikt als TIGRIS_DOC_VACANCY_FIELD is geconfigureerd;
+            # dan hangt dezelfde Documenten-record óók aan de vacature.
+            doc_id = salesforce.maak_tigris_document(opdrachtgever_id, content_version_id,
+                                                     doc_naam, vacancy_id=sf["id"])
         else:
             print("[orkestrator] geen opdrachtgever_id — VIF komt NIET in de Documenten-lijst van "
                   "de opdrachtgever (controleer of de Flow opdrachtgever_id meestuurt).")
-        # Vacature: standaard-bestandkoppeling (Documenten-object kent geen vacature-relatie).
-        salesforce.link_file_to_records(content_version_id, [sf["id"]])
+        # Vacature: heeft het Documenten-object geen vacature-relatie (of is er geen Documenten-
+        # record gemaakt)? Koppel de VIF dan als standaard Salesforce-bestand aan de vacature.
+        if not (doc_id and cfg.TIGRIS_DOC_VACANCY_FIELD):
+            salesforce.link_file_to_records(content_version_id, [sf["id"]])
     else:
         print("[orkestrator] GEEN content_version_id ontvangen — VIF wordt NIET opgeslagen. "
               "Komt de aanlevering wel via /vif-tigris (Route A)?")

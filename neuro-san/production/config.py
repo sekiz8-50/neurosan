@@ -90,6 +90,11 @@ class Config:
     TIGRIS_DOC_NAME_FIELD = _opt("TIGRIS_DOC_NAME_FIELD", "Name")
     TIGRIS_DOC_TYPE_FIELD = _opt("TIGRIS_DOC_TYPE_FIELD", "Tigris__Type_document__c")      # Documenttype (keuzelijst)
     TIGRIS_DOC_TYPE_VALUE = _opt("TIGRIS_DOC_TYPE_VALUE", "Overig")                        # picklist-waarde voor een VIF
+    # Optioneel: als je een eigen opzoekveld naar de Vacature op het Documenten-object maakt,
+    # zet hier de API-naam (bv. Vacature__c). Dan hangt dezelfde Documenten-record óók aan de
+    # vacature en verschijnt de VIF daar in de Documenten-lijst. Leeg = vacature krijgt de VIF
+    # als standaard Salesforce-bestand (Bestanden-lijst).
+    TIGRIS_DOC_VACANCY_FIELD = _opt("TIGRIS_DOC_VACANCY_FIELD", "")
 
     # Opdrachtgever-matching: vult het opzoekveld op de vacature met de bestaande
     # opdrachtgever uit de VIF (op naam). Leeg SF_OPDRACHTGEVER_FIELD = functie uit.

@@ -311,7 +311,7 @@ def _content_document_id(cv_id: str, token: str, instance: str) -> str:
 
 
 def maak_tigris_document(account_id: str, content_version_id: str, naam: str,
-                         documenttype: str = "") -> str:
+                         documenttype: str = "", vacancy_id: str = "") -> str:
     """Maakt een Tigris-'Documenten'-record (Tigris__Overeenkomst__c) bij de OPDRACHTGEVER
     met het VIF-origineel eraan gekoppeld (Bestands ID = ContentDocumentId). Zo verschijnt
     de VIF in de vertrouwde 'Documenten'-lijst i.p.v. de standaard-bestandenlijst.
@@ -338,6 +338,9 @@ def maak_tigris_document(account_id: str, content_version_id: str, naam: str,
         typ = documenttype or cfg.TIGRIS_DOC_TYPE_VALUE
         if cfg.TIGRIS_DOC_TYPE_FIELD and typ:
             payload[cfg.TIGRIS_DOC_TYPE_FIELD] = typ
+        # Optioneel: dezelfde record óók aan de vacature hangen (eigen opzoekveld).
+        if cfg.TIGRIS_DOC_VACANCY_FIELD and vacancy_id and not str(vacancy_id).startswith("DRYRUN"):
+            payload[cfg.TIGRIS_DOC_VACANCY_FIELD] = vacancy_id
         url = f"{base}/sobjects/{cfg.TIGRIS_DOC_OBJECT}/"
         hdr = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
         essentieel = {cfg.TIGRIS_DOC_ACCOUNT_FIELD, cfg.TIGRIS_DOC_CONTENTID_FIELD}
