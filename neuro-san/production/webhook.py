@@ -718,14 +718,28 @@ def approve_confirm(campaign: str = Form(...), token: str = Form(...), sf: str =
         return _page("Vacature gepubliceerd 🚀",
                      "De vacature staat live op de website (Tigris) en de Meta-campagne is actief.")
     # Standaard: vacature live op de website, campagne klaargezet (PAUSED) → door naar Meta,
-    # waar marketing de campagne zelf online zet.
-    return _meta_activatie_pagina(res.get("campagne_url") or "")
+    # waar marketing de campagne zelf online zet. Toon een waarschuwing als het App Id
+    # niet (aantoonbaar) in het leadformulier staat — dan zouden leads niet in Tigris landen.
+    waarschuwing = ""
+    if res.get("app_id"):
+        if res.get("app_id_in_form") is False:
+            waarschuwing = ("⚠️ Let op: het App Id staat NIET in het leadformulier. Zet de campagne "
+                            "NIET online — meld dit, anders komen de leads niet in Tigris.")
+        elif res.get("app_id_in_form") is None:
+            waarschuwing = ("App Id-controle kon niet automatisch — verifieer via de "
+                            "formulieren-check voordat je de campagne online zet.")
+    return _meta_activatie_pagina(res.get("campagne_url") or "", waarschuwing)
 
 
-def _meta_activatie_pagina(url: str) -> HTMLResponse:
+def _meta_activatie_pagina(url: str, waarschuwing: str = "") -> HTMLResponse:
     """Bevestigt dat de vacature live staat en stuurt door naar de campagne in Meta,
     zodat marketing 'm daar zelf online zet."""
-    doorlink = f'<meta http-equiv="refresh" content="3;url={url}">' if url else ""
+    hard = waarschuwing.startswith("⚠️")
+    # Bij een harde waarschuwing NIET automatisch doorsturen — eerst laten lezen.
+    doorlink = f'<meta http-equiv="refresh" content="3;url={url}">' if (url and not hard) else ""
+    waarsch_html = (f'<div style="background:{"#FDECEA" if hard else "#FFF3E8"};border-radius:6px;'
+                    f'padding:12px 14px;font-size:13px;margin:14px 0;color:{"#b23b2e" if hard else "#9a5b1e"}">'
+                    f'{waarschuwing}</div>') if waarschuwing else ""
     knop = (f'<a href="{url}" style="display:inline-block;background:#1877F2;color:#fff;'
             f'text-decoration:none;font-weight:700;padding:14px 26px;border-radius:6px;margin-top:14px">'
             f'Open de campagne in Meta →</a>'
@@ -736,10 +750,27 @@ def _meta_activatie_pagina(url: str) -> HTMLResponse:
 <div style="max-width:460px;margin:auto;background:#fff;border-radius:8px;padding:40px">
 <div style="font-size:40px">●</div><h2 style="color:#FF7D2F">Vacature staat live 🚀</h2>
 <p style="color:#69696A">De vacature staat live op de website (Tigris). De Meta-campagne staat
-klaar (op pauze). Je wordt doorgestuurd naar Meta — <b>zet de campagne daar zelf online</b>.</p>
-{knop}
+klaar (op pauze). Zet 'm in Meta zelf online.</p>
+{waarsch_html}{knop}
 <p style="color:#8A8A8B;font-size:11px;margin-top:16px">Word je niet automatisch doorgestuurd?
 Klik op de knop hierboven.</p></div></body>""")
+
+
+@app.get("/leadforms")
+def leadforms(token: str = ""):
+    """Overzicht (Optie 1): alle leadformulieren van de pagina + hun trackingparameters, zodat je
+    per formulier ziet of het App Id is opgenomen. Zo verifieer je vóór activatie dat leads
+    straks in Tigris landen. Gebruik: /leadforms?token=<secret>"""
+    if token.strip() != cfg.TIGRIS_SHARED_SECRET:
+        raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
+    from tools import meta
+    forms = meta.leadformulieren()
+    zonder = [f for f in forms if isinstance(f, dict) and "app_id_aanwezig" in f and not f["app_id_aanwezig"]]
+    return {"aantal": len(forms),
+            "zonder_app_id": [f.get("naam") for f in zonder],
+            "let_op": ("Formulieren zonder App Id koppelen leads NIET aan Tigris." if zonder
+                       else "Alle gecontroleerde formulieren hebben een App Id."),
+            "formulieren": forms}
 
 
 @app.get("/reject")

@@ -229,6 +229,62 @@ def set_status(object_id: str, status: str) -> None:
     _post(object_id, {"status": status})
 
 
+def _normaliseer_tracking(tp) -> dict:
+    """Meta geeft trackingparameters in wisselende vormen terug (dict, lijst van {key,value},
+    of {data:[...]}). Normaliseer naar een platte {naam: waarde}-dict."""
+    if isinstance(tp, dict):
+        if isinstance(tp.get("data"), list):
+            return {d.get("key") or d.get("name"): d.get("value")
+                    for d in tp["data"] if isinstance(d, dict)}
+        return {k: v for k, v in tp.items()}
+    if isinstance(tp, list):
+        return {d.get("key") or d.get("name"): d.get("value")
+                for d in tp if isinstance(d, dict)}
+    return {}
+
+
+def _app_id_uit(params: dict):
+    """Haalt de App Id-waarde uit genormaliseerde trackingparameters (accepteert 'APP ID',
+    'app_id', 'appid', ...). Leeg als niet aanwezig."""
+    for k, v in (params or {}).items():
+        if str(k).strip().lower().replace("_", " ").replace("-", " ") in ("app id", "appid"):
+            return v
+    return None
+
+
+def form_trackingparameters(form_id: str):
+    """Leest de trackingparameters van een leadformulier terug via de Graph API.
+    Retour: dict met parameters, of None als de API het veld niet teruggeeft/leest
+    (dan is verificatie niet mogelijk en moet je handmatig checken)."""
+    try:
+        r = _get(f"{form_id}", {"fields": "tracking_parameters"}, token=page_token())
+        if "tracking_parameters" not in r:
+            return None
+        return _normaliseer_tracking(r.get("tracking_parameters"))
+    except Exception as e:
+        print(f"[campagne-meta] trackingparameters lezen faalde voor {form_id}: {e}")
+        return None
+
+
+def leadformulieren(limit: int = 25) -> list:
+    """Overzicht van de leadformulieren van de pagina met hun trackingparameters, zodat je
+    kunt controleren of het App Id per formulier is opgenomen (Optie 1: verificatie vooraf)."""
+    try:
+        data = _get(f"{cfg.META_PAGE_ID}/leadgen_forms",
+                    {"fields": "id,name,status,tracking_parameters", "limit": limit},
+                    token=page_token()).get("data", [])
+    except Exception as e:
+        return [{"fout": f"leadformulieren lezen faalde: {str(e)[:200]}"}]
+    uit = []
+    for f in data:
+        params = _normaliseer_tracking(f.get("tracking_parameters"))
+        app_id = _app_id_uit(params)
+        uit.append({"form_id": f.get("id"), "naam": f.get("name"), "status": f.get("status"),
+                    "app_id": app_id, "app_id_aanwezig": bool(app_id),
+                    "trackingparameters": params})
+    return uit
+
+
 def campagne_url(campaign_id: str) -> str:
     """Directe link naar de campagne in Meta Ads Manager (gefilterd op déze campagne),
     zodat marketing 'm daar zelf online zet. Leeg voor test/dry-run-id's."""

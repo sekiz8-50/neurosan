@@ -871,6 +871,8 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
     # uit de bij upload bewaarde build-content. App Id is nu bekend uit de website-plaatsing.
     meta_res = None
     geactiveerd = False
+    app_id_in_form = None
+    live_form_id = build.get("form_id") if build else None   # standaard: het upload-formulier
     try:
         if build and not build.get("ads_created"):
             # Oudere build: form + advertenties zijn nog niet gemaakt → nu maken (mét App Id).
@@ -882,6 +884,7 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
                                         build["image_hash"], v["headline"], v["primary_text"],
                                         v.get("description", ""), form_id, build.get("url"),
                                         build.get("cta", "SIGN_UP"))
+            live_form_id = form_id
             print(f"[campagne-meta] leadformulier {form_id} + advertenties aangemaakt (App Id {app_id})")
         elif build and build.get("ads_created") and not build.get("app_id") and app_id:
             # VANGNET: het leadformulier is bij upload ZONDER App Id gebouwd (Tigris was toen nog
@@ -908,7 +911,22 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
                     meta.delete_object(build["form_id"], meta.page_token())
                 except Exception:
                     pass
+            live_form_id = nieuw_form
             print(f"[campagne-meta] herbouwd met App Id {app_id} (nieuw form {nieuw_form})")
+
+        # VEILIGHEIDSCHECK: lees het live formulier terug en bevestig dat het App Id er echt
+        # in staat. Zo detecteren we vóór activatie dat leads NIET zouden koppelen.
+        if app_id and live_form_id:
+            params = meta.form_trackingparameters(live_form_id)
+            if params is None:
+                app_id_in_form = None       # API gaf trackingparameters niet terug → onbekend
+                print(f"[campagne-meta] App Id-verificatie: kon trackingparameters van {live_form_id} "
+                      f"niet via de API lezen — controleer handmatig (/leadforms of Meta)")
+            else:
+                app_id_in_form = str(meta._app_id_uit(params) or "") == str(app_id)
+                print(f"[campagne-meta] App Id-verificatie formulier {live_form_id}: "
+                      f"{'AANWEZIG ✓' if app_id_in_form else 'ONTBREEKT ✗'} — trackingparameters: {params}")
+
         if cfg.META_AUTO_ACTIVEER:
             meta_res = meta.activate_all(campaign_id, app_id=app_id)
             geactiveerd = True
@@ -923,7 +941,8 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
         meta_res = {"fout": str(e)[:300]}
         geactiveerd = False
     return {"website": website, "meta": meta_res, "app_id": app_id,
-            "campagne_url": meta.campagne_url(campaign_id), "geactiveerd": geactiveerd}
+            "campagne_url": meta.campagne_url(campaign_id), "geactiveerd": geactiveerd,
+            "app_id_in_form": app_id_in_form, "live_form_id": live_form_id}
 
 
 # Backwards-compat alias (oude /tigris-flow zonder Salesforce-record).
