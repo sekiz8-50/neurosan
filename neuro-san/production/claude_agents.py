@@ -280,6 +280,30 @@ def run_brain(vif_tekst: str) -> tuple[dict, dict]:
     review = _vraag(client, "brand_marketeer",
                     ctx + "\n\nAdvertenties:\n" + json.dumps(ads, ensure_ascii=False), log)
 
+    # 7b. REVISIELUS: heeft de brand-marketeer concrete verbeterpunten? Dan herschrijft de
+    #     copywriter de vacaturetekst één keer op basis van die feedback (behoudt wat goed is).
+    #     Zo krijg je top-niveau i.p.v. een review die met niemand iets doet.
+    findings = [str(f).strip() for f in (review.get("findings") or []) if str(f).strip()]
+    status = str(review.get("status", "")).upper()
+    if findings or "WARNING" in status or "WITH_CHANGES" in status or "GO_WITH" in status:
+        feedback = review.get("onderbouwing", "")
+        if findings:
+            feedback += "\nConcrete verbeterpunten:\n- " + "\n- ".join(findings)
+        herzien = _vraag(client, "copywriter",
+                         kern + "\n\nSEO-analyse (verwerk deze keywords natuurlijk):\n"
+                         + json.dumps(seo, ensure_ascii=False)
+                         + "\n\nHUIDIGE vacaturetekst:\n" + copy.get("LongDescription", "")
+                         + "\n\nVERBETER deze tekst op basis van onderstaande feedback van de "
+                           "kwaliteitsbewaker. Behoud wat goed is, pas alleen aan wat beter kan, en "
+                           "houd exact dezelfde H3-koppen en de bullet-opmaak aan:\n" + feedback.strip(), log)
+        if herzien.get("LongDescription"):
+            copy["LongDescription"] = _fix_bullets(herzien["LongDescription"])
+            if herzien.get("ShortTeaser"):
+                copy["ShortTeaser"] = herzien["ShortTeaser"]
+            log.append({"from": "orchestrator", "type": "AGENT_FRAMEWORK",
+                        "text": "Copywriter heeft de vacaturetekst herzien op basis van de "
+                                "kwaliteitsfeedback (revisielus)."})
+
     handoff = {
         "JobTitlePrimary": basis.get("JobTitlePrimary", ""),
         "Location": basis.get("Location", ""),

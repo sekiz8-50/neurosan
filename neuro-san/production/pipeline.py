@@ -509,9 +509,19 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
                 vac[k] = v
         # FUNDAMENT: onze eigen Maintec-copywriter schrijft de 5 omschrijvingsblokken uit de SCHONE
         # feiten (i.p.v. de rommelige agent-prose splitsen) → geen 'onbekend'-ruis, altijd on-brand.
+        # De definitieve copywriter krijgt nu óók de SEO-keywords én de merk-/kwaliteitsfeedback mee,
+        # zodat de tekst in Tigris dezelfde rijkdom heeft als wat de brein-copywriter maakt.
+        seo_h = handoff.get("SEO") or {}
+        seo_kw = [k for k in ([seo_h.get("FocusKeyword")] + (seo_h.get("SecondaryKeywords") or [])) if k]
+        blc = handoff.get("BrandLegalCheck") or {}
+        brand_fb = str(blc.get("onderbouwing") or "").strip()
+        blc_findings = [str(f).strip() for f in (blc.get("findings") or []) if str(f).strip()]
+        if blc_findings:
+            brand_fb = (brand_fb + " Aandachtspunten: " + "; ".join(blc_findings)).strip()
         copy_input = {"titel": vac.get("titel"), "plaats": vac.get("plaats"),
                       "label": vac.get("label", "Maintec"), "opleidingsniveau": vac.get("opleidingsniveau"),
-                      "rijbewijs": vac.get("rijbewijs"), "skills": vac.get("skills"), **facts}
+                      "rijbewijs": vac.get("rijbewijs"), "skills": vac.get("skills"), **facts,
+                      "seo_keywords": seo_kw, "brand_feedback": brand_fb}
         copy = agents.copy_specialist(copy_input)
         if copy.get("omschrijving"):
             vac["omschrijving"] = copy["omschrijving"]

@@ -302,7 +302,19 @@ def copy_specialist(vacancy: dict) -> dict:
                "(anoniem), (b) het team, de begeleiding en hoe je wordt ingewerkt als Maintec-collega.\n"
                'JSON: {"omschrijving":{"introductie":"","wat_ga_je_doen":"","wat_kun_je_van_ons_verwachten":"",'
                '"waar_ga_je_werken":"","wat_verwachten_wij_van_jou":""},"quote":"pakkende oneliner die de kern van het aanbod raakt"}.')
-        out = _ask_json(sys, f"Feiten (gebruik alleen deze):\n{json.dumps(vacancy, ensure_ascii=False)}", max_tokens=3000)
+        # SEO-keywords en merk-/kwaliteitsfeedback horen NIET bij de feiten — apart meegeven als
+        # richtlijn, zodat de definitieve tekst dezelfde rijkdom krijgt als de brein-copywriter.
+        seo_kw = [str(k).strip() for k in (vacancy.get("seo_keywords") or []) if str(k).strip()]
+        brand_fb = str(vacancy.get("brand_feedback") or "").strip()
+        feiten = {k: v for k, v in vacancy.items() if k not in ("seo_keywords", "brand_feedback")}
+        user = f"Feiten (gebruik alleen deze):\n{json.dumps(feiten, ensure_ascii=False)}"
+        if seo_kw:
+            user += ("\n\nSEO-keywords — verwerk deze natuurlijk in de lopende tekst (het eerste "
+                     "keyword in de introductie), nooit geforceerd: " + ", ".join(seo_kw))
+        if brand_fb:
+            user += ("\n\nVerbeterpunten van de merk-/kwaliteitsbewaker — verwerk deze concreet in de "
+                     "tekst (behoud wat goed is): " + brand_fb)
+        out = _ask_json(sys, user, max_tokens=3000)
         if "omschrijving" not in out:
             return _copy_fallback(vacancy)
         return out
