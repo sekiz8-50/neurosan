@@ -139,17 +139,26 @@ opdrachtgever (Account) én de nieuwe vacature. Ook wordt het opzoekveld
 
 ### 3B-1 — Opzoekveld toevoegen aan het scherm
 
+> BELANGRIJK — de valkuil: de **Object-API-naam** is NIET `Account`, maar het
+> **Vacatures-object** waarop het opzoekveld `Tigris__Opdrachtgever__c` staat. De
+> component leidt zélf uit dat veld af dat je een **Account** kiest, en neemt zo je
+> Company-filter over. Vul je hier `Account` in, dan werkt de component niet.
+
 1. Open de Flow **VIF aanleveren** → open het scherm `VIF aanleveren`.
 2. Sleep er een extra **Opzoeken** (Lookup)-component in, tussen *Recruiter* en
    *Aanleveraar*:
    - **Label**: `Opdrachtgever`
    - **API-naam**: `opdrachtgever`
-   - **Object-API-naam**: `Account`
-   - **Veld-API-naam**: `Tigris__Opdrachtgever__c` *(het bestaande opzoekveld op het
-     Vacatures-object — zo neemt de component automatisch de lookup-filter over,
-     bijvoorbeeld alleen accounts met recordtype Company)*
+   - **Object-API-naam** (Object API Name): `Tigris__Vacancy__c` *(het object waarop het
+     opzoekveld leeft — NIET `Account`)*
+   - **Veld-API-naam** (Field API Name): `Tigris__Opdrachtgever__c` *(dit veld wijst naar
+     Account en draagt jouw Company-filter; de component toont daardoor alleen bedrijven)*
    - **Verplicht**: Ja
 3. **Gereed**.
+
+> Zo herken je dat het klopt: als je in de voorbeeldweergave in het opzoekveld begint te
+> typen, verschijnen er **accountnamen** (bedrijven) — niet vacatures. Zie je vacatures of
+> een foutmelding, dan staan Object- en Veld-API-naam verkeerd om.
 
 ### 3B-2 — Het veld meesturen in de HTTP-aanroep
 
