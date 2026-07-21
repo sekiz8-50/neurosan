@@ -681,10 +681,10 @@ def approve_page(campaign: str, token: str, sf: str = "", h: str = ""):
     return HTMLResponse(f"""<!doctype html><meta charset="utf-8">
 <body style="font-family:system-ui;background:#f6f6f6;text-align:center;padding:60px">
 <div style="max-width:440px;margin:auto;background:#fff;border-radius:8px;padding:40px">
-<div style="font-size:40px">●</div><h2 style="color:#FF7D2F">Vacature publiceren?</h2>
-<p style="color:#69696A">Klik op bevestigen: de vacature gaat live op de website (Tigris) en de
-Meta-campagne wordt klaargezet. Daarna ga je door naar Meta om de campagne <b>zelf online te
-zetten</b>.</p>
+<div style="font-size:40px">●</div><h2 style="color:#FF7D2F">Campagne goedkeuren?</h2>
+<p style="color:#69696A">Klik op bevestigen: de Meta-campagne wordt klaargezet en de recruiter
+krijgt het verzoek de vacature te publiceren. Daarna ga je door naar Meta om de campagne <b>zelf
+online te zetten</b>.</p>
 <form method="post" action="/approve">
 <input type="hidden" name="campaign" value="{campaign}">
 <input type="hidden" name="token" value="{token}">
@@ -748,9 +748,9 @@ def _meta_activatie_pagina(url: str, waarschuwing: str = "") -> HTMLResponse:
     return HTMLResponse(f"""<!doctype html><meta charset="utf-8">{doorlink}
 <body style="font-family:system-ui;background:#f6f6f6;text-align:center;padding:60px">
 <div style="max-width:460px;margin:auto;background:#fff;border-radius:8px;padding:40px">
-<div style="font-size:40px">●</div><h2 style="color:#FF7D2F">Vacature staat live 🚀</h2>
-<p style="color:#69696A">De vacature staat live op de website (Tigris). De Meta-campagne staat
-klaar (op pauze). Zet 'm in Meta zelf online.</p>
+<div style="font-size:40px">●</div><h2 style="color:#FF7D2F">Goedgekeurd ✓</h2>
+<p style="color:#69696A">De Meta-campagne staat klaar (op pauze). Zet 'm in Meta zelf online.
+De recruiter heeft een mail gekregen met het verzoek de vacature te publiceren.</p>
 {waarsch_html}{knop}
 <p style="color:#8A8A8B;font-size:11px;margin-top:16px">Word je niet automatisch doorgestuurd?
 Klik op de knop hierboven.</p></div></body>""")

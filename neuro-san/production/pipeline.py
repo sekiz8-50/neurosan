@@ -193,6 +193,15 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
         meta_fout = str(e)[:600]
         print(f"[campagne-meta] campagne-aanmaak faalde — vacature staat al in Tigris, mail volgt: {e}")
 
+    # 3c. Campagne-URL (concept in Meta) opslaan op de vacature (Campagneurl__c).
+    sf_id_vac = vacancy.get("salesforce_id", "")
+    if campaign_id and sf_id_vac and not str(sf_id_vac).startswith("DRYRUN") and cfg.SF_CAMPAGNE_URL_FIELD:
+        try:
+            salesforce.update_record(sf_id_vac, {cfg.SF_CAMPAGNE_URL_FIELD: meta.campagne_url(campaign_id)})
+            print(f"[campagne-meta] campagne-URL opgeslagen op vacature ({cfg.SF_CAMPAGNE_URL_FIELD})")
+        except Exception as e:
+            print(f"[campagne-meta] campagne-URL opslaan faalde: {e}")
+
     # 4. Goedkeur-mail — komt ALTIJD (campagne PAUSED, of met een meta_fout-melding).
     if vacancy.get("beeld_fout") and vacancy["beeld_fout"] not in (warnings or []):
         warnings = (warnings or []) + [vacancy["beeld_fout"]]
@@ -580,9 +589,17 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
         return {"state": "BLOCKED", "blockers": warnings, "vacancy": vac, "bron": bron,
                 "uploader_email": uploader_email}
 
-    # 5. Designer — beeld (één keer; gedeeld met Tigris + Meta)
+    # 5. Designer — beeld (één keer; gedeeld met Tigris + Meta). Sla het PERSISTENT op in
+    #    Salesforce (openbare link) zodat de Foto-URL blijft werken; val terug op de
+    #    Render-URL als dat (nog) niet lukt (bv. Content Deliveries niet aangezet).
     img_path = _genereer_beeld(vac, plan["image_prompt"])
-    vac["foto_url"] = f"{cfg.PUBLIC_BASE_URL}/beeld/{vac['id']}.png"
+    foto_url = ""
+    try:
+        with open(img_path, "rb") as _f:
+            foto_url = salesforce.upload_public_image(_f.read(), f"VIF-beeld-{vac['id']}")
+    except Exception as e:
+        print(f"[orkestrator] persistent beeld uploaden faalde: {e}")
+    vac["foto_url"] = foto_url or f"{cfg.PUBLIC_BASE_URL}/beeld/{vac['id']}.png"
 
     # 5b. FAQ en sourcing-zoekstrings als Tigris-velden (FAQ__c / SearchStrings__c)
     if vac.get("faq"):
@@ -827,18 +844,48 @@ def _send_mail(record: dict) -> None:
             print(f"[mail] goedkeur-mail definitief mislukt: {e2}")
 
 
-def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
-    """Na goedkeuring: zet de vacature op de website (Tigris) én de Meta-campagne ACTIVE.
+def _mail_recruiter_publiceren(sf_id: str, build: dict | None) -> None:
+    """Mailt de recruiter (eigenaar van de vacature): marketing heeft goedgekeurd en gaat aan de
+    slag met de campagne; verzoek om de vacature te publiceren (op de website te zetten)."""
+    naam, email = salesforce.recruiter_email(sf_id)
+    if not email:
+        print("[publicatie] geen recruiter-e-mail gevonden — publiceer-verzoek niet verstuurd")
+        return
+    titel = (build or {}).get("titel", "de vacature")
+    url = salesforce.record_url(sf_id)
+    voornaam = naam.split(" ")[0] if naam else ""
+    knop = (f'<p style="margin:18px 0"><a href="{url}" style="display:inline-block;background:#FF7D2F;'
+            f'color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:4px">'
+            f'Open de vacature in Tigris →</a></p>' if url else "")
+    html = (f'<!doctype html><html lang="nl"><meta charset="utf-8">'
+            f'<body style="margin:0;background:#f6f6f6;font-family:Inter,system-ui,sans-serif;color:#121212">'
+            f'<table width="100%"><tr><td align="center" style="padding:24px">'
+            f'<table width="560" style="background:#fff;border-radius:8px;overflow:hidden">'
+            + _mail_kop("Vacature goedgekeurd door marketing") +
+            f'<tr><td style="padding:24px"><h2 style="margin:0 0 8px">{titel}</h2>'
+            f'<p style="font-size:13px">{("Hoi " + voornaam + ",") if voornaam else "Hoi,"}</p>'
+            f'<p style="color:#69696A;font-size:13px">Marketing heeft de vacature goedgekeurd en gaat '
+            f'aan de slag met de Meta-campagne. Wil jij de vacature <b>publiceren</b> — op de website '
+            f'zetten — in Tigris?</p>{knop}'
+            f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch bericht van Neuro San.</p>'
+            f'</td></tr></table></td></tr></table></body></html>')
+    try:
+        emailer.send_approval_mail(f"[Publiceren] {titel} — marketing akkoord", html, to=email)
+        print(f"[publicatie] publiceer-verzoek naar recruiter {email} verstuurd")
+    except Exception as e:
+        print(f"[publicatie] publiceer-verzoek naar recruiter faalde: {e}")
 
-    1. Tigris: 'Op website geplaatst' = true → App Id + livegangsdatum → 'offline per' = +2 mnd.
-    2. Meta: leadform met 'APP ID'-trackingparameter (fase 4) + campagne ACTIVE.
+
+def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
+    """Na goedkeuring door MARKETING: de campagne wordt klaargezet in Meta (leadformulier
+    met 'APP ID'-trackingparameter), maar NIET geactiveerd en de vacature wordt NIET op de
+    website gezet. Marketing zet de campagne zelf online in Meta; de RECRUITER wordt per mail
+    gevraagd de vacature te publiceren (op de website te zetten).
 
     Beveiliging (fail-closed):
-    * KILL_SWITCH aan → geen enkele publicatie.
+    * KILL_SWITCH aan → niets.
     * inhoud_hash uit de goedkeurlink moet matchen met de in Tigris bewaarde build —
       is de campagne-inhoud ná de goedkeur-mail gewijzigd, dan wordt geweigerd.
-    * Idempotent over herstarts heen: staat de vacature in Tigris al op 'Geplaatst',
-      dan wordt er niets opnieuw geactiveerd.
     """
     if cfg.KILL_SWITCH:
         raise RuntimeError("KILL_SWITCH staat aan — publicaties zijn tijdelijk geblokkeerd.")
@@ -848,27 +895,19 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
         raise RuntimeError("De campagne-inhoud is gewijzigd ná de goedkeur-mail — deze goedkeuring "
                            "is vervallen. Vraag een nieuwe goedkeur-mail aan.")
 
-    # Idempotentie over herstarts: al live in Tigris? Dan niets opnieuw doen.
-    if sf_id and not str(sf_id).startswith("DRYRUN") and cfg.salesforce_ready():
-        try:
-            rec = salesforce.get_record(sf_id, ["Tigris__Geplaatst__c"])
-            if rec.get("Tigris__Geplaatst__c"):
-                print(f"[publicatie] {sf_id} staat al op 'Geplaatst' — geen dubbele activatie")
-                return {"website": {"al_gepubliceerd": True}, "meta": None, "app_id": None}
-        except Exception as e:
-            print(f"[publicatie] Geplaatst-check faalde (gaat door): {e}")
+    # App Id lezen (Tigris vult dit automatisch na aanmaken; is bij goedkeuring aanwezig).
+    # We plaatsen de vacature NIET op de website — dat doet de recruiter zelf.
+    app_id = salesforce.wacht_op_app_id(sf_id) if sf_id else ""
 
-    website = salesforce.op_website_plaatsen(sf_id) if sf_id else {"app_id": None, "dry_run": True}
-    app_id = website.get("app_id")
-
-    # Geen Meta-campagne (aanmaak was eerder mislukt, bv. lead-ads-TOS)? Dan alleen de
-    # website-plaatsing — de goedkeuring blijft zinvol (vacature gaat live in Tigris).
+    # Geen Meta-campagne (aanmaak was eerder mislukt)? Dan alleen de recruiter informeren.
     if not campaign_id:
-        print("[campagne-meta] geen Meta-campagne aanwezig — alleen website-plaatsing uitgevoerd")
-        return {"website": website, "meta": None, "app_id": app_id}
+        print("[campagne-meta] geen Meta-campagne aanwezig — alleen recruiter informeren")
+        _mail_recruiter_publiceren(sf_id, build)
+        return {"website": {"door_recruiter": True}, "meta": None, "app_id": app_id,
+                "campagne_url": "", "geactiveerd": False, "app_id_in_form": None}
 
-    # Lead-gen: nu pas het Instant Form (met 'APP ID'-trackingparameter) + advertenties bouwen,
-    # uit de bij upload bewaarde build-content. App Id is nu bekend uit de website-plaatsing.
+    # Lead-gen: het Instant Form (met 'APP ID'-trackingparameter) + advertenties zijn er al;
+    # zo nodig herbouwen we het formulier nu mét App Id (vangnet). Daarna NIET activeren.
     meta_res = None
     geactiveerd = False
     app_id_in_form = None
@@ -892,8 +931,9 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
             # herbouwen: nieuw form + advertenties MÉT App Id, en ruimen de oude op (die zouden
             # anders zonder App Id mee-activeren → leads koppelen niet).
             print(f"[campagne-meta] leadformulier zonder App Id → herbouwen met App Id {app_id}")
-            # Unieke naam: Meta weigert een tweede formulier met dezelfde naam als het upload-formulier.
-            form_naam = f"{build.get('titel', 'Vacature')} — sollicitatie · {campaign_id} · {str(app_id)[:8]}"[:200]
+            # Unieke naam (App Id + tijd) — Meta weigert dubbele formuliernamen, ook bij een retry.
+            form_naam = (f"{build.get('titel', 'Vacature')} — sollicitatie · {campaign_id} · "
+                         f"{str(app_id)[:8]}-{int(time.time())}")[:200]
             nieuw_form = meta.create_lead_form(form_naam, app_id=app_id, follow_up_url=build.get("url"))
             for adset_id in build.get("adset_ids", []):
                 for i, v in enumerate(build.get("variants", []), 1):
@@ -940,7 +980,12 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
         print(f"[campagne-meta] leadform/activeren faalde: {e}")
         meta_res = {"fout": str(e)[:300]}
         geactiveerd = False
-    return {"website": website, "meta": meta_res, "app_id": app_id,
+
+    # Recruiter informeren: marketing is akkoord en gaat met de campagne aan de slag; recruiter
+    # wordt gevraagd de vacature te publiceren (op de website te zetten).
+    _mail_recruiter_publiceren(sf_id, build)
+
+    return {"website": {"door_recruiter": True}, "meta": meta_res, "app_id": app_id,
             "campagne_url": meta.campagne_url(campaign_id), "geactiveerd": geactiveerd,
             "app_id_in_form": app_id_in_form, "live_form_id": live_form_id}
 

@@ -82,6 +82,8 @@ class Config:
     SF_CLIENT_SECRET = _opt("SF_CLIENT_SECRET")    # Consumer Secret van de Connected App
     SF_API_VERSION = _opt("SF_API_VERSION", "v60.0")
     SF_VACANCY_OBJECT = _opt("SF_VACANCY_OBJECT", "Tigris__Vacancy__c")
+    # Veld op de vacature waarin de Meta-campagne-URL (concept) wordt opgeslagen.
+    SF_CAMPAGNE_URL_FIELD = _opt("SF_CAMPAGNE_URL_FIELD", "Campagneurl__c")
     # App Id-veld op de vacature (Tigris vult dit kort ná het aanmaken automatisch). Wordt als
     # 'APP ID'-trackingparameter in het Meta-leadformulier gezet zodat leads automatisch aan de
     # juiste vacature in Tigris koppelen. Wachttijd = POGINGEN × INTERVAL (standaard ~60s).

@@ -379,6 +379,62 @@ def maak_tigris_document(account_id: str, content_version_id: str, naam: str,
         return ""
 
 
+def upload_public_image(inhoud: bytes, naam: str) -> str:
+    """Slaat een beeld PERSISTENT op in Salesforce (ContentVersion) en maakt er een openbare,
+    login-vrije link van via ContentDistribution — i.t.t. de Render-schijf die bij herstart
+    wordt gewist. Retour: directe beeld-URL, of '' bij fout (dan valt de keten terug op de
+    Render-URL). Vereist dat 'Content Deliveries and Public Links' in Salesforce aan staat."""
+    if not cfg.salesforce_ready() or not inhoud:
+        return ""
+    try:
+        import base64
+        token, instance = _auth()
+        base = f"{instance}/services/data/{cfg.SF_API_VERSION}"
+        hdr = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        cv = requests.post(f"{base}/sobjects/ContentVersion", headers=hdr, timeout=60,
+                           data=json.dumps({"Title": naam, "PathOnClient": f"{naam}.png",
+                                            "VersionData": base64.b64encode(inhoud).decode()}))
+        if not cv.ok:
+            print(f"[ATS-administrateur] beeld-ContentVersion faalde: {cv.status_code} {cv.text[:180]}")
+            return ""
+        cv_id = cv.json()["id"]
+        dist = requests.post(f"{base}/sobjects/ContentDistribution", headers=hdr, timeout=60,
+                             data=json.dumps({"Name": naam, "ContentVersionId": cv_id,
+                                              "PreferencesAllowViewInBrowser": True,
+                                              "PreferencesAllowOriginalDownload": True,
+                                              "PreferencesPasswordRequired": False,
+                                              "PreferencesLinkLatestVersion": True}))
+        if not dist.ok:
+            print(f"[ATS-administrateur] ContentDistribution faalde ({dist.status_code} "
+                  f"{dist.text[:180]}) — staat 'Content Deliveries and Public Links' aan in Salesforce?")
+            return ""
+        dist_id = dist.json()["id"]
+        rec = requests.get(f"{base}/sobjects/ContentDistribution/{dist_id}"
+                           "?fields=DistributionPublicUrl,ContentDownloadUrl",
+                           headers=hdr, timeout=30)
+        j = rec.json() if rec.ok else {}
+        url = j.get("ContentDownloadUrl") or j.get("DistributionPublicUrl") or ""
+        if url:
+            print(f"[ATS-administrateur] beeld persistent in Salesforce: {url}")
+        return url
+    except Exception as e:
+        print(f"[ATS-administrateur] openbaar beeld uploaden faalde: {e}")
+        return ""
+
+
+def recruiter_email(sf_id: str) -> tuple[str, str]:
+    """Leest de eigenaar (recruiter) van de vacature en geeft (naam, e-mail) terug (leeg bij fout)."""
+    if not sf_id or str(sf_id).startswith("DRYRUN") or not cfg.salesforce_ready():
+        return "", ""
+    try:
+        rec = get_record(sf_id, ["OwnerId"])
+        owner = get_user(rec.get("OwnerId", ""))
+        return owner.get("Name", ""), owner.get("Email", "")
+    except Exception as e:
+        print(f"[ATS-administrateur] recruiter-e-mail ophalen faalde: {e}")
+        return "", ""
+
+
 def download_content_version(cv_id: str) -> bytes:
     """Downloadt de binaire inhoud van een geüpload bestand (ContentVersion) uit Tigris."""
     token, instance = _auth()
