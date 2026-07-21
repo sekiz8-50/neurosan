@@ -221,6 +221,17 @@ def _fix_bullets(md: str) -> str:
 _MAX_TOKENS = {"copywriter": 4000, "performance_marketeer": 3500, "brand_marketeer": 3000}
 
 
+def _parse_json_object(text: str) -> dict:
+    """Robuust: pak het EERSTE complete JSON-object uit de respons en negeer trailing
+    tekst/extra data. Voorkomt 'Extra data'-fouten als het model iets ná de JSON zet
+    (bv. een toelichting of een tweede blok)."""
+    s = (text or "").strip()
+    start = s.find("{")
+    if start == -1:
+        raise ValueError("geen JSON-object in de respons")
+    return json.JSONDecoder().raw_decode(s, start)[0]
+
+
 def _vraag(client, naam: str, opdracht: str, transcript: list) -> dict:
     """Eén agent aanroepen (JSON in/uit) — de log-monitor legt alles vast."""
     system, schema = AGENTS[naam]
@@ -234,9 +245,7 @@ def _vraag(client, naam: str, opdracht: str, transcript: list) -> dict:
         messages=[{"role": "user", "content": opdracht}])
     import kosten
     kosten.add_llm(msg.usage)
-    text = msg.content[0].text.strip()
-    text = text[text.find("{"): text.rfind("}") + 1]
-    out = json.loads(text)
+    out = _parse_json_object(msg.content[0].text)
     transcript.append({"from": naam, "type": "AI",
                        "text": json.dumps(out, ensure_ascii=False, indent=2)})
     return out

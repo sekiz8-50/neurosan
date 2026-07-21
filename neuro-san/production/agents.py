@@ -38,8 +38,13 @@ def _ask_json(system: str, user: str, max_tokens: int = 1300) -> dict:
     )
     import kosten
     kosten.add_llm(msg.usage)
-    text = msg.content[0].text.strip()
-    return json.loads(text[text.find("{"): text.rfind("}") + 1])
+    # Robuust: pak het eerste complete JSON-object en negeer eventuele tekst erachter
+    # (voorkomt 'Extra data'-fouten als het model iets ná de JSON zet).
+    text = (msg.content[0].text or "").strip()
+    start = text.find("{")
+    if start == -1:
+        raise ValueError("geen JSON-object in de respons")
+    return json.JSONDecoder().raw_decode(text, start)[0]
 
 
 # --- De agents ---------------------------------------------------------------
