@@ -19,7 +19,9 @@ import vif_parser
 from tools import image_gen, meta, emailer, brand_overlay, salesforce
 from config import cfg
 
-IMG_DIR = os.path.join(os.path.dirname(__file__), "data", "beelden")
+# IMG_DIR is configureerbaar (env IMG_DIR): wijs 'm naar een Render Persistent Disk-pad
+# (bv. /var/data/beelden) om beelden te bewaren zonder Salesforce. Default = lokale map.
+IMG_DIR = os.getenv("IMG_DIR", "").strip() or os.path.join(os.path.dirname(__file__), "data", "beelden")
 NEURO_DIR = os.path.join(os.path.dirname(__file__), "data", "neuro_runs")
 
 
