@@ -85,17 +85,25 @@ def _genereer_beeld(vacancy: dict, image_prompt: str) -> str:
     return img_path
 
 
-def _targeting_geo(vacancy: dict, radius_km: int = 25) -> dict:
-    """EMPLOYMENT-compliant geo-targeting (geen leeftijd/geslacht-narrowing)."""
+def _targeting_geo(vacancy: dict, radius_km: int = 30) -> dict:
+    """EMPLOYMENT-compliant geo-targeting: een RADIUS rond de standplaats (geen leeftijd/
+    geslacht-narrowing). Zoekt de Meta-stad-key op zodat we niet heel NL targeten."""
+    radius = max(int(radius_km or 30), 24)            # Meta vereist min. ~24 km bij WERK
+    # Stad-key eenmalig opzoeken en cachen op de vacature.
+    if "_meta_stad_key" not in vacancy:
+        vacancy["_meta_stad_key"] = meta.zoek_stad(vacancy.get("plaats", "")) if vacancy.get("plaats") else ""
+    stad_key = vacancy["_meta_stad_key"]
     lat, lng = vacancy.get("lat"), vacancy.get("lng")
-    radius = max(int(radius_km or 25), 24)            # Meta vereist min. ~24 km bij WERK
-    if lat and lng:
+    if stad_key:
+        geo = {"cities": [{"key": stad_key, "radius": radius, "distance_unit": "kilometer"}]}
+    elif lat and lng:
         geo = {"custom_locations": [{"latitude": lat, "longitude": lng,
                                      "radius": radius, "distance_unit": "kilometer"}]}
     else:
-        geo = {"countries": ["NL"]}     # fallback: heel NL (stuur lat/lng mee voor regio-targeting)
-    # Geen age_min/age_max: Meta staat leeftijd-narrowing niet toe bij EMPLOYMENT
-    # en dwingt zelf 18-65 af; expliciet meesturen kan validatiefouten geven.
+        geo = {"countries": ["NL"]}     # laatste redmiddel: heel NL (met waarschuwing)
+        print(f"[campagne-meta] LET OP: geen stad-key voor '{vacancy.get('plaats')}' — "
+              f"campagne target heel NL i.p.v. een radius. Controleer de plaatsnaam.")
+    # Geen age_min/age_max: Meta staat leeftijd-narrowing niet toe bij EMPLOYMENT.
     return {"geo_locations": geo}
 
 
@@ -131,21 +139,16 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
             # worden NU al aangemaakt (alles PAUSED), zodat ze meteen in Meta klaarstaan.
             # Bij goedkeuring worden ze alleen nog geactiveerd.
             campaign_id = meta.create_campaign(naam, "OUTCOME_LEADS")
-            # Budget + looptijd zoals voorgesteld door de performance-marketeer (concept in META).
+            # Budget + looptijd + radius zoals voorgesteld door de performance-marketeer.
+            # ÉÉN brede geo-ad set met een radius rond de standplaats (juiste structuur voor
+            # vacatures: detailtargeting mag toch niet; Meta optimaliseert over de 5 creatives).
             budget_eur = plan.get("budget_eur")
             looptijd = plan.get("looptijd_dagen")
-            for spec in plan["targeting"].get("ad_sets", []):
-                if spec.get("use_lookalike") and not saa:
-                    continue
-                targeting = _targeting_geo(vacancy, spec.get("radius_km", 25))
-                adset_ids.append(meta.create_lead_adset(
-                    spec.get("name", "Ad set"), campaign_id,
-                    budget_eur or spec.get("daily_budget_eur", 15), targeting,
-                    looptijd_dagen=looptijd))
-            if not adset_ids:
-                adset_ids.append(meta.create_lead_adset(
-                    f"{vacancy['plaats']} | Breed", campaign_id,
-                    budget_eur or 15, _targeting_geo(vacancy), looptijd_dagen=looptijd))
+            radius = plan.get("radius_km") or 30
+            targeting = _targeting_geo(vacancy, radius)
+            adset_ids.append(meta.create_lead_adset(
+                f"{vacancy.get('plaats', 'NL')} · {radius} km", campaign_id,
+                budget_eur or 20, targeting, looptijd_dagen=looptijd))
             # Instant Form + advertenties (5 varianten × elke ad set), allemaal PAUSED.
             # Het Tigris App Id gaat als 'APP ID'-trackingparameter mee in het formulier,
             # zodat binnenkomende leads automatisch aan de juiste vacature koppelen.
@@ -213,6 +216,7 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                  "alle_varianten": [x.get("primary_text", "") for x in variants],
                  "media_advies": plan.get("media_advies", ""),
                  "budget_eur": plan.get("budget_eur"), "looptijd_dagen": plan.get("looptijd_dagen"),
+                 "radius_km": plan.get("radius_km"),
                  "kosten": kosten.samenvatting(), "app_id": vacancy.get("app_id") or "",
                  "warnings": warnings or [], "meta_fout": meta_fout}
     record = {"campaign_id": campaign_id, "adset_ids": adset_ids, "ad_ids": ad_ids, "lead_gen": lead_gen,
@@ -789,13 +793,17 @@ def _send_mail(record: dict) -> None:
     budget = plan.get("budget_eur")
     looptijd = plan.get("looptijd_dagen")
     budget_html = ""
-    if budget or looptijd:
+    radius = plan.get("radius_km")
+    if budget or looptijd or radius:
         regels = []
         if budget:
             totaal = f" · totaal ± € {budget * looptijd:,}".replace(",", ".") if looptijd else ""
             regels.append(f"<b>Dagbudget:</b> € {budget} per advertentieset{totaal}")
         if looptijd:
             regels.append(f"<b>Looptijd:</b> {looptijd} dagen")
+        if radius:
+            regels.append(f"<b>Bereik:</b> {radius} km rond {v.get('plaats', 'de standplaats')} "
+                          f"(vacatures: geen interesse-/doelgroeptargeting toegestaan door Meta)")
         budget_html = ("<div style='background:#F0FBF4;border-radius:6px;padding:12px 14px;font-size:12px;"
                        "margin-bottom:16px;color:#1c6b3f'><b>Mediabudget (concept in META):</b><br>"
                        + "<br>".join(regels) + "</div>")

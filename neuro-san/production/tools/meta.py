@@ -285,6 +285,36 @@ def leadformulieren(limit: int = 25) -> list:
     return uit
 
 
+_STAD_CACHE: dict = {}
+
+
+def zoek_stad(plaats: str, land: str = "NL") -> str:
+    """Zoekt de Meta geo-key van een stad (via de adgeolocation-search) zodat we een RADIUS
+    rond de standplaats kunnen targeten i.p.v. heel het land. Leeg als niet gevonden."""
+    plaats = (plaats or "").strip()
+    if not plaats:
+        return ""
+    sleutel = f"{land}:{plaats.lower()}"
+    if sleutel in _STAD_CACHE:
+        return _STAD_CACHE[sleutel]
+    key = ""
+    try:
+        data = _get("search", {"type": "adgeolocation",
+                               "location_types": json.dumps(["city"]),
+                               "q": plaats, "limit": 15}).get("data", [])
+        # Voorkeur: exacte NL-stad-match; anders eerste NL-resultaat; anders het eerste.
+        nl = [d for d in data if str(d.get("country_code", "")).upper() == land]
+        exact = [d for d in nl if str(d.get("name", "")).lower() == plaats.lower()]
+        gekozen = (exact or nl or data)
+        if gekozen:
+            key = gekozen[0].get("key", "")
+            print(f"[campagne-meta] stad '{plaats}' → Meta geo-key {key} ({gekozen[0].get('name')})")
+    except Exception as e:
+        print(f"[campagne-meta] stad zoeken faalde voor '{plaats}': {e}")
+    _STAD_CACHE[sleutel] = key
+    return key
+
+
 def campagne_url(campaign_id: str) -> str:
     """Directe link naar de campagne in Meta Ads Manager (gefilterd op déze campagne),
     zodat marketing 'm daar zelf online zet. Leeg voor test/dry-run-id's."""

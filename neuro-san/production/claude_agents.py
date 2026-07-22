@@ -138,20 +138,26 @@ AGENTS = {
         "duidelijke handelingsaansporing. PrimaryTexts max 125 tekens en ALTIJD volledige "
         "zinnen, Headlines max 40, Descriptions max 30. Speciale categorie WERK: geen "
         "doelgroep-kenmerken benoemen.\n"
-        "MediaAdvice = jouw volwaardige campagne-advies aan marketing, uitgeschreven in "
-        "professionele volzinnen, met deze zes onderdelen (in deze volgorde, met korte "
-        "kopjes): 1) DOELGROEP & GEO — wie bereik je en met welke radius/steden rond de "
-        "standplaats en waarom; 2) BUDGET & FASERING — hoe verdeel je het dagbudget, hoe lang "
-        "duurt de leerfase, wanneer schaal je op of stuur je bij; 3) VERWACHTING — realistisch "
-        "CPL-bereik voor deze functiegroep en het verwachte aantal leads bij dit budget en "
-        "deze looptijd; 4) TIMING — beste dagen/dagdelen voor deze doelgroep; 5) STUURREGELS — "
-        "concrete criteria wanneer marketing een variant pauzeert of budget verschuift; "
-        "6) ONDERBOUWING — waarom precies dit dagbudget en deze looptijd voor deze vacature. "
-        "DailyBudgetEur = dagbudget in hele euro's (realistisch voor deze regio/functie, "
-        "doorgaans 10-40), LooptijdDagen = campagneduur in dagen (doorgaans 14-30). "
-        + MERKSTEM,
+        "HARDE REALITEIT (verwerk dit in je advies, beloof niets anders): vacatures vallen onder "
+        "Meta's Speciale Advertentiecategorie WERK. Daardoor kun je NIET targeten op leeftijd, "
+        "geslacht, interesses, functietitels, gedrag of lookalike-/custom-audiences — dat blokkeert "
+        "Meta. Wat je WÉL kunt sturen: geografie (radius rond de standplaats), budget, looptijd, de "
+        "5 creatives, het leadformulier en de handmatige optimalisatie die de marketeer zelf in Meta "
+        "doet. Adviseer dus ALLEEN over die knoppen — geen interesse-/doelgroeptargeting voorstellen.\n"
+        "MediaAdvice = je campagne-advies in professionele volzinnen, met deze onderdelen (korte "
+        "kopjes): 1) GEO — welke radius (km) rond de standplaats en welke omliggende plaatsen daar "
+        "binnen vallen, en waarom; 2) BUDGET & FASERING — dagbudget, lengte van de leerfase, wanneer "
+        "opschalen naar de best presterende creatives; 3) VERWACHTING — realistisch CPL-bereik en "
+        "aantal leads bij dit budget/looptijd; 4) CREATIVE-STRATEGIE — welke van de 5 invalshoeken "
+        "waarschijnlijk het best werkt en waarom (want targeting kan niet, dus de creative dóét het "
+        "werk); 5) HANDMATIGE STUURREGELS — wat de marketeer in Meta zelf doet (variant pauzeren bij "
+        "CPL boven X, budget naar de winnaar, evt. dagdeel-planning); 6) ONDERBOUWING — waarom dit "
+        "budget, deze looptijd en deze radius. "
+        "RadiusKm = de geo-radius in km rond de standplaats (min 24; landelijk/ruraal groter, "
+        "stedelijk kleiner; doorgaans 25-50). DailyBudgetEur = dagbudget in hele euro's (10-40). "
+        "LooptijdDagen = campagneduur in dagen (14-30). " + MERKSTEM,
         '{"PrimaryTexts": ["...x5"], "Headlines": ["...x5"], "Descriptions": ["...x5"], '
-        '"MediaAdvice": "...", "DailyBudgetEur": 20, "LooptijdDagen": 21}'),
+        '"MediaAdvice": "...", "DailyBudgetEur": 20, "LooptijdDagen": 21, "RadiusKm": 35}'),
     "designer": (
         "Je bent de designer en kent de Maintec-fotografiestijl: geloofwaardige, professionele "
         "foto's van échte vakmensen die met TROTS en VAKMANSCHAP werken. Harde eisen die je in "
@@ -334,7 +340,8 @@ def run_brain(vif_tekst: str) -> tuple[dict, dict]:
         "Social": {**{k: ads.get(k, []) for k in ("PrimaryTexts", "Headlines", "Descriptions")},
                    "MediaAdvice": ads.get("MediaAdvice", ""),
                    "DailyBudgetEur": ads.get("DailyBudgetEur"),
-                   "LooptijdDagen": ads.get("LooptijdDagen")},
+                   "LooptijdDagen": ads.get("LooptijdDagen"),
+                   "RadiusKm": ads.get("RadiusKm")},
         "CreativeBrief": beeld.get("CreativeBrief", ""),
         "ImagePrompt": beeld.get("ImagePrompt", ""),
         "Sourcing": sourcing,
