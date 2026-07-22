@@ -79,6 +79,7 @@ def _genereer_beeld(vacancy: dict, image_prompt: str) -> str:
         print(f"[overlay] mislukt, gebruik kaal beeld: {e}")
         os.makedirs(IMG_DIR, exist_ok=True)
         shutil.copyfile(raw_path, img_path)
+    vacancy["beeld_raw_path"] = raw_path   # kaal beeld (zonder tekst) → Video_optie__c
     return img_path
 
 
@@ -600,6 +601,16 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     except Exception as e:
         print(f"[orkestrator] persistent beeld uploaden faalde: {e}")
     vac["foto_url"] = foto_url or f"{cfg.PUBLIC_BASE_URL}/beeld/{vac['id']}.png"
+    # Kaal beeld (zonder tekst/overlay) → omslagfoto-veld (Video_optie__c).
+    raw_path = vac.get("beeld_raw_path")
+    if cfg.SF_VIDEO_FIELD and raw_path and os.path.exists(raw_path):
+        try:
+            with open(raw_path, "rb") as _f:
+                video_url = salesforce.upload_public_image(_f.read(), f"VIF-beeld-zonder-tekst-{vac['id']}")
+            if video_url:
+                vac["video_url"] = video_url
+        except Exception as e:
+            print(f"[orkestrator] kaal beeld uploaden faalde: {e}")
 
     # 5b. FAQ en sourcing-zoekstrings als Tigris-velden (FAQ__c / SearchStrings__c)
     if vac.get("faq"):

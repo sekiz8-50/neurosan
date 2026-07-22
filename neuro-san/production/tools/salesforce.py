@@ -107,6 +107,9 @@ def build_payload(vacancy: dict) -> dict:
         if val:
             # Tigris-omschrijvingsvelden zijn rich-text → ALTIJD HTML met echte <ul><li>-bullets.
             payload[sf_field] = _omschrijving_html(val)
+    # Kaal beeld (zonder tekst/overlay) → omslagfoto-veld op de vacaturedetailpagina.
+    if cfg.SF_VIDEO_FIELD and vacancy.get("video_url"):
+        payload[cfg.SF_VIDEO_FIELD] = vacancy["video_url"]
     return payload
 
 

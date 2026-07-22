@@ -88,6 +88,9 @@ class Config:
     SF_VACANCY_OBJECT = _opt("SF_VACANCY_OBJECT", "Tigris__Vacancy__c")
     # Veld op de vacature waarin de Meta-campagne-URL (concept) wordt opgeslagen.
     SF_CAMPAGNE_URL_FIELD = _opt("SF_CAMPAGNE_URL_FIELD", "Campagneurl__c")
+    # Veld voor het KALE beeld (zonder tekst/overlay) — wordt de omslagfoto op de
+    # vacaturedetailpagina. Label 'Video/Foto (optie)'. Leeg = niet vullen.
+    SF_VIDEO_FIELD = _opt("SF_VIDEO_FIELD", "Video_optie__c")
     # App Id-veld op de vacature (Tigris vult dit kort ná het aanmaken automatisch). Wordt als
     # 'APP ID'-trackingparameter in het Meta-leadformulier gezet zodat leads automatisch aan de
     # juiste vacature in Tigris koppelen. Wachttijd = POGINGEN × INTERVAL (standaard ~60s).
