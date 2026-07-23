@@ -51,6 +51,9 @@ class Config:
     # ongeacht de bedoelde ontvanger. Zo zie je tijdens testen ook de recruiter-/aanleveraar-mails.
     # Leeg = normaal (elke mail naar de echte ontvanger). Bij livegang: leegmaken + domein verifiëren.
     MAIL_OVERRIDE_TO = _opt("MAIL_OVERRIDE_TO")
+    # CC op de recruiter-notificatie (marketing/Meta-aanvragen lopen via deze collega).
+    # De recruiter kan de mail doorsturen naar dit adres om een Meta-campagne aan te vragen.
+    RECRUITER_MAIL_CC = _opt("RECRUITER_MAIL_CC", "djimon.ruis@tecqgroep.com")
 
     # Webhook / hosting — op Render wordt RENDER_EXTERNAL_URL automatisch gezet,
     # dus PUBLIC_BASE_URL hoef je daar niet zelf in te vullen.

@@ -419,11 +419,53 @@ def _mail_kop(titel_regel: str) -> str:
             f'<span style="color:#fff;font-size:13px"> · {titel_regel}</span></td></tr>')
 
 
+def _mail_body(titel: str, plaats: str, aanhef: str, binnenwerk: str) -> str:
+    """Bouwt de standaard Maintec-mailopmaak rond een stukje binnen-HTML."""
+    return (f'<!doctype html><html lang="nl"><meta charset="utf-8">'
+            f'<body style="margin:0;background:#f6f6f6;font-family:Inter,system-ui,sans-serif;color:#121212">'
+            f'<table width="100%"><tr><td align="center" style="padding:24px">'
+            f'<table width="560" style="background:#fff;border-radius:8px;overflow:hidden">'
+            + _mail_kop("Tigris — vacature aangemaakt") +
+            f'<tr><td style="padding:24px">'
+            f'<h2 style="margin:0 0 8px">{titel}{(" · " + plaats) if plaats else ""}</h2>'
+            f'<p style="color:#121212;font-size:13px">{aanhef}</p>'
+            f'{binnenwerk}'
+            f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch bericht van Neuro San.</p>'
+            f'</td></tr></table></td></tr></table></body></html>')
+
+
+def _mail_aanleveraar_ontvangen(vac: dict, uploader_email: str, uploader_id: str) -> None:
+    """Communicatiemoment 1 — direct bij activeren van de VIF: bevestig de aanleveraar
+    dat zijn VIF is ontvangen en nu door de AI wordt opgepakt. Faalt stil."""
+    naar = uploader_email
+    naam = ""
+    if uploader_id:
+        u = salesforce.get_user(uploader_id)
+        naar = naar or u.get("Email", "")
+        naam = u.get("Name", "").split(" ")[0] if u.get("Name") else ""
+    if not naar or "@" not in naar:
+        return
+    titel = vac.get("titel", "je vacature")
+    plaats = vac.get("plaats", "")
+    binnen = ('<p style="color:#69696A;font-size:13px">Je VIF is ontvangen en wordt nu door '
+              'de AI opgepakt. Neuro San verrijkt de vacature, maakt het campagnebeeld en '
+              'de teksten, en zet alles klaar in Tigris. Je hoeft verder niets te doen — '
+              'je krijgt vanzelf bericht zodra de vacature is aangemaakt.</p>')
+    try:
+        emailer.send_approval_mail(
+            f"[VIF ontvangen] {titel} {plaats}".strip(),
+            _mail_body(titel, plaats, f"Hoi {naam}," if naam else "Hoi,", binnen),
+            to=naar)
+        print(f"[dirigent] ontvangstbevestiging verstuurd naar aanleveraar {naar}")
+    except Exception as e:
+        print(f"[dirigent] ontvangstbevestiging naar {naar} faalde: {e}")
+
+
 def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str,
                                   sf_id: str) -> None:
-    """Punt 4: mail de recruiter (er is een VIF ingevuld + vacature aangemaakt) én de
-    aanleveraar/sales (de VIF is succesvol; recruitment en marketing gaan aan de slag),
-    elk met een hyperlink naar de vacature in Tigris. Faalt stil — mag de keten niet stoppen."""
+    """Communicatiemoment 2 — zodra de vacature is aangemaakt: mail de recruiter (met
+    hyperlink naar de vacature in Tigris, CC naar de marketing-collega) én de aanleveraar
+    (VIF verwerkt). Faalt stil — mag de keten niet stoppen."""
     url = salesforce.record_url(sf_id)
     titel = vac.get("titel", "vacature")
     plaats = vac.get("plaats", "")
@@ -432,23 +474,15 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
             f'padding:12px 22px;border-radius:4px">Open de vacature in Tigris →</a></p>'
             if url else '<p style="color:#8A8A8B;font-size:12px">(De vacature staat in Tigris.)</p>')
 
-    def _stuur(naar: str, aanhef: str, boodschap: str, onderwerp: str) -> None:
+    def _stuur(naar: str, aanhef: str, binnenwerk: str, onderwerp: str,
+               cc: str | None = None) -> None:
         if not naar or "@" not in naar:
             return
-        html = (f'<!doctype html><html lang="nl"><meta charset="utf-8">'
-                f'<body style="margin:0;background:#f6f6f6;font-family:Inter,system-ui,sans-serif;color:#121212">'
-                f'<table width="100%"><tr><td align="center" style="padding:24px">'
-                f'<table width="560" style="background:#fff;border-radius:8px;overflow:hidden">'
-                + _mail_kop("Tigris — vacature aangemaakt") +
-                f'<tr><td style="padding:24px">'
-                f'<h2 style="margin:0 0 8px">{titel}{(" · " + plaats) if plaats else ""}</h2>'
-                f'<p style="color:#121212;font-size:13px">{aanhef}</p>'
-                f'<p style="color:#69696A;font-size:13px">{boodschap}</p>{knop}'
-                f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch bericht van Neuro San.</p>'
-                f'</td></tr></table></td></tr></table></body></html>')
         try:
-            emailer.send_approval_mail(onderwerp, html, to=naar)
-            print(f"[dirigent] notificatiemail verstuurd naar {naar}")
+            emailer.send_approval_mail(onderwerp, _mail_body(titel, plaats, aanhef, binnenwerk),
+                                       to=naar, cc=cc)
+            print(f"[dirigent] notificatiemail verstuurd naar {naar}"
+                  f"{(' (CC ' + cc + ')') if cc else ''}")
         except Exception as e:
             print(f"[dirigent] notificatiemail naar {naar} faalde: {e}")
 
@@ -456,15 +490,32 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
     aanleveraar = salesforce.get_user(uploader_id) if uploader_id else {}
     r_naam = recruiter.get("Name", "").split(" ")[0] if recruiter.get("Name") else ""
     a_naam = aanleveraar.get("Name", "").split(" ")[0] if aanleveraar.get("Name") else ""
+    a_vol = aanleveraar.get("Name", "") or "een salescollega"
+
+    # Recruiter: wie leverde aan + wat de AI deed + link + hoe een Meta-campagne aan te vragen.
+    recruiter_binnen = (
+        f'<p style="color:#69696A;font-size:13px">Salescollega <b>{a_vol}</b> heeft een VIF '
+        f'aangeleverd. Neuro San (AI) heeft de VIF verrijkt en als vacature opgenomen in Tigris '
+        f'— jij bent de eigenaar.</p>{knop}'
+        f'<div style="background:#FFF3E8;border-radius:6px;padding:12px 14px;margin:6px 0">'
+        f'<p style="color:#9a5b1e;font-size:12px;margin:0"><b>Wil je een Meta-campagne voor deze '
+        f'vacature?</b> Stuur deze mail door naar '
+        f'<a href="mailto:{cfg.RECRUITER_MAIL_CC}" style="color:#9a5b1e">{cfg.RECRUITER_MAIL_CC}</a> '
+        f'om de aanvraag in gang te zetten.</p></div>')
     _stuur(recruiter.get("Email", ""),
            f"Hoi {r_naam}," if r_naam else "Hoi,",
-           "Er is een VIF ingevuld en er is automatisch een vacature voor je aangemaakt in "
-           "Tigris — jij bent de eigenaar. Marketing bereidt de campagne voor.",
-           f"[Nieuwe vacature] {titel} {plaats}".strip())
+           recruiter_binnen,
+           f"[Nieuwe vacature] {titel} {plaats}".strip(),
+           cc=cfg.RECRUITER_MAIL_CC)
+
+    # Aanleveraar: afronding — VIF verwerkt, vacature staat klaar.
+    aanleveraar_binnen = (
+        '<p style="color:#69696A;font-size:13px">Je VIF is succesvol verwerkt en de vacature is '
+        'aangemaakt in Tigris. Recruitment en marketing gaan er nu mee aan de slag. Dank voor je '
+        f'aanlevering!</p>{knop}')
     _stuur(aanleveraar.get("Email", ""),
            f"Hoi {a_naam}," if a_naam else "Hoi,",
-           "Je VIF is succesvol verwerkt en de vacature is aangemaakt in Tigris. Recruitment "
-           "en marketing gaan er nu mee aan de slag. Dank voor je aanlevering!",
+           aanleveraar_binnen,
            f"[VIF verwerkt] {titel} {plaats}".strip())
 
 
@@ -490,6 +541,9 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     vac = agents.vif_to_vacancy(raw)
     vac.setdefault("id", f"VIF-{int(time.time())}")
     print(f"[orkestrator] VIF verwerkt → {vac.get('titel')} ({vac.get('label')}) in {vac.get('plaats')}")
+
+    # Communicatiemoment 1: bevestig de aanleveraar direct dat de VIF door de AI is opgepakt.
+    _mail_aanleveraar_ontvangen(vac, uploader_email, uploader_id)
 
     # 2. BREIN — verwerkt de VIF tot een handoff (content + checks). Volgorde:
     #    externe Neuro San-server (indien draaiend) → ingebouwd Claude-brein

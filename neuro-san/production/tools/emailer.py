@@ -34,16 +34,22 @@ def _naar_outbox(subject: str, html: str, inline_image_path: str | None) -> None
 
 def send_approval_mail(subject: str, html: str, inline_image_path: str | None = None,
                        image_cid: str = "beeld", to: str | None = None,
-                       attachments: list | None = None) -> None:
-    """attachments: extra bijlagen als [{"filename": ..., "content": <base64>}]."""
+                       attachments: list | None = None, cc: str | None = None) -> None:
+    """attachments: extra bijlagen als [{"filename": ..., "content": <base64>}].
+    cc: optioneel CC-adres (bv. Djimon op de recruiter-notificatie)."""
     beoogd = (to or cfg.APPROVAL_TO)
     ontvanger = beoogd
+    cc_adres = cc
     # TESTMODUS: alles naar één adres (bv. je Gmail). Toon bovenaan voor wie het bedoeld was.
     if cfg.MAIL_OVERRIDE_TO:
         if beoogd and beoogd.strip().lower() != cfg.MAIL_OVERRIDE_TO.strip().lower():
+            banner = f'[TEST] Oorspronkelijk bedoeld voor: {beoogd}'
+            if cc_adres:
+                banner += f' (CC: {cc_adres})'
             html = ('<div style="background:#FFF3E8;padding:8px 12px;font-size:12px;color:#9a5b1e">'
-                    f'[TEST] Oorspronkelijk bedoeld voor: {beoogd}</div>' + html)
+                    f'{banner}</div>' + html)
         ontvanger = cfg.MAIL_OVERRIDE_TO
+        cc_adres = None   # in testmodus niet echt CC'en — alles gaat naar het override-adres
     if cfg.DEV_MODE:
         _naar_outbox(subject, html, inline_image_path)
         for a in (attachments or []):
@@ -57,6 +63,8 @@ def send_approval_mail(subject: str, html: str, inline_image_path: str | None = 
         "subject": subject,
         "html": html,
     }
+    if cc_adres and "@" in cc_adres and cc_adres.strip().lower() != ontvanger.strip().lower():
+        payload["cc"] = [cc_adres.strip()]
     atts = []
     if inline_image_path:
         with open(inline_image_path, "rb") as f:
