@@ -1,6 +1,6 @@
 # E-mail via Microsoft 365 (Graph API) — instructie voor IT
 
-De Neuro San-automatisering verstuurt notificatiemails (aanleveraar, recruiter,
+De recruitment-mailautomatisering verstuurt notificatiemails (aanleveraar, recruiter,
 marketing/goedkeuring). We willen dit vanaf een **echte tecqgroep.com-mailbox**
 laten lopen i.p.v. een externe mailprovider. Omdat de applicatie op Render draait
 en Render uitgaande **SMTP-poorten blokkeert**, gebruiken we de **Microsoft Graph
@@ -34,7 +34,7 @@ Onthoud het exacte adres → dat wordt `GRAPH_SENDER`.
 
 1. **Entra-beheercentrum** (entra.microsoft.com) → **Identiteit → Toepassingen →
    App-registraties → Nieuwe registratie**
-2. Naam: `NeuroSan Mailer` · Accounttypen: **alleen deze organisatiemap** ·
+2. Naam: `TecqGroep Mailer` · Accounttypen: **alleen deze organisatiemap** ·
    Redirect URI: leeg laten → **Registreren**
 3. Noteer op de overzichtspagina:
    - **Application (client) ID** → `GRAPH_CLIENT_ID`
@@ -53,7 +53,7 @@ Onthoud het exacte adres → dat wordt `GRAPH_SENDER`.
 ## Stap 4 — Client secret aanmaken
 
 1. In de app → **Certificaten en geheimen → Nieuw clientgeheim**
-2. Omschrijving `NeuroSan Render` · vervaldatum bv. 24 maanden → **Toevoegen**
+2. Omschrijving `TecqGroep Mailer` · vervaldatum bv. 24 maanden → **Toevoegen**
 3. Kopieer **direct** de **Waarde** (niet de Secret-ID!) → `GRAPH_CLIENT_SECRET`
    *(de waarde is daarna niet meer zichtbaar — noteer 'm meteen veilig)*
 
@@ -68,13 +68,13 @@ Dat willen we niet. Beperk de app tot alleen `noreply@tecqgroep.com` met een
 Connect-ExchangeOnline
 
 # Maak een mail-enabled beveiligingsgroep met alleen de verzendmailbox erin,
-# bv. "sg-neurosan-mailer", met noreply@tecqgroep.com als lid.
+# bv. "sg-noreply-mailer", met noreply@tecqgroep.com als lid.
 
 New-ApplicationAccessPolicy `
   -AppId        "<GRAPH_CLIENT_ID>" `
-  -PolicyScopeGroupId "sg-neurosan-mailer@tecqgroep.com" `
+  -PolicyScopeGroupId "sg-noreply-mailer@tecqgroep.com" `
   -AccessRight  RestrictAccess `
-  -Description  "NeuroSan mailer mag alleen vanaf noreply@tecqgroep.com sturen"
+  -Description  "Mailer-app mag alleen vanaf noreply@tecqgroep.com sturen"
 
 # Controleren:
 Test-ApplicationAccessPolicy -Identity noreply@tecqgroep.com -AppId "<GRAPH_CLIENT_ID>"
