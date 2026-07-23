@@ -20,13 +20,13 @@ Vier waarden die de applicatiebeheerder in Render als env-variabelen zet:
 | `GRAPH_TENANT_ID` | Directory (tenant) ID |
 | `GRAPH_CLIENT_ID` | Application (client) ID van de app-registratie |
 | `GRAPH_CLIENT_SECRET` | De **waarde** van een client secret |
-| `GRAPH_SENDER` | De mailbox waar vanaf verstuurd wordt, bv. `neurosan@tecqgroep.com` |
+| `GRAPH_SENDER` | De mailbox waar vanaf verstuurd wordt, bv. `noreply@tecqgroep.com` |
 
 ---
 
 ## Stap 1 — Verzendmailbox
 
-Zorg voor een mailbox `neurosan@tecqgroep.com` (of een bestaande gedeelde
+Zorg voor een mailbox `noreply@tecqgroep.com` (of een bestaande gedeelde
 mailbox). Een **gedeelde mailbox** heeft geen aparte licentie nodig en is prima.
 Onthoud het exacte adres → dat wordt `GRAPH_SENDER`.
 
@@ -60,7 +60,7 @@ Onthoud het exacte adres → dat wordt `GRAPH_SENDER`.
 ## Stap 5 — App inperken tot één mailbox (belangrijk — least privilege) 🔒
 
 `Mail.Send` als applicatierecht geeft standaard toegang tot **alle** postbussen.
-Dat willen we niet. Beperk de app tot alleen `neurosan@tecqgroep.com` met een
+Dat willen we niet. Beperk de app tot alleen `noreply@tecqgroep.com` met een
 **Application Access Policy** (via Exchange Online PowerShell):
 
 ```powershell
@@ -68,16 +68,16 @@ Dat willen we niet. Beperk de app tot alleen `neurosan@tecqgroep.com` met een
 Connect-ExchangeOnline
 
 # Maak een mail-enabled beveiligingsgroep met alleen de verzendmailbox erin,
-# bv. "sg-neurosan-mailer", met neurosan@tecqgroep.com als lid.
+# bv. "sg-neurosan-mailer", met noreply@tecqgroep.com als lid.
 
 New-ApplicationAccessPolicy `
   -AppId        "<GRAPH_CLIENT_ID>" `
   -PolicyScopeGroupId "sg-neurosan-mailer@tecqgroep.com" `
   -AccessRight  RestrictAccess `
-  -Description  "NeuroSan mailer mag alleen vanaf neurosan@tecqgroep.com sturen"
+  -Description  "NeuroSan mailer mag alleen vanaf noreply@tecqgroep.com sturen"
 
 # Controleren:
-Test-ApplicationAccessPolicy -Identity neurosan@tecqgroep.com -AppId "<GRAPH_CLIENT_ID>"
+Test-ApplicationAccessPolicy -Identity noreply@tecqgroep.com -AppId "<GRAPH_CLIENT_ID>"
 # → AccessCheckResult moet 'Granted' zijn.
 # Test-ApplicationAccessPolicy op een ANDERE mailbox moet 'Denied' geven.
 ```
@@ -97,7 +97,7 @@ MAIL_PROVIDER=graph
 GRAPH_TENANT_ID=...
 GRAPH_CLIENT_ID=...
 GRAPH_CLIENT_SECRET=...
-GRAPH_SENDER=neurosan@tecqgroep.com
+GRAPH_SENDER=noreply@tecqgroep.com
 ```
 
 en verwijdert `MAIL_OVERRIDE_TO` (de testmodus). Render herstart automatisch.
@@ -105,7 +105,7 @@ en verwijdert `MAIL_OVERRIDE_TO` (de testmodus). Render herstart automatisch.
 ## Verificatie
 
 Na livegang: één VIF door de keten laten lopen. De mails moeten:
-- afkomstig zijn van `neurosan@tecqgroep.com`,
+- afkomstig zijn van `noreply@tecqgroep.com`,
 - in "Verzonden items" van die mailbox staan,
 - de recruiter-mail met **Djimon in CC** tonen.
 
