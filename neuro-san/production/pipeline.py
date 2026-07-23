@@ -85,9 +85,27 @@ def _genereer_beeld(vacancy: dict, image_prompt: str) -> str:
     return img_path
 
 
+def _placements() -> dict:
+    """Handmatige placements zónder in-stream video. In-stream (advertenties midden in
+    andermans video's, en Audience Network) presteert zwak voor werving: de kijker is
+    niet in 'zoek-een-baan'-modus en haakt af. We houden de sterke, feed-gedreven
+    placements aan (feeds, stories, reels, marketplace) op Facebook + Instagram — die
+    ondersteunen ook het Instant Form. Zet META_INSTREAM_AAN=1 om terug te vallen op
+    automatische placements (dan bepaalt Meta zelf, inclusief in-stream)."""
+    if cfg.META_INSTREAM_AAN:
+        return {}     # geen restrictie → Meta kiest automatisch (incl. in-stream)
+    return {
+        "publisher_platforms": ["facebook", "instagram"],
+        "facebook_positions": ["feed", "marketplace", "video_feeds", "story", "facebook_reels"],
+        "instagram_positions": ["stream", "story", "reels", "explore"],
+        # NIET meegenomen: facebook 'instream_video' en Audience Network (in-stream/rewarded).
+    }
+
+
 def _targeting_geo(vacancy: dict, radius_km: int = 30) -> dict:
     """EMPLOYMENT-compliant geo-targeting: een RADIUS rond de standplaats (geen leeftijd/
-    geslacht-narrowing). Zoekt de Meta-stad-key op zodat we niet heel NL targeten."""
+    geslacht-narrowing). Zoekt de Meta-stad-key op zodat we niet heel NL targeten.
+    In-stream video-placements staan standaard uit (zie _placements)."""
     radius = max(int(radius_km or 30), 24)            # Meta vereist min. ~24 km bij WERK
     # Stad-key eenmalig opzoeken en cachen op de vacature.
     if "_meta_stad_key" not in vacancy:
@@ -104,7 +122,8 @@ def _targeting_geo(vacancy: dict, radius_km: int = 30) -> dict:
         print(f"[campagne-meta] LET OP: geen stad-key voor '{vacancy.get('plaats')}' — "
               f"campagne target heel NL i.p.v. een radius. Controleer de plaatsnaam.")
     # Geen age_min/age_max: Meta staat leeftijd-narrowing niet toe bij EMPLOYMENT.
-    return {"geo_locations": geo}
+    # Placements zonder in-stream video (standaard) worden meegenomen.
+    return {"geo_locations": geo, **_placements()}
 
 
 def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = None,

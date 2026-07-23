@@ -37,6 +37,11 @@ class Config:
     # Optioneel: Special Ad Audience (lookalike-vervanger) voor de 'use_lookalike'
     # ad sets uit het targeting-plan. Leeg = die ad sets worden overgeslagen.
     META_SPECIAL_AD_AUDIENCE_ID = _opt("META_SPECIAL_AD_AUDIENCE_ID")
+    # In-stream video-advertenties (midden in andermans video's / Audience Network) staan
+    # standaard UIT — presteren zwak voor werving en de kijker is niet in 'zoek-baan'-modus.
+    # Standaard gebruiken we handmatige placements (feeds, stories, reels, marketplace) zónder
+    # in-stream. Zet META_INSTREAM_AAN=1 om terug te vallen op automatische placements (incl. in-stream).
+    META_INSTREAM_AAN = _opt("META_INSTREAM_AAN").lower() in ("1", "true", "ja", "yes")
 
     # Beeldgeneratie — OpenAI (gpt-image-1)
     OPENAI_API_KEY = _req("OPENAI_API_KEY")
