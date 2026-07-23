@@ -43,9 +43,23 @@ class Config:
     OPENAI_IMAGE_MODEL = _opt("OPENAI_IMAGE_MODEL", "gpt-image-1")
     OPENAI_IMAGE_QUALITY = _opt("OPENAI_IMAGE_QUALITY", "high")   # low/medium/high — high = realistischer/scherper
 
-    # E-mail — Resend (HTTP API; Render blokkeert SMTP-poorten)
-    RESEND_API_KEY = _req("RESEND_API_KEY")
+    # E-mail — provider-keuze. 'resend' (extern, HTTP-API) of 'graph' (Microsoft 365
+    # via Graph API, ook HTTP — Render blokkeert SMTP-poorten, dus SMTP kan niet).
+    # Graph verstuurt vanaf een echte tecqgroep.com-mailbox; geen domeinverificatie nodig.
+    MAIL_PROVIDER = _opt("MAIL_PROVIDER", "resend").lower()
+
+    # Resend — alleen verplicht als je Resend daadwerkelijk gebruikt.
+    RESEND_API_KEY = _req("RESEND_API_KEY") if MAIL_PROVIDER == "resend" else _opt("RESEND_API_KEY")
     RESEND_FROM = _opt("RESEND_FROM", "onboarding@resend.dev")
+
+    # Microsoft Graph (M365) — alleen verplicht als MAIL_PROVIDER=graph.
+    # Client-credentials van de Azure-app-registratie (Mail.Send, ingeperkt tot GRAPH_SENDER).
+    GRAPH_TENANT_ID = _req("GRAPH_TENANT_ID") if MAIL_PROVIDER == "graph" else _opt("GRAPH_TENANT_ID")
+    GRAPH_CLIENT_ID = _req("GRAPH_CLIENT_ID") if MAIL_PROVIDER == "graph" else _opt("GRAPH_CLIENT_ID")
+    GRAPH_CLIENT_SECRET = _req("GRAPH_CLIENT_SECRET") if MAIL_PROVIDER == "graph" else _opt("GRAPH_CLIENT_SECRET")
+    # De mailbox waar vanaf verstuurd wordt, bv. neurosan@tecqgroep.com.
+    GRAPH_SENDER = _req("GRAPH_SENDER") if MAIL_PROVIDER == "graph" else _opt("GRAPH_SENDER")
+
     APPROVAL_TO = _req("APPROVAL_TO")
     # TESTMODUS: stuur ÁLLE uitgaande mail naar dit ene adres (bv. je Gmail dat Resend toestaat),
     # ongeacht de bedoelde ontvanger. Zo zie je tijdens testen ook de recruiter-/aanleveraar-mails.
