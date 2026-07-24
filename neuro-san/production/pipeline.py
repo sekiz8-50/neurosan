@@ -85,9 +85,32 @@ def _genereer_beeld(vacancy: dict, image_prompt: str) -> str:
     return img_path
 
 
+def _placements() -> dict:
+    """Handmatige placements zónder in-stream video. In-stream (advertenties midden in
+    andermans video's, en Audience Network) presteert zwak voor werving: de kijker is
+    niet in 'zoek-een-baan'-modus en haakt af. We houden de sterke, feed-gedreven
+    placements aan (feeds, stories, reels, marketplace) op Facebook + Instagram — die
+    ondersteunen ook het Instant Form. Zet META_INSTREAM_AAN=1 om terug te vallen op
+    automatische placements (dan bepaalt Meta zelf, inclusief in-stream)."""
+    if cfg.META_INSTREAM_AAN:
+        return {}     # geen restrictie → Meta kiest automatisch (incl. in-stream)
+    # Handmatige allowlist: alleen deze posities worden gebruikt. Alles wat hier NIET
+    # in staat, wordt NOOIT geplaatst. Bewust weggelaten (op verzoek):
+    #   - 'instream_video'         → In-stream video (midden in andermans video's)
+    #   - 'facebook_reels_overlay' → In-stream advertenties vóór/over reels
+    #   - 'search' / 'ig_search'   → Zoekresultaten (Facebook + Instagram)
+    #   - Audience Network         → 'apps en sites' (native/banner/rewarded video)
+    return {
+        "publisher_platforms": ["facebook", "instagram"],
+        "facebook_positions": ["feed", "marketplace", "video_feeds", "story", "facebook_reels"],
+        "instagram_positions": ["stream", "story", "reels", "explore"],
+    }
+
+
 def _targeting_geo(vacancy: dict, radius_km: int = 30) -> dict:
     """EMPLOYMENT-compliant geo-targeting: een RADIUS rond de standplaats (geen leeftijd/
-    geslacht-narrowing). Zoekt de Meta-stad-key op zodat we niet heel NL targeten."""
+    geslacht-narrowing). Zoekt de Meta-stad-key op zodat we niet heel NL targeten.
+    In-stream video-placements staan standaard uit (zie _placements)."""
     radius = max(int(radius_km or 30), 24)            # Meta vereist min. ~24 km bij WERK
     # Stad-key eenmalig opzoeken en cachen op de vacature.
     if "_meta_stad_key" not in vacancy:
@@ -104,7 +127,8 @@ def _targeting_geo(vacancy: dict, radius_km: int = 30) -> dict:
         print(f"[campagne-meta] LET OP: geen stad-key voor '{vacancy.get('plaats')}' — "
               f"campagne target heel NL i.p.v. een radius. Controleer de plaatsnaam.")
     # Geen age_min/age_max: Meta staat leeftijd-narrowing niet toe bij EMPLOYMENT.
-    return {"geo_locations": geo}
+    # Placements zonder in-stream video (standaard) worden meegenomen.
+    return {"geo_locations": geo, **_placements()}
 
 
 def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = None,
@@ -419,11 +443,53 @@ def _mail_kop(titel_regel: str) -> str:
             f'<span style="color:#fff;font-size:13px"> · {titel_regel}</span></td></tr>')
 
 
+def _mail_body(titel: str, plaats: str, aanhef: str, binnenwerk: str) -> str:
+    """Bouwt de standaard Maintec-mailopmaak rond een stukje binnen-HTML."""
+    return (f'<!doctype html><html lang="nl"><meta charset="utf-8">'
+            f'<body style="margin:0;background:#f6f6f6;font-family:Inter,system-ui,sans-serif;color:#121212">'
+            f'<table width="100%"><tr><td align="center" style="padding:24px">'
+            f'<table width="560" style="background:#fff;border-radius:8px;overflow:hidden">'
+            + _mail_kop("Tigris — vacature aangemaakt") +
+            f'<tr><td style="padding:24px">'
+            f'<h2 style="margin:0 0 8px">{titel}{(" · " + plaats) if plaats else ""}</h2>'
+            f'<p style="color:#121212;font-size:13px">{aanhef}</p>'
+            f'{binnenwerk}'
+            f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch bericht van Neuro San.</p>'
+            f'</td></tr></table></td></tr></table></body></html>')
+
+
+def _mail_aanleveraar_ontvangen(vac: dict, uploader_email: str, uploader_id: str) -> None:
+    """Communicatiemoment 1 — direct bij activeren van de VIF: bevestig de aanleveraar
+    dat zijn VIF is ontvangen en nu door de AI wordt opgepakt. Faalt stil."""
+    naar = uploader_email
+    naam = ""
+    if uploader_id:
+        u = salesforce.get_user(uploader_id)
+        naar = naar or u.get("Email", "")
+        naam = u.get("Name", "").split(" ")[0] if u.get("Name") else ""
+    if not naar or "@" not in naar:
+        return
+    titel = vac.get("titel", "je vacature")
+    plaats = vac.get("plaats", "")
+    binnen = ('<p style="color:#69696A;font-size:13px">Je VIF is ontvangen en wordt nu door '
+              'de AI opgepakt. Neuro San verrijkt de vacature, maakt het campagnebeeld en '
+              'de teksten, en zet alles klaar in Tigris. Je hoeft verder niets te doen — '
+              'je krijgt vanzelf bericht zodra de vacature is aangemaakt.</p>')
+    try:
+        emailer.send_approval_mail(
+            f"[VIF ontvangen] {titel} {plaats}".strip(),
+            _mail_body(titel, plaats, f"Hoi {naam}," if naam else "Hoi,", binnen),
+            to=naar)
+        print(f"[dirigent] ontvangstbevestiging verstuurd naar aanleveraar {naar}")
+    except Exception as e:
+        print(f"[dirigent] ontvangstbevestiging naar {naar} faalde: {e}")
+
+
 def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str,
                                   sf_id: str) -> None:
-    """Punt 4: mail de recruiter (er is een VIF ingevuld + vacature aangemaakt) én de
-    aanleveraar/sales (de VIF is succesvol; recruitment en marketing gaan aan de slag),
-    elk met een hyperlink naar de vacature in Tigris. Faalt stil — mag de keten niet stoppen."""
+    """Communicatiemoment 2 — zodra de vacature is aangemaakt: mail de recruiter (met
+    hyperlink naar de vacature in Tigris, CC naar de marketing-collega) én de aanleveraar
+    (VIF verwerkt). Faalt stil — mag de keten niet stoppen."""
     url = salesforce.record_url(sf_id)
     titel = vac.get("titel", "vacature")
     plaats = vac.get("plaats", "")
@@ -432,23 +498,15 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
             f'padding:12px 22px;border-radius:4px">Open de vacature in Tigris →</a></p>'
             if url else '<p style="color:#8A8A8B;font-size:12px">(De vacature staat in Tigris.)</p>')
 
-    def _stuur(naar: str, aanhef: str, boodschap: str, onderwerp: str) -> None:
+    def _stuur(naar: str, aanhef: str, binnenwerk: str, onderwerp: str,
+               cc: str | None = None) -> None:
         if not naar or "@" not in naar:
             return
-        html = (f'<!doctype html><html lang="nl"><meta charset="utf-8">'
-                f'<body style="margin:0;background:#f6f6f6;font-family:Inter,system-ui,sans-serif;color:#121212">'
-                f'<table width="100%"><tr><td align="center" style="padding:24px">'
-                f'<table width="560" style="background:#fff;border-radius:8px;overflow:hidden">'
-                + _mail_kop("Tigris — vacature aangemaakt") +
-                f'<tr><td style="padding:24px">'
-                f'<h2 style="margin:0 0 8px">{titel}{(" · " + plaats) if plaats else ""}</h2>'
-                f'<p style="color:#121212;font-size:13px">{aanhef}</p>'
-                f'<p style="color:#69696A;font-size:13px">{boodschap}</p>{knop}'
-                f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch bericht van Neuro San.</p>'
-                f'</td></tr></table></td></tr></table></body></html>')
         try:
-            emailer.send_approval_mail(onderwerp, html, to=naar)
-            print(f"[dirigent] notificatiemail verstuurd naar {naar}")
+            emailer.send_approval_mail(onderwerp, _mail_body(titel, plaats, aanhef, binnenwerk),
+                                       to=naar, cc=cc)
+            print(f"[dirigent] notificatiemail verstuurd naar {naar}"
+                  f"{(' (CC ' + cc + ')') if cc else ''}")
         except Exception as e:
             print(f"[dirigent] notificatiemail naar {naar} faalde: {e}")
 
@@ -456,15 +514,32 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
     aanleveraar = salesforce.get_user(uploader_id) if uploader_id else {}
     r_naam = recruiter.get("Name", "").split(" ")[0] if recruiter.get("Name") else ""
     a_naam = aanleveraar.get("Name", "").split(" ")[0] if aanleveraar.get("Name") else ""
+    a_vol = aanleveraar.get("Name", "") or "een salescollega"
+
+    # Recruiter: wie leverde aan + wat de AI deed + link + hoe een Meta-campagne aan te vragen.
+    recruiter_binnen = (
+        f'<p style="color:#69696A;font-size:13px">Salescollega <b>{a_vol}</b> heeft een VIF '
+        f'aangeleverd. Neuro San (AI) heeft de VIF verrijkt en als vacature opgenomen in Tigris '
+        f'— jij bent de eigenaar.</p>{knop}'
+        f'<div style="background:#FFF3E8;border-radius:6px;padding:12px 14px;margin:6px 0">'
+        f'<p style="color:#9a5b1e;font-size:12px;margin:0"><b>Wil je een Meta-campagne voor deze '
+        f'vacature?</b> Stuur deze mail door naar '
+        f'<a href="mailto:{cfg.RECRUITER_MAIL_CC}" style="color:#9a5b1e">{cfg.RECRUITER_MAIL_CC}</a> '
+        f'om de aanvraag in gang te zetten.</p></div>')
     _stuur(recruiter.get("Email", ""),
            f"Hoi {r_naam}," if r_naam else "Hoi,",
-           "Er is een VIF ingevuld en er is automatisch een vacature voor je aangemaakt in "
-           "Tigris — jij bent de eigenaar. Marketing bereidt de campagne voor.",
-           f"[Nieuwe vacature] {titel} {plaats}".strip())
+           recruiter_binnen,
+           f"[Nieuwe vacature] {titel} {plaats}".strip(),
+           cc=cfg.RECRUITER_MAIL_CC)
+
+    # Aanleveraar: afronding — VIF verwerkt, vacature staat klaar.
+    aanleveraar_binnen = (
+        '<p style="color:#69696A;font-size:13px">Je VIF is succesvol verwerkt en de vacature is '
+        'aangemaakt in Tigris. Recruitment en marketing gaan er nu mee aan de slag. Dank voor je '
+        f'aanlevering!</p>{knop}')
     _stuur(aanleveraar.get("Email", ""),
            f"Hoi {a_naam}," if a_naam else "Hoi,",
-           "Je VIF is succesvol verwerkt en de vacature is aangemaakt in Tigris. Recruitment "
-           "en marketing gaan er nu mee aan de slag. Dank voor je aanlevering!",
+           aanleveraar_binnen,
            f"[VIF verwerkt] {titel} {plaats}".strip())
 
 
@@ -490,6 +565,9 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     vac = agents.vif_to_vacancy(raw)
     vac.setdefault("id", f"VIF-{int(time.time())}")
     print(f"[orkestrator] VIF verwerkt → {vac.get('titel')} ({vac.get('label')}) in {vac.get('plaats')}")
+
+    # Communicatiemoment 1: bevestig de aanleveraar direct dat de VIF door de AI is opgepakt.
+    _mail_aanleveraar_ontvangen(vac, uploader_email, uploader_id)
 
     # 2. BREIN — verwerkt de VIF tot een handoff (content + checks). Volgorde:
     #    externe Neuro San-server (indien draaiend) → ingebouwd Claude-brein
@@ -599,24 +677,38 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     # 5. Designer — beeld (één keer; gedeeld met Tigris + Meta). Sla het PERSISTENT op in
     #    Salesforce (openbare link) zodat de Foto-URL blijft werken; val terug op de
     #    Render-URL als dat (nog) niet lukt (bv. Content Deliveries niet aangezet).
-    img_path = _genereer_beeld(vac, plan["image_prompt"])
+    # Twee beeldversies, elk naar een eigen Tigris-veld:
+    #   - KAAL beeld (zonder tekst/haakjes)  → veld 'Foto URL' (foto_url).           ALTIJD.
+    #   - MERK-beeld (mét tekst/haakjes)     → veld 'Video/Foto (optie)' (Video_optie__c)
+    #                                          én de Meta-campagne (creative, via image_path).
+    img_path = _genereer_beeld(vac, plan["image_prompt"])   # MERK-beeld (met tekst) — voor Meta
+    raw_path = vac.get("beeld_raw_path")                     # KAAL beeld (zonder tekst)
+    plain_bestaat = bool(raw_path and os.path.exists(raw_path))
+
+    # Foto URL: ALTIJD het kale beeld (zonder tekst/haakjes). Persistent naar Salesforce;
+    # val terug op de Render-URL van het kale beeld (of het merk-beeld als het kale ontbreekt).
     foto_url = ""
     try:
-        with open(img_path, "rb") as _f:
-            foto_url = salesforce.upload_public_image(_f.read(), f"VIF-beeld-{vac['id']}")
+        with open(raw_path if plain_bestaat else img_path, "rb") as _f:
+            foto_url = salesforce.upload_public_image(_f.read(), f"VIF-foto-{vac['id']}")
     except Exception as e:
-        print(f"[orkestrator] persistent beeld uploaden faalde: {e}")
-    vac["foto_url"] = foto_url or f"{cfg.PUBLIC_BASE_URL}/beeld/{vac['id']}.png"
-    # Kaal beeld (zonder tekst/overlay) → omslagfoto-veld (Video_optie__c).
-    raw_path = vac.get("beeld_raw_path")
-    if cfg.SF_VIDEO_FIELD and raw_path and os.path.exists(raw_path):
+        print(f"[orkestrator] persistent (kaal) beeld uploaden faalde: {e}")
+    if plain_bestaat and os.path.dirname(os.path.abspath(raw_path)) == os.path.abspath(IMG_DIR):
+        render_fallback = f"{cfg.PUBLIC_BASE_URL}/beeld/{os.path.basename(raw_path)}"
+    else:
+        render_fallback = f"{cfg.PUBLIC_BASE_URL}/beeld/{vac['id']}.png"
+    vac["foto_url"] = foto_url or render_fallback
+
+    # Video/Foto (optie) (Video_optie__c): het MERK-beeld MÉT tekst/haakjes — dezelfde die de
+    # Meta-campagne als creative gebruikt.
+    if cfg.SF_VIDEO_FIELD:
         try:
-            with open(raw_path, "rb") as _f:
-                video_url = salesforce.upload_public_image(_f.read(), f"VIF-beeld-zonder-tekst-{vac['id']}")
+            with open(img_path, "rb") as _f:
+                video_url = salesforce.upload_public_image(_f.read(), f"VIF-beeld-met-tekst-{vac['id']}")
             if video_url:
                 vac["video_url"] = video_url
         except Exception as e:
-            print(f"[orkestrator] kaal beeld uploaden faalde: {e}")
+            print(f"[orkestrator] beeld-met-tekst uploaden faalde: {e}")
 
     # 5b. FAQ en sourcing-zoekstrings als Tigris-velden (FAQ__c / SearchStrings__c)
     if vac.get("faq"):
@@ -858,7 +950,7 @@ def _send_mail(record: dict) -> None:
         print(f"[mail] goedkeur-mail VERSTUREN MISLUKT ({e}); 2e poging zonder inline-beeld...")
         try:
             emailer.send_approval_mail(f"[Akkoord nodig] Vacature {v['titel']} {v['plaats']}",
-                                       html.replace('src="cid:beeld"', f'src="{v.get("foto_url", "")}"'),
+                                       html.replace('src="cid:beeld"', f'src="{v.get("video_url") or v.get("foto_url", "")}"'),
                                        attachments=bijlagen)
             print(f"[mail] goedkeur-mail (zonder bijlage) verstuurd naar {cfg.APPROVAL_TO}")
         except Exception as e2:

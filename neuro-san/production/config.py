@@ -37,20 +37,42 @@ class Config:
     # Optioneel: Special Ad Audience (lookalike-vervanger) voor de 'use_lookalike'
     # ad sets uit het targeting-plan. Leeg = die ad sets worden overgeslagen.
     META_SPECIAL_AD_AUDIENCE_ID = _opt("META_SPECIAL_AD_AUDIENCE_ID")
+    # In-stream video-advertenties (midden in andermans video's / Audience Network) staan
+    # standaard UIT — presteren zwak voor werving en de kijker is niet in 'zoek-baan'-modus.
+    # Standaard gebruiken we handmatige placements (feeds, stories, reels, marketplace) zónder
+    # in-stream. Zet META_INSTREAM_AAN=1 om terug te vallen op automatische placements (incl. in-stream).
+    META_INSTREAM_AAN = _opt("META_INSTREAM_AAN").lower() in ("1", "true", "ja", "yes")
 
     # Beeldgeneratie — OpenAI (gpt-image-1)
     OPENAI_API_KEY = _req("OPENAI_API_KEY")
     OPENAI_IMAGE_MODEL = _opt("OPENAI_IMAGE_MODEL", "gpt-image-1")
     OPENAI_IMAGE_QUALITY = _opt("OPENAI_IMAGE_QUALITY", "high")   # low/medium/high — high = realistischer/scherper
 
-    # E-mail — Resend (HTTP API; Render blokkeert SMTP-poorten)
-    RESEND_API_KEY = _req("RESEND_API_KEY")
+    # E-mail — provider-keuze. 'resend' (extern, HTTP-API) of 'graph' (Microsoft 365
+    # via Graph API, ook HTTP — Render blokkeert SMTP-poorten, dus SMTP kan niet).
+    # Graph verstuurt vanaf een echte tecqgroep.com-mailbox; geen domeinverificatie nodig.
+    MAIL_PROVIDER = _opt("MAIL_PROVIDER", "resend").lower()
+
+    # Resend — alleen verplicht als je Resend daadwerkelijk gebruikt.
+    RESEND_API_KEY = _req("RESEND_API_KEY") if MAIL_PROVIDER == "resend" else _opt("RESEND_API_KEY")
     RESEND_FROM = _opt("RESEND_FROM", "onboarding@resend.dev")
+
+    # Microsoft Graph (M365) — alleen verplicht als MAIL_PROVIDER=graph.
+    # Client-credentials van de Azure-app-registratie (Mail.Send, ingeperkt tot GRAPH_SENDER).
+    GRAPH_TENANT_ID = _req("GRAPH_TENANT_ID") if MAIL_PROVIDER == "graph" else _opt("GRAPH_TENANT_ID")
+    GRAPH_CLIENT_ID = _req("GRAPH_CLIENT_ID") if MAIL_PROVIDER == "graph" else _opt("GRAPH_CLIENT_ID")
+    GRAPH_CLIENT_SECRET = _req("GRAPH_CLIENT_SECRET") if MAIL_PROVIDER == "graph" else _opt("GRAPH_CLIENT_SECRET")
+    # De mailbox waar vanaf verstuurd wordt, bv. neurosan@tecqgroep.com.
+    GRAPH_SENDER = _req("GRAPH_SENDER") if MAIL_PROVIDER == "graph" else _opt("GRAPH_SENDER")
+
     APPROVAL_TO = _req("APPROVAL_TO")
     # TESTMODUS: stuur ÁLLE uitgaande mail naar dit ene adres (bv. je Gmail dat Resend toestaat),
     # ongeacht de bedoelde ontvanger. Zo zie je tijdens testen ook de recruiter-/aanleveraar-mails.
     # Leeg = normaal (elke mail naar de echte ontvanger). Bij livegang: leegmaken + domein verifiëren.
     MAIL_OVERRIDE_TO = _opt("MAIL_OVERRIDE_TO")
+    # CC op de recruiter-notificatie (marketing/Meta-aanvragen lopen via deze collega).
+    # De recruiter kan de mail doorsturen naar dit adres om een Meta-campagne aan te vragen.
+    RECRUITER_MAIL_CC = _opt("RECRUITER_MAIL_CC", "djimon.ruis@tecqgroep.com")
 
     # Webhook / hosting — op Render wordt RENDER_EXTERNAL_URL automatisch gezet,
     # dus PUBLIC_BASE_URL hoef je daar niet zelf in te vullen.
