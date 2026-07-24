@@ -94,11 +94,16 @@ def _placements() -> dict:
     automatische placements (dan bepaalt Meta zelf, inclusief in-stream)."""
     if cfg.META_INSTREAM_AAN:
         return {}     # geen restrictie → Meta kiest automatisch (incl. in-stream)
+    # Handmatige allowlist: alleen deze posities worden gebruikt. Alles wat hier NIET
+    # in staat, wordt NOOIT geplaatst. Bewust weggelaten (op verzoek):
+    #   - 'instream_video'         → In-stream video (midden in andermans video's)
+    #   - 'facebook_reels_overlay' → In-stream advertenties vóór/over reels
+    #   - 'search' / 'ig_search'   → Zoekresultaten (Facebook + Instagram)
+    #   - Audience Network         → 'apps en sites' (native/banner/rewarded video)
     return {
         "publisher_platforms": ["facebook", "instagram"],
         "facebook_positions": ["feed", "marketplace", "video_feeds", "story", "facebook_reels"],
         "instagram_positions": ["stream", "story", "reels", "explore"],
-        # NIET meegenomen: facebook 'instream_video' en Audience Network (in-stream/rewarded).
     }
 
 
@@ -672,24 +677,38 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     # 5. Designer — beeld (één keer; gedeeld met Tigris + Meta). Sla het PERSISTENT op in
     #    Salesforce (openbare link) zodat de Foto-URL blijft werken; val terug op de
     #    Render-URL als dat (nog) niet lukt (bv. Content Deliveries niet aangezet).
-    img_path = _genereer_beeld(vac, plan["image_prompt"])
+    # Twee beeldversies, elk naar een eigen Tigris-veld:
+    #   - KAAL beeld (zonder tekst/haakjes)  → veld 'Foto URL' (foto_url).           ALTIJD.
+    #   - MERK-beeld (mét tekst/haakjes)     → veld 'Video/Foto (optie)' (Video_optie__c)
+    #                                          én de Meta-campagne (creative, via image_path).
+    img_path = _genereer_beeld(vac, plan["image_prompt"])   # MERK-beeld (met tekst) — voor Meta
+    raw_path = vac.get("beeld_raw_path")                     # KAAL beeld (zonder tekst)
+    plain_bestaat = bool(raw_path and os.path.exists(raw_path))
+
+    # Foto URL: ALTIJD het kale beeld (zonder tekst/haakjes). Persistent naar Salesforce;
+    # val terug op de Render-URL van het kale beeld (of het merk-beeld als het kale ontbreekt).
     foto_url = ""
     try:
-        with open(img_path, "rb") as _f:
-            foto_url = salesforce.upload_public_image(_f.read(), f"VIF-beeld-{vac['id']}")
+        with open(raw_path if plain_bestaat else img_path, "rb") as _f:
+            foto_url = salesforce.upload_public_image(_f.read(), f"VIF-foto-{vac['id']}")
     except Exception as e:
-        print(f"[orkestrator] persistent beeld uploaden faalde: {e}")
-    vac["foto_url"] = foto_url or f"{cfg.PUBLIC_BASE_URL}/beeld/{vac['id']}.png"
-    # Kaal beeld (zonder tekst/overlay) → omslagfoto-veld (Video_optie__c).
-    raw_path = vac.get("beeld_raw_path")
-    if cfg.SF_VIDEO_FIELD and raw_path and os.path.exists(raw_path):
+        print(f"[orkestrator] persistent (kaal) beeld uploaden faalde: {e}")
+    if plain_bestaat and os.path.dirname(os.path.abspath(raw_path)) == os.path.abspath(IMG_DIR):
+        render_fallback = f"{cfg.PUBLIC_BASE_URL}/beeld/{os.path.basename(raw_path)}"
+    else:
+        render_fallback = f"{cfg.PUBLIC_BASE_URL}/beeld/{vac['id']}.png"
+    vac["foto_url"] = foto_url or render_fallback
+
+    # Video/Foto (optie) (Video_optie__c): het MERK-beeld MÉT tekst/haakjes — dezelfde die de
+    # Meta-campagne als creative gebruikt.
+    if cfg.SF_VIDEO_FIELD:
         try:
-            with open(raw_path, "rb") as _f:
-                video_url = salesforce.upload_public_image(_f.read(), f"VIF-beeld-zonder-tekst-{vac['id']}")
+            with open(img_path, "rb") as _f:
+                video_url = salesforce.upload_public_image(_f.read(), f"VIF-beeld-met-tekst-{vac['id']}")
             if video_url:
                 vac["video_url"] = video_url
         except Exception as e:
-            print(f"[orkestrator] kaal beeld uploaden faalde: {e}")
+            print(f"[orkestrator] beeld-met-tekst uploaden faalde: {e}")
 
     # 5b. FAQ en sourcing-zoekstrings als Tigris-velden (FAQ__c / SearchStrings__c)
     if vac.get("faq"):
@@ -931,7 +950,7 @@ def _send_mail(record: dict) -> None:
         print(f"[mail] goedkeur-mail VERSTUREN MISLUKT ({e}); 2e poging zonder inline-beeld...")
         try:
             emailer.send_approval_mail(f"[Akkoord nodig] Vacature {v['titel']} {v['plaats']}",
-                                       html.replace('src="cid:beeld"', f'src="{v.get("foto_url", "")}"'),
+                                       html.replace('src="cid:beeld"', f'src="{v.get("video_url") or v.get("foto_url", "")}"'),
                                        attachments=bijlagen)
             print(f"[mail] goedkeur-mail (zonder bijlage) verstuurd naar {cfg.APPROVAL_TO}")
         except Exception as e2:
