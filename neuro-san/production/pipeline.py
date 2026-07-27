@@ -443,13 +443,15 @@ def _mail_kop(titel_regel: str) -> str:
             f'<span style="color:#fff;font-size:13px"> · {titel_regel}</span></td></tr>')
 
 
-def _mail_body(titel: str, plaats: str, aanhef: str, binnenwerk: str) -> str:
-    """Bouwt de standaard Maintec-mailopmaak rond een stukje binnen-HTML."""
+def _mail_body(titel: str, plaats: str, aanhef: str, binnenwerk: str,
+               kop: str = "Tigris — vacature aangemaakt") -> str:
+    """Bouwt de standaard Maintec-mailopmaak rond een stukje binnen-HTML.
+    kop = de subtitel in de zwarte kopbalk (per mail specifiek)."""
     return (f'<!doctype html><html lang="nl"><meta charset="utf-8">'
             f'<body style="margin:0;background:#f6f6f6;font-family:Inter,system-ui,sans-serif;color:#121212">'
             f'<table width="100%"><tr><td align="center" style="padding:24px">'
             f'<table width="560" style="background:#fff;border-radius:8px;overflow:hidden">'
-            + _mail_kop("Tigris — vacature aangemaakt") +
+            + _mail_kop(kop) +
             f'<tr><td style="padding:24px">'
             f'<h2 style="margin:0 0 8px">{titel}{(" · " + plaats) if plaats else ""}</h2>'
             f'<p style="color:#121212;font-size:13px">{aanhef}</p>'
@@ -478,7 +480,8 @@ def _mail_aanleveraar_ontvangen(vac: dict, uploader_email: str, uploader_id: str
     try:
         emailer.send_approval_mail(
             f"[VIF ontvangen] {titel} {plaats}".strip(),
-            _mail_body(titel, plaats, f"Hoi {naam}," if naam else "Hoi,", binnen),
+            _mail_body(titel, plaats, f"Hoi {naam}," if naam else "Hoi,", binnen,
+                       kop="VIF ontvangen — in verwerking"),
             to=naar)
         print(f"[dirigent] ontvangstbevestiging verstuurd naar aanleveraar {naar}")
     except Exception as e:
@@ -499,11 +502,11 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
             if url else '<p style="color:#8A8A8B;font-size:12px">(De vacature staat in Tigris.)</p>')
 
     def _stuur(naar: str, aanhef: str, binnenwerk: str, onderwerp: str,
-               cc: str | None = None) -> None:
+               cc: str | None = None, kop: str = "Tigris — vacature aangemaakt") -> None:
         if not naar or "@" not in naar:
             return
         try:
-            emailer.send_approval_mail(onderwerp, _mail_body(titel, plaats, aanhef, binnenwerk),
+            emailer.send_approval_mail(onderwerp, _mail_body(titel, plaats, aanhef, binnenwerk, kop=kop),
                                        to=naar, cc=cc)
             print(f"[dirigent] notificatiemail verstuurd naar {naar}"
                   f"{(' (CC ' + cc + ')') if cc else ''}")
@@ -530,7 +533,8 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
            f"Hoi {r_naam}," if r_naam else "Hoi,",
            recruiter_binnen,
            f"[Nieuwe vacature] {titel} {plaats}".strip(),
-           cc=cfg.RECRUITER_MAIL_CC)
+           cc=cfg.RECRUITER_MAIL_CC,
+           kop="Nieuwe vacature aangemaakt in Tigris")
 
     # Aanleveraar: afronding — VIF verwerkt, vacature staat klaar.
     aanleveraar_binnen = (
@@ -540,7 +544,8 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
     _stuur(aanleveraar.get("Email", ""),
            f"Hoi {a_naam}," if a_naam else "Hoi,",
            aanleveraar_binnen,
-           f"[VIF verwerkt] {titel} {plaats}".strip())
+           f"[VIF verwerkt] {titel} {plaats}".strip(),
+           kop="VIF verwerkt — vacature staat klaar")
 
 
 def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
@@ -922,7 +927,7 @@ def _send_mail(record: dict) -> None:
         for i, t in enumerate(plan.get("alle_varianten") or [plan.get("primary_text", "")]))
     html = f"""<!doctype html><html lang="nl"><meta charset="utf-8"><body style="margin:0;background:#f6f6f6;font-family:Inter,system-ui,sans-serif;color:#121212">
 <table width="100%"><tr><td align="center" style="padding:24px"><table width="560" style="background:#fff;border-radius:8px;overflow:hidden">
-<tr><td style="background:#000;padding:18px 24px"><span style="color:#FF7D2F;font-weight:800;font-size:18px">MAINTEC</span></td></tr>
+<tr><td style="background:#000;padding:18px 24px"><span style="color:#FF7D2F;font-weight:800;font-size:18px">MAINTEC</span><span style="color:#fff;font-size:13px"> · Campagne ter goedkeuring</span></td></tr>
 <tr><td style="padding:24px">
 <h2 style="margin:0 0 4px">{plan['headline']}</h2>
 <p style="color:#69696A;font-size:13px;margin:0 0 6px">Vacature <b>{v['titel']}</b> gepubliceerd in Tigris. Beeld + Meta-campagne staan klaar (PAUSED).</p>
