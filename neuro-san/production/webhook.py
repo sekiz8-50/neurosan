@@ -105,7 +105,7 @@ def testmail(token: str = ""):
     if token.strip() != cfg.TIGRIS_SHARED_SECRET:
         raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
     try:
-        emailer.send_approval_mail("[Test] Neuro San mailtest",
+        emailer.send_approval_mail("[Test] Recruitment AI mailtest",
                                    "<p>Dit is een testmail van de VIF-service. Ontvang je deze, "
                                    "dan werkt Resend en komt ook de goedkeur-mail aan.</p>")
         return {"ok": True, "verstuurd_naar": cfg.APPROVAL_TO, "from": cfg.RESEND_FROM}

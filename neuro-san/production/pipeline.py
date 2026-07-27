@@ -454,7 +454,7 @@ def _mail_body(titel: str, plaats: str, aanhef: str, binnenwerk: str) -> str:
             f'<h2 style="margin:0 0 8px">{titel}{(" · " + plaats) if plaats else ""}</h2>'
             f'<p style="color:#121212;font-size:13px">{aanhef}</p>'
             f'{binnenwerk}'
-            f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch bericht van Neuro San.</p>'
+            f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch gemaakt door Recruitment AI.</p>'
             f'</td></tr></table></td></tr></table></body></html>')
 
 
@@ -472,7 +472,7 @@ def _mail_aanleveraar_ontvangen(vac: dict, uploader_email: str, uploader_id: str
     titel = vac.get("titel", "je vacature")
     plaats = vac.get("plaats", "")
     binnen = ('<p style="color:#69696A;font-size:13px">Je VIF is ontvangen en wordt nu door '
-              'de AI opgepakt. Neuro San verrijkt de vacature, maakt het campagnebeeld en '
+              'de AI opgepakt. Recruitment AI verrijkt de vacature, maakt het campagnebeeld en '
               'de teksten, en zet alles klaar in Tigris. Je hoeft verder niets te doen — '
               'je krijgt vanzelf bericht zodra de vacature is aangemaakt.</p>')
     try:
@@ -519,7 +519,7 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
     # Recruiter: wie leverde aan + wat de AI deed + link + hoe een Meta-campagne aan te vragen.
     recruiter_binnen = (
         f'<p style="color:#69696A;font-size:13px">Salescollega <b>{a_vol}</b> heeft een VIF '
-        f'aangeleverd. Neuro San (AI) heeft de VIF verrijkt en als vacature opgenomen in Tigris '
+        f'aangeleverd. Recruitment AI heeft de VIF verrijkt en als vacature opgenomen in Tigris '
         f'— jij bent de eigenaar.</p>{knop}'
         f'<div style="background:#FFF3E8;border-radius:6px;padding:12px 14px;margin:6px 0">'
         f'<p style="color:#9a5b1e;font-size:12px;margin:0"><b>Wil je een Meta-campagne voor deze '
@@ -980,7 +980,7 @@ def _mail_recruiter_publiceren(sf_id: str, build: dict | None) -> None:
             f'<p style="color:#69696A;font-size:13px">Marketing heeft de vacature goedgekeurd en gaat '
             f'aan de slag met de Meta-campagne. Wil jij de vacature <b>publiceren</b> — op de website '
             f'zetten — in Tigris?</p>{knop}'
-            f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch bericht van Neuro San.</p>'
+            f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch gemaakt door Recruitment AI.</p>'
             f'</td></tr></table></td></tr></table></body></html>')
     try:
         emailer.send_approval_mail(f"[Publiceren] {titel} — marketing akkoord", html, to=email)
