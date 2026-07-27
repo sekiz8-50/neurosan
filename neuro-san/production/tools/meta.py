@@ -196,7 +196,19 @@ def create_lead_form(name: str, app_id: str | None = None, privacy_url: str | No
         # Meta verwacht een JSON-OBJECT (key→value), geen lijst.
         payload["tracking_parameters"] = json.dumps({"APP ID": str(app_id)})
     # Pagina-token: leadgen-formulieren horen op de pagina te draaien (erft de TOS-acceptatie).
-    res = _post(f"{cfg.META_PAGE_ID}/leadgen_forms", payload, token=page_token())
+    try:
+        res = _post(f"{cfg.META_PAGE_ID}/leadgen_forms", payload, token=page_token())
+    except Exception as e:
+        # De context_card-vorm is de enige niet-standaard sleutel. Wordt die geweigerd, bouw het
+        # formulier dan tóch — mét vragen, App Id en privacy — en meld de exacte Meta-fout, zodat
+        # de vragen/App Id nooit sneuvelen door alleen de beschrijving.
+        if "context_card" in payload:
+            print(f"[campagne-meta] leadform-aanmaak faalde ({str(e)[:250]}); "
+                  f"opnieuw ZONDER context_card (beschrijving) — vragen + App Id blijven behouden.")
+            payload.pop("context_card", None)
+            res = _post(f"{cfg.META_PAGE_ID}/leadgen_forms", payload, token=page_token())
+        else:
+            raise
     return res["id"]
 
 
