@@ -52,6 +52,38 @@ def _ask_json(system: str, user: str, max_tokens: int = 1300) -> dict:
     raise ValueError(f"geen geldige JSON na 2 pogingen: {laatste}")
 
 
+def formulier_vragen(vacancy: dict, maximaal: int = 3) -> list:
+    """Stelt op basis van de VIF max. 3 korte, relevante screeningsvragen op voor het
+    Meta-leadformulier (bovenop de vaste vragen). Retour: [{"label":..,"options":[..]?}].
+    Leeg bij geen API-key of fout — de vaste vragen blijven dan gewoon staan."""
+    if not cfg.ANTHROPIC_API_KEY:
+        return []
+    feiten = {k: vacancy.get(k) for k in
+              ("titel", "plaats", "label", "eisen", "harde_eisen", "opleiding", "ervaring",
+               "dienstverband", "uren", "omschrijving") if vacancy.get(k)}
+    sys = ("Je bent recruitment-specialist. Stel op basis van de vacature MAXIMAAL 3 korte, "
+           "concrete screeningsvragen op die handig zijn om te weten bij een sollicitatie via een "
+           "kort Meta-formulier. NIET vragen naar naam/e-mail/telefoon (al gedekt) of naar "
+           "Nederlandse taal/rijbewijs (al gedekt). Kort en concreet, liefst met een paar "
+           "keuzeopties. NOOIT vragen naar leeftijd, geslacht, afkomst of gezondheid (discriminatie). "
+           'JSON: {"vragen":[{"label":"..","options":["..",".."]}]}. options weglaten = open antwoord.')
+    user = f"Vacature:\n{json.dumps(feiten, ensure_ascii=False)}"
+    try:
+        out = _ask_json(sys, user, max_tokens=700)
+    except Exception as e:
+        print(f"[agents] formuliervragen genereren faalde: {e}")
+        return []
+    schoon = []
+    for q in (out.get("vragen") or [])[:maximaal]:
+        if isinstance(q, dict) and (q.get("label") or "").strip():
+            item = {"label": q["label"].strip()}
+            opts = [str(o).strip() for o in (q.get("options") or []) if str(o).strip()]
+            if opts:
+                item["options"] = opts[:6]
+            schoon.append(item)
+    return schoon
+
+
 # --- De agents ---------------------------------------------------------------
 def copywriter(vacancy: dict, brand: str, feedback: str = "") -> dict:
     sys = (f"Je bent senior recruitment-copywriter.\n{brand}\n"
