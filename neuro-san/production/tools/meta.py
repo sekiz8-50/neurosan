@@ -138,19 +138,60 @@ def create_lead_adset(name: str, campaign_id: str, daily_budget_eur: int, target
     return res["id"]
 
 
+# Contactvelden die op ELK formulier staan.
+CONTACTVELDEN = [{"type": "FULL_NAME"}, {"type": "EMAIL"}, {"type": "PHONE"}]
+
+# Twee standaardvragen die op ELK Maintec-leadformulier horen (meerkeuze Ja/Nee).
+STANDAARD_VRAGEN = [
+    {"type": "CUSTOM", "key": "nl_taal", "label": "Beheers jij de Nederlandse taal?",
+     "options": [{"key": "ja", "value": "Ja"}, {"key": "nee", "value": "Nee"}]},
+    {"type": "CUSTOM", "key": "rijbewijs_b", "label": "Ben je in bezit van een rijbewijs (personenauto)?",
+     "options": [{"key": "ja", "value": "Ja"}, {"key": "nee", "value": "Nee"}]},
+]
+
+
+def standaard_vragen(extra: list | None = None) -> list:
+    """Volledige vragenlijst: contactvelden + de 2 vaste Maintec-vragen + optioneel extra
+    (max 3) VIF-vragen. Elke extra vraag: {"label": .., "options": [..]?}."""
+    lijst = list(CONTACTVELDEN) + [dict(q) for q in STANDAARD_VRAGEN]
+    for i, q in enumerate(extra or [], 1):
+        label = (q.get("label") or "").strip()
+        if not label:
+            continue
+        vraag = {"type": "CUSTOM", "key": f"vif_{i}", "label": label[:255]}
+        opties = q.get("options")
+        if opties:
+            vraag["options"] = [{"key": str(o).strip().lower().replace(" ", "_")[:40] or f"o{j}",
+                                 "value": str(o)[:80]} for j, o in enumerate(opties, 1)][:6]
+        lijst.append(vraag)
+    return lijst
+
+
 def create_lead_form(name: str, app_id: str | None = None, privacy_url: str | None = None,
-                     follow_up_url: str | None = None, vragen: list | None = None) -> str:
+                     follow_up_url: str | None = None, vragen: list | None = None,
+                     beschrijving: str | None = None) -> str:
     """Maakt een Instant Form (leadgen) op de pagina. Het App Id (Tigris) komt als
-    trackingparameter 'APP ID' mee, zodat binnenkomende leads herleidbaar zijn naar de vacature."""
+    trackingparameter 'APP ID' mee, zodat binnenkomende leads herleidbaar zijn naar de vacature.
+    Standaard staan de contactvelden + de 2 vaste vragen erin; 'vragen' overschrijft dat.
+    'beschrijving' vult de verplichte intro (context card) over gegevensgebruik."""
     privacy_url = privacy_url or cfg.LEAD_PRIVACY_URL
     follow_up_url = follow_up_url or cfg.LEAD_FOLLOWUP_URL
+    beschrijving = beschrijving if beschrijving is not None else cfg.LEAD_FORM_BESCHRIJVING
     payload = {
         "name": name[:200],
         "locale": "NL_NL",
-        "questions": json.dumps(vragen or [{"type": "FULL_NAME"}, {"type": "EMAIL"}, {"type": "PHONE"}]),
+        "questions": json.dumps(vragen or standaard_vragen()),
         "privacy_policy": json.dumps({"url": privacy_url, "link_text": "Privacybeleid"}),
         "follow_up_action_url": follow_up_url,
     }
+    # Verplichte intro/beschrijving over gegevensgebruik (Meta 'context card').
+    if beschrijving:
+        payload["context_card"] = json.dumps({
+            "title": cfg.LEAD_FORM_INTRO_TITEL,
+            "style": "PARAGRAPH_STYLE",
+            "content": beschrijving,
+            "button_text": "Ga verder",
+        })
     if app_id:
         # Meta verwacht een JSON-OBJECT (key→value), geen lijst.
         payload["tracking_parameters"] = json.dumps({"APP ID": str(app_id)})

@@ -158,6 +158,13 @@ class Config:
     # Meta lead-formulier (Instant Form)
     LEAD_PRIVACY_URL = _opt("LEAD_PRIVACY_URL", "https://www.maintec.nl/privacy")
     LEAD_FOLLOWUP_URL = _opt("LEAD_FOLLOWUP_URL", "https://www.maintec.nl")
+    # Verplichte formulierbeschrijving (Meta eist uitleg over gegevensgebruik). Verschijnt als
+    # intro (context card) op het Instant Form.
+    LEAD_FORM_BESCHRIJVING = _opt("LEAD_FORM_BESCHRIJVING",
+        "Door dit formulier in te vullen neemt een recruiter van Maintec contact met je op om je "
+        "te helpen bij het vinden van een baan in de techniek. Je gegevens worden alleen hiervoor "
+        "gebruikt en veilig bewaard. Meer weten? Lees ons privacybeleid op maintec.nl.")
+    LEAD_FORM_INTRO_TITEL = _opt("LEAD_FORM_INTRO_TITEL", "Werken in de techniek bij Maintec")
 
     # CORS — welke origins mogen de /vif-upload aanroepen (bv. de MODX-landingspagina).
     ALLOWED_ORIGINS = [o.strip() for o in

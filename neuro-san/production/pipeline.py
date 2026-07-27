@@ -176,10 +176,11 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
             # Instant Form + advertenties (5 varianten × elke ad set), allemaal PAUSED.
             # Het Tigris App Id gaat als 'APP ID'-trackingparameter mee in het formulier,
             # zodat binnenkomende leads automatisch aan de juiste vacature koppelen.
+            form_vragen = vacancy.get("formulier_meta_vragen") or meta.standaard_vragen()
             form_id = meta.create_lead_form(
                 f"{vacancy['titel']} — sollicitatie · {campaign_id}"[:200],
                 app_id=vacancy.get("app_id") or None,
-                follow_up_url=vacancy["url"])
+                follow_up_url=vacancy["url"], vragen=form_vragen)
             for adset_id in adset_ids:
                 for i, v in enumerate(variants, 1):
                     ad_ids.append(meta.create_lead_ad(
@@ -194,6 +195,7 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                                              "url": vacancy["url"], "titel": vacancy["titel"],
                                              "inhoud_hash": inhoud_hash,
                                              "app_id": vacancy.get("app_id") or "",
+                                             "form_vragen": form_vragen,
                                              "budget_eur": plan.get("budget_eur"),
                                              "looptijd_dagen": plan.get("looptijd_dagen")})
         else:
@@ -488,6 +490,26 @@ def _mail_aanleveraar_ontvangen(vac: dict, uploader_email: str, uploader_id: str
         print(f"[dirigent] ontvangstbevestiging naar {naar} faalde: {e}")
 
 
+def _bereid_formuliervragen_voor(vac: dict) -> None:
+    """Genereert eenmalig de leadformuliervragen — de 2 vaste vragen + max. 3 uit de VIF — en
+    bewaart ze op de vacature, zodat de recruiter-mail én het Meta-formulier exact dezelfde
+    vragen gebruiken."""
+    if "formulier_meta_vragen" in vac:
+        return
+    try:
+        ai = agents.formulier_vragen(vac)
+    except Exception as e:
+        print(f"[dirigent] AI-formuliervragen faalden: {e}")
+        ai = []
+    vac["formulier_ai_vragen"] = ai
+    vac["formulier_meta_vragen"] = meta.standaard_vragen(ai)
+    vac["formulier_vast_leesbaar"] = [q["label"] + "  (Ja / Nee)" for q in meta.STANDAARD_VRAGEN]
+    vac["formulier_ai_leesbaar"] = [
+        q["label"] + (f"  ({' / '.join(q['options'])})" if q.get("options") else "")
+        for q in ai]
+    print(f"[dirigent] leadformuliervragen klaar — 2 vast + {len(ai)} uit de VIF")
+
+
 def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str,
                                   sf_id: str) -> None:
     """Communicatiemoment 2 — zodra de vacature is aangemaakt: mail de recruiter (met
@@ -519,11 +541,28 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
     a_naam = aanleveraar.get("Name", "").split(" ")[0] if aanleveraar.get("Name") else ""
     a_vol = aanleveraar.get("Name", "") or "een salescollega"
 
-    # Recruiter: wie leverde aan + wat de AI deed + link + hoe een Meta-campagne aan te vragen.
+    # Leadformulier-vragen: 2 vaste + max. 3 door de AI uit de VIF opgesteld.
+    vast = vac.get("formulier_vast_leesbaar") or []
+    ai_vragen = vac.get("formulier_ai_leesbaar") or []
+    vragen_html = ""
+    if vast or ai_vragen:
+        def _li(items):
+            return "".join(f'<li style="margin:2px 0">{v}</li>' for v in items)
+        vragen_html = (
+            '<div style="background:#F6F6F6;border-radius:6px;padding:12px 14px;margin:6px 0;font-size:12px;color:#333">'
+            '<b>Vragen in het sollicitatieformulier</b>'
+            '<div style="color:#69696A;margin:6px 0 2px"><b>Standaard opgenomen:</b></div>'
+            f'<ul style="margin:2px 0 0;padding-left:18px">{_li(vast)}</ul>'
+            + (f'<div style="color:#69696A;margin:8px 0 2px"><b>Op basis van de VIF toegevoegd:</b></div>'
+               f'<ul style="margin:2px 0 0;padding-left:18px">{_li(ai_vragen)}</ul>' if ai_vragen else "")
+            + '<p style="color:#8A8A8B;font-size:11px;margin:8px 0 0">Wil je een vraag aanpassen of '
+              'verwijderen? Dat kan in het Instant Form in Meta.</p></div>')
+
+    # Recruiter: wie leverde aan + wat de AI deed + link + de formuliervragen + Meta-aanvraag.
     recruiter_binnen = (
         f'<p style="color:#69696A;font-size:13px">Salescollega <b>{a_vol}</b> heeft een VIF '
         f'aangeleverd. Recruitment AI heeft de VIF verrijkt en als vacature opgenomen in Tigris '
-        f'— jij bent de eigenaar.</p>{knop}'
+        f'— jij bent de eigenaar.</p>{knop}{vragen_html}'
         f'<div style="background:#FFF3E8;border-radius:6px;padding:12px 14px;margin:6px 0">'
         f'<p style="color:#9a5b1e;font-size:12px;margin:0"><b>Wil je een Meta-campagne voor deze '
         f'vacature?</b> Stuur deze mail door naar '
@@ -778,6 +817,9 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     else:
         print("[orkestrator] GEEN content_version_id ontvangen — VIF wordt NIET opgeslagen. "
               "Komt de aanlevering wel via /vif-tigris (Route A)?")
+    # Leadformuliervragen alvast opstellen (2 vast + max. 3 uit de VIF) — de recruiter-mail
+    # toont ze en het Meta-formulier gebruikt exact dezelfde set.
+    _bereid_formuliervragen_voor(vac)
     # Punt 4: recruiter (nieuwe vacature) + aanleveraar (VIF verwerkt) mailen met hyperlink.
     _notify_recruiter_aanleveraar(vac, recruiter_id, uploader_id, sf["id"])
 
@@ -1034,7 +1076,8 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
         if build and not build.get("ads_created"):
             # Oudere build: form + advertenties zijn nog niet gemaakt → nu maken (mét App Id).
             form_naam = f"{build.get('titel', 'Vacature')} — sollicitatie · {campaign_id}"[:200]
-            form_id = meta.create_lead_form(form_naam, app_id=app_id, follow_up_url=build.get("url"))
+            form_id = meta.create_lead_form(form_naam, app_id=app_id, follow_up_url=build.get("url"),
+                                            vragen=build.get("form_vragen"))
             for adset_id in build.get("adset_ids", []):
                 for i, v in enumerate(build.get("variants", []), 1):
                     meta.create_lead_ad(f"{build.get('titel', '')} — variant {i}", adset_id,
@@ -1052,7 +1095,8 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
             # Unieke naam (App Id + tijd) — Meta weigert dubbele formuliernamen, ook bij een retry.
             form_naam = (f"{build.get('titel', 'Vacature')} — sollicitatie · {campaign_id} · "
                          f"{str(app_id)[:8]}-{int(time.time())}")[:200]
-            nieuw_form = meta.create_lead_form(form_naam, app_id=app_id, follow_up_url=build.get("url"))
+            nieuw_form = meta.create_lead_form(form_naam, app_id=app_id, follow_up_url=build.get("url"),
+                                               vragen=build.get("form_vragen"))
             for adset_id in build.get("adset_ids", []):
                 for i, v in enumerate(build.get("variants", []), 1):
                     meta.create_lead_ad(f"{build.get('titel', '')} — variant {i}", adset_id,
@@ -1085,19 +1129,40 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
                 print(f"[campagne-meta] App Id-verificatie formulier {live_form_id}: "
                       f"{'AANWEZIG ✓' if app_id_in_form else 'ONTBREEKT ✗'} — trackingparameters: {params}")
 
+        # FAIL-CLOSED: zonder bevestigd App Id in het formulier mag er NIETS live — leads zouden
+        # anders niet in Tigris koppelen. Bevestigd ontbrekend (False) = harde blokkade; leeg App
+        # Id = blokkade; niet-verifieerbaar (None, Meta gaf trackingparameters niet terug) = we
+        # hebben het bij aanmaak wél meegegeven → toegestaan met waarschuwing.
+        mag_live = bool(app_id) and (app_id_in_form is not False)
+        blokkade = None
+        if not app_id:
+            blokkade = "Tigris App Id nog niet beschikbaar — NIET activeren; leads koppelen dan niet aan de vacature."
+        elif app_id_in_form is False:
+            blokkade = "App Id ONTBREEKT in het leadformulier — NIET activeren; leads koppelen dan niet aan Tigris."
+
         if cfg.META_AUTO_ACTIVEER:
-            meta_res = meta.activate_all(campaign_id, app_id=app_id)
-            geactiveerd = True
+            if not mag_live:
+                print(f"[campagne-meta] BLOK: {blokkade} → campagne NIET geactiveerd")
+                meta_res = {"status": "GEBLOKKEERD", "blokkade": blokkade}
+                geactiveerd = False
+            else:
+                meta_res = meta.activate_all(campaign_id, app_id=app_id)
+                geactiveerd = True
         else:
             # Campagne blijft PAUSED — marketing zet 'm zelf online in Meta (na doorverwijzing).
-            print(f"[campagne-meta] campagne {campaign_id} staat klaar (PAUSED); marketing activeert "
-                  f"handmatig in Meta")
-            meta_res = {"status": "PAUSED", "manueel_activeren_in_meta": True}
+            if not mag_live:
+                print(f"[campagne-meta] WAARSCHUWING: {blokkade} → marketing mag NIET activeren")
+                meta_res = {"status": "PAUSED", "manueel_activeren_in_meta": False, "blokkade": blokkade}
+            else:
+                print(f"[campagne-meta] campagne {campaign_id} staat klaar (PAUSED); marketing "
+                      f"activeert handmatig in Meta")
+                meta_res = {"status": "PAUSED", "manueel_activeren_in_meta": True}
             geactiveerd = False
     except Exception as e:
         print(f"[campagne-meta] leadform/activeren faalde: {e}")
         meta_res = {"fout": str(e)[:300]}
         geactiveerd = False
+        mag_live = False
 
     # Recruiter informeren: marketing is akkoord en gaat met de campagne aan de slag; recruiter
     # wordt gevraagd de vacature te publiceren (op de website te zetten).
@@ -1105,7 +1170,8 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
 
     return {"website": {"door_recruiter": True}, "meta": meta_res, "app_id": app_id,
             "campagne_url": meta.campagne_url(campaign_id), "geactiveerd": geactiveerd,
-            "app_id_in_form": app_id_in_form, "live_form_id": live_form_id}
+            "app_id_in_form": app_id_in_form, "live_form_id": live_form_id,
+            "mag_live": mag_live}
 
 
 # Backwards-compat alias (oude /tigris-flow zonder Salesforce-record).

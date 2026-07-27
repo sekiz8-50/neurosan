@@ -721,13 +721,14 @@ def approve_confirm(campaign: str = Form(...), token: str = Form(...), sf: str =
     # waar marketing de campagne zelf online zet. Toon een waarschuwing als het App Id
     # niet (aantoonbaar) in het leadformulier staat — dan zouden leads niet in Tigris landen.
     waarschuwing = ""
-    if res.get("app_id"):
-        if res.get("app_id_in_form") is False:
-            waarschuwing = ("⚠️ Let op: het App Id staat NIET in het leadformulier. Zet de campagne "
-                            "NIET online — meld dit, anders komen de leads niet in Tigris.")
-        elif res.get("app_id_in_form") is None:
-            waarschuwing = ("App Id-controle kon niet automatisch — verifieer via de "
-                            "formulieren-check voordat je de campagne online zet.")
+    if not res.get("mag_live"):
+        # Harde blokkade: zonder bevestigd App Id NIET online zetten (leads koppelen anders niet).
+        reden = (res.get("meta") or {}).get("blokkade") if isinstance(res.get("meta"), dict) else None
+        waarschuwing = "⚠️ Let op: " + (reden or "het App Id is niet bevestigd in het leadformulier. "
+                       "Zet de campagne NIET online — leads komen anders niet in Tigris.")
+    elif res.get("app_id_in_form") is None:
+        waarschuwing = ("App Id-controle kon niet automatisch — verifieer via de "
+                        "formulieren-check voordat je de campagne online zet.")
     return _meta_activatie_pagina(res.get("campagne_url") or "", waarschuwing)
 
 
