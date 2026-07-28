@@ -440,26 +440,45 @@ def _scrub_output_links(vac: dict, plan: dict | None) -> None:
 
 
 def _mail_kop(titel_regel: str) -> str:
-    return (f'<tr><td style="background:#000;padding:18px 24px">'
-            f'<span style="color:#FF7D2F;font-weight:800;font-size:18px">MAINTEC</span>'
-            f'<span style="color:#fff;font-size:13px"> · {titel_regel}</span></td></tr>')
+    return ('<tr><td style="background:#000000;padding:18px 24px">'
+            '<span style="color:#FF7D2F;font-weight:800;font-size:18px">MAINTEC</span>'
+            f'<span style="color:#ffffff;font-size:13px"> · {titel_regel}</span></td></tr>')
+
+
+def _mail_shell(kop: str, inner_td: str) -> str:
+    """Responsive, dark-mode-veilige e-mail-shell (Gmail/Outlook/Apple Mail, licht én donker).
+    - vaste breedte vervangen door max-width:600px + width:100% → geen afkapping meer op smalle
+      leesvensters/mobiel; role=presentation + cellpadding/spacing=0 voor nette Outlook-rendering.
+    - color-scheme 'light only' → clients inverteren de merkopmaak niet in donkere modus.
+    kop = subtitel in de zwarte balk; inner_td = de inhouds-<tr><td>…</td></tr> ná de kop."""
+    return (
+        '<!doctype html><html lang="nl"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="color-scheme" content="light only">'
+        '<meta name="supported-color-schemes" content="light only">'
+        '<style>body{margin:0;padding:0}img{max-width:100%;border:0}</style></head>'
+        '<body style="margin:0;padding:0;background:#f6f6f6;'
+        'font-family:Inter,Helvetica,Arial,sans-serif;color:#121212">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        'style="background:#f6f6f6"><tr><td align="center" style="padding:16px">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        'style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden">'
+        + _mail_kop(kop) + inner_td +
+        '</table></td></tr></table></body></html>')
 
 
 def _mail_body(titel: str, plaats: str, aanhef: str, binnenwerk: str,
                kop: str = "Tigris — vacature aangemaakt") -> str:
     """Bouwt de standaard Maintec-mailopmaak rond een stukje binnen-HTML.
     kop = de subtitel in de zwarte kopbalk (per mail specifiek)."""
-    return (f'<!doctype html><html lang="nl"><meta charset="utf-8">'
-            f'<body style="margin:0;background:#f6f6f6;font-family:Inter,system-ui,sans-serif;color:#121212">'
-            f'<table width="100%"><tr><td align="center" style="padding:24px">'
-            f'<table width="560" style="background:#fff;border-radius:8px;overflow:hidden">'
-            + _mail_kop(kop) +
-            f'<tr><td style="padding:24px">'
-            f'<h2 style="margin:0 0 8px">{titel}{(" · " + plaats) if plaats else ""}</h2>'
-            f'<p style="color:#121212;font-size:13px">{aanhef}</p>'
-            f'{binnenwerk}'
-            f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch gemaakt door Recruitment AI.</p>'
-            f'</td></tr></table></td></tr></table></body></html>')
+    inner = (
+        '<tr><td style="padding:24px">'
+        f'<h2 style="margin:0 0 8px;font-size:22px;line-height:1.25">{titel}{(" · " + plaats) if plaats else ""}</h2>'
+        f'<p style="color:#121212;font-size:14px;margin:0 0 4px">{aanhef}</p>'
+        f'{binnenwerk}'
+        '<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch gemaakt door Recruitment AI.</p>'
+        '</td></tr>')
+    return _mail_shell(kop, inner)
 
 
 def _mail_aanleveraar_ontvangen(vac: dict, uploader_email: str, uploader_id: str) -> None:
@@ -967,11 +986,8 @@ def _send_mail(record: dict) -> None:
     varianten_html = "".join(
         "<p style='margin:0 0 8px'><b>Variant {}:</b> {}</p>".format(i + 1, t)
         for i, t in enumerate(plan.get("alle_varianten") or [plan.get("primary_text", "")]))
-    html = f"""<!doctype html><html lang="nl"><meta charset="utf-8"><body style="margin:0;background:#f6f6f6;font-family:Inter,system-ui,sans-serif;color:#121212">
-<table width="100%"><tr><td align="center" style="padding:24px"><table width="560" style="background:#fff;border-radius:8px;overflow:hidden">
-<tr><td style="background:#000;padding:18px 24px"><span style="color:#FF7D2F;font-weight:800;font-size:18px">MAINTEC</span><span style="color:#fff;font-size:13px"> · Campagne ter goedkeuring</span></td></tr>
-<tr><td style="padding:24px">
-<h2 style="margin:0 0 4px">{plan['headline']}</h2>
+    _inner_goedkeur = f"""<tr><td style="padding:24px">
+<h2 style="margin:0 0 4px;font-size:22px;line-height:1.25">{plan['headline']}</h2>
 <p style="color:#69696A;font-size:13px;margin:0 0 6px">Vacature <b>{v['titel']}</b> gepubliceerd in Tigris. Beeld + Meta-campagne staan klaar (PAUSED).</p>
 <p style="color:#69696A;font-size:12px;margin:0 0 14px">Door agents ontworpen — kwaliteitsscore <b>{plan.get('review',{}).get('score','—')}/10</b> · {plan.get('n_adsets','?')} advertentieset(s) · {plan.get('n_variants','?')} advertentievarianten klaar (worden bij goedkeuring als advertenties aangemaakt)</p>
 <img src="cid:beeld" width="512" style="width:100%;border-radius:6px;margin-bottom:14px">
@@ -988,7 +1004,8 @@ def _send_mail(record: dict) -> None:
 <td width="50%" style="padding-left:6px"><a href="{reject}" style="display:block;text-align:center;background:#fff;color:#121212;border:1px solid #DCDCDD;text-decoration:none;font-weight:700;padding:13px;border-radius:4px">✗ Afkeuren</a></td>
 </tr></table>
 <p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Campagne staat op PAUSED tot je goedkeurt. Link {cfg.APPROVAL_TTL_UREN} uur geldig en gebonden aan exact deze inhoud — wijzigt de campagne, dan is opnieuw goedkeuren nodig.</p>
-</td></tr></table></td></tr></table></body></html>"""
+</td></tr>"""
+    html = _mail_shell("Campagne ter goedkeuring", _inner_goedkeur)
     try:
         emailer.send_approval_mail(f"[Akkoord nodig] Vacature {v['titel']} {v['plaats']}", html,
                                    record["image_path"], attachments=bijlagen)
@@ -1017,18 +1034,15 @@ def _mail_recruiter_publiceren(sf_id: str, build: dict | None) -> None:
     knop = (f'<p style="margin:18px 0"><a href="{url}" style="display:inline-block;background:#FF7D2F;'
             f'color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:4px">'
             f'Open de vacature in Tigris →</a></p>' if url else "")
-    html = (f'<!doctype html><html lang="nl"><meta charset="utf-8">'
-            f'<body style="margin:0;background:#f6f6f6;font-family:Inter,system-ui,sans-serif;color:#121212">'
-            f'<table width="100%"><tr><td align="center" style="padding:24px">'
-            f'<table width="560" style="background:#fff;border-radius:8px;overflow:hidden">'
-            + _mail_kop("Vacature goedgekeurd door marketing") +
-            f'<tr><td style="padding:24px"><h2 style="margin:0 0 8px">{titel}</h2>'
-            f'<p style="font-size:13px">{("Hoi " + voornaam + ",") if voornaam else "Hoi,"}</p>'
-            f'<p style="color:#69696A;font-size:13px">Marketing heeft de vacature goedgekeurd en gaat '
-            f'aan de slag met de Meta-campagne. Wil jij de vacature <b>publiceren</b> — op de website '
-            f'zetten — in Tigris?</p>{knop}'
-            f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch gemaakt door Recruitment AI.</p>'
-            f'</td></tr></table></td></tr></table></body></html>')
+    _inner = (
+        f'<tr><td style="padding:24px"><h2 style="margin:0 0 8px;font-size:22px;line-height:1.25">{titel}</h2>'
+        f'<p style="font-size:14px;margin:0 0 4px">{("Hoi " + voornaam + ",") if voornaam else "Hoi,"}</p>'
+        f'<p style="color:#69696A;font-size:14px">Marketing heeft de vacature goedgekeurd en gaat '
+        f'aan de slag met de Meta-campagne. Wil jij de vacature <b>publiceren</b> — op de website '
+        f'zetten — in Tigris?</p>{knop}'
+        f'<p style="color:#8A8A8B;font-size:11px;margin:14px 0 0">Automatisch gemaakt door Recruitment AI.</p>'
+        f'</td></tr>')
+    html = _mail_shell("Vacature goedgekeurd door marketing", _inner)
     try:
         emailer.send_approval_mail(f"[Publiceren] {titel} — marketing akkoord", html, to=email)
         print(f"[publicatie] publiceer-verzoek naar recruiter {email} verstuurd")
