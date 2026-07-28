@@ -108,10 +108,14 @@ def testmail(token: str = ""):
         emailer.send_approval_mail("[Test] Recruitment AI mailtest",
                                    "<p>Dit is een testmail van de VIF-service. Ontvang je deze, "
                                    "dan werkt Resend en komt ook de goedkeur-mail aan.</p>")
-        return {"ok": True, "verstuurd_naar": cfg.APPROVAL_TO, "from": cfg.RESEND_FROM}
+        afz = cfg.GRAPH_SENDER if cfg.MAIL_PROVIDER == "graph" else cfg.RESEND_FROM
+        return {"ok": True, "provider": cfg.MAIL_PROVIDER, "from": afz,
+                "verstuurd_naar": cfg.MAIL_OVERRIDE_TO or cfg.APPROVAL_TO}
     except Exception as e:
+        afz = cfg.GRAPH_SENDER if cfg.MAIL_PROVIDER == "graph" else cfg.RESEND_FROM
         return JSONResponse(status_code=500, content={
-            "ok": False, "from": cfg.RESEND_FROM, "naar": cfg.APPROVAL_TO, "resend_fout": str(e)})
+            "ok": False, "provider": cfg.MAIL_PROVIDER, "from": afz,
+            "verstuurd_naar": cfg.MAIL_OVERRIDE_TO or cfg.APPROVAL_TO, "fout": str(e)})
 
 
 @app.get("/mailtest-goedkeur")
