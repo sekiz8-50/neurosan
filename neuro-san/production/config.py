@@ -116,6 +116,18 @@ class Config:
     KLING_DURATION = _opt("KLING_DURATION", "5")           # seconden (max 8 gevraagd; 5 is veilig)
     KLING_MODE = _opt("KLING_MODE", "std")                 # std of pro
     KLING_WACHT_SEC = int(_opt("KLING_WACHT_SEC", "240") or "240")   # max wachttijd op de video
+
+    # Higgsfield (image-to-video) — alternatief voor Kling; heeft VOORRANG als het aan staat.
+    # Officiële server-side REST-API (platform.higgsfield.ai), auth 'Key KEY_ID:KEY_SECRET'.
+    # Standaard UIT; zet HIGGSFIELD_VIDEO_AAN=1 + key-id + secret om het te activeren.
+    HIGGSFIELD_VIDEO_AAN = _opt("HIGGSFIELD_VIDEO_AAN").lower() in ("1", "true", "ja", "yes")
+    # Key-id + secret los, óf gecombineerd 'keyid:secret' in HIGGSFIELD_API_KEY (zoals HF_KEY).
+    HIGGSFIELD_API_KEY = _opt("HIGGSFIELD_API_KEY")
+    HIGGSFIELD_API_SECRET = _opt("HIGGSFIELD_API_SECRET")
+    HIGGSFIELD_API_BASE = _opt("HIGGSFIELD_API_BASE", "https://platform.higgsfield.ai").rstrip("/")
+    HIGGSFIELD_MODEL = _opt("HIGGSFIELD_MODEL", "dop-turbo")   # dop-turbo (snel) of dop-lite
+    HIGGSFIELD_WACHT_SEC = int(_opt("HIGGSFIELD_WACHT_SEC", "300") or "300")  # max wachttijd
+
     # Het ingebouwde Claude-brein (11 agents, claude_agents.py) — standaard AAN
     # zodra er een ANTHROPIC_API_KEY is. Zet CLAUDE_BRAIN=0 om terug te vallen
     # op de simpele agents (sneller/goedkoper, minder rijk).
