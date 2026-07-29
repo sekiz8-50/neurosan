@@ -204,7 +204,9 @@ def create_lead_form(name: str, app_id: str | None = None, privacy_url: str | No
         "privacy_policy": json.dumps({"url": privacy_url, "link_text": "Privacybeleid"}),
         "follow_up_action_url": follow_up_url,
     }
-    # Verplichte intro/beschrijving over gegevensgebruik (Meta 'context card').
+    # Verplichte intro/beschrijving over gegevensgebruik: op TWEE plekken zetten omdat Meta ze
+    # apart uitvraagt — (1) de intro/context-card én (2) de beschrijving boven de contactvragen
+    # (question_page_custom_headline). Zo blijft geen van beide leeg.
     if beschrijving:
         payload["context_card"] = json.dumps({
             "title": cfg.LEAD_FORM_INTRO_TITEL,
@@ -212,6 +214,7 @@ def create_lead_form(name: str, app_id: str | None = None, privacy_url: str | No
             "content": beschrijving,
             "button_text": "Ga verder",
         })
+        payload["question_page_custom_headline"] = beschrijving[:200]
     if app_id:
         # Meta verwacht een JSON-OBJECT (key→value), geen lijst.
         payload["tracking_parameters"] = json.dumps({"APP ID": str(app_id)})
@@ -219,13 +222,15 @@ def create_lead_form(name: str, app_id: str | None = None, privacy_url: str | No
     try:
         res = _post(f"{cfg.META_PAGE_ID}/leadgen_forms", payload, token=page_token())
     except Exception as e:
-        # De context_card-vorm is de enige niet-standaard sleutel. Wordt die geweigerd, bouw het
-        # formulier dan tóch — mét vragen, App Id en privacy — en meld de exacte Meta-fout, zodat
-        # de vragen/App Id nooit sneuvelen door alleen de beschrijving.
-        if "context_card" in payload:
+        # De beschrijving-velden (context_card / question_page_custom_headline) zijn de enige
+        # niet-standaard sleutels. Wordt een vorm geweigerd, bouw het formulier dan tóch — mét
+        # vragen, App Id en privacy — en meld de exacte Meta-fout, zodat de vragen/App Id nooit
+        # sneuvelen door alleen de beschrijving.
+        if "context_card" in payload or "question_page_custom_headline" in payload:
             print(f"[campagne-meta] leadform-aanmaak faalde ({str(e)[:250]}); "
-                  f"opnieuw ZONDER context_card (beschrijving) — vragen + App Id blijven behouden.")
+                  f"opnieuw ZONDER beschrijving-velden — vragen + App Id blijven behouden.")
             payload.pop("context_card", None)
+            payload.pop("question_page_custom_headline", None)
             res = _post(f"{cfg.META_PAGE_ID}/leadgen_forms", payload, token=page_token())
         else:
             raise
@@ -360,6 +365,47 @@ def leadformulieren(limit: int = 25) -> list:
 
 _STAD_CACHE: dict = {}
 
+# Ingebouwde coördinaten voor NL-steden → radius-targeting via custom_locations, ZONDER
+# afhankelijk te zijn van Meta's (soms falende) adgeolocation-search. Dit is de betrouwbare
+# primaire bron; onbekende plaatsen vallen terug op de search en anders op fail-closed.
+_NL_STEDEN: dict = {
+    "amsterdam": (52.3676, 4.9041), "rotterdam": (51.9244, 4.4777), "den haag": (52.0705, 4.3007),
+    "'s-gravenhage": (52.0705, 4.3007), "the hague": (52.0705, 4.3007), "utrecht": (52.0907, 5.1214),
+    "eindhoven": (51.4416, 5.4697), "groningen": (53.2194, 6.5665), "tilburg": (51.5555, 5.0913),
+    "almere": (52.3508, 5.2647), "breda": (51.5719, 4.7683), "nijmegen": (51.8126, 5.8372),
+    "enschede": (52.2215, 6.8937), "haarlem": (52.3874, 4.6462), "arnhem": (51.9851, 5.8987),
+    "amersfoort": (52.1561, 5.3878), "zaanstad": (52.4389, 4.8295), "zaandam": (52.4389, 4.8295),
+    "'s-hertogenbosch": (51.6978, 5.3037), "den bosch": (51.6978, 5.3037), "zwolle": (52.5168, 6.0830),
+    "leiden": (52.1601, 4.4970), "maastricht": (50.8514, 5.6910), "dordrecht": (51.8133, 4.6901),
+    "ede": (52.0402, 5.6649), "alkmaar": (52.6324, 4.7534), "delft": (52.0116, 4.3571),
+    "venlo": (51.3704, 6.1724), "deventer": (52.2552, 6.1639), "helmond": (51.4793, 5.6570),
+    "oss": (51.7650, 5.5180), "amstelveen": (52.3114, 4.8701), "hilversum": (52.2242, 5.1758),
+    "heerlen": (50.8882, 5.9795), "roosendaal": (51.5308, 4.4653), "purmerend": (52.5050, 4.9597),
+    "schiedam": (51.9195, 4.3987), "spijkenisse": (51.8456, 4.3294), "almelo": (52.3564, 6.6626),
+    "hengelo": (52.2659, 6.7930), "apeldoorn": (52.2112, 5.9699), "leeuwarden": (53.2012, 5.7999),
+    "assen": (52.9967, 6.5625), "emmen": (52.7850, 6.8977), "sittard": (51.0016, 5.8694),
+    "gouda": (52.0116, 4.7104), "zoetermeer": (52.0575, 4.4931), "vlaardingen": (51.9121, 4.3419),
+    "veenendaal": (52.0286, 5.5581), "hoorn": (52.6425, 5.0597), "kampen": (52.5551, 5.9114),
+    "harderwijk": (52.3410, 5.6208), "doetinchem": (51.9654, 6.2880), "terneuzen": (51.3350, 3.8280),
+    "bergen op zoom": (51.4936, 4.2871), "middelburg": (51.4988, 3.6136), "goes": (51.5041, 3.8886),
+    "botlek": (51.8850, 4.2870), "rijnmond": (51.9244, 4.4777),
+}
+
+
+def _normaliseer_plaats(plaats: str) -> str:
+    p = (plaats or "").strip().lower()
+    # neem alleen de eerste plaats bij 'Utrecht / Amersfoort' of 'Utrecht, Nederland'
+    for sep in ("/", ",", " en ", " of ", "|", "("):
+        if sep in p:
+            p = p.split(sep)[0].strip()
+    return p
+
+
+def stad_coords(plaats: str):
+    """(lat, lng) voor een NL-plaats uit de ingebouwde tabel, of None. Betrouwbaar en
+    zonder externe API-call — de primaire bron voor radius-targeting."""
+    return _NL_STEDEN.get(_normaliseer_plaats(plaats))
+
 
 def zoek_stad(plaats: str, land: str = "NL") -> str:
     """Zoekt de Meta geo-key van een stad (via de adgeolocation-search) zodat we een RADIUS
@@ -371,19 +417,21 @@ def zoek_stad(plaats: str, land: str = "NL") -> str:
     if sleutel in _STAD_CACHE:
         return _STAD_CACHE[sleutel]
     key = ""
-    try:
-        data = _get("search", {"type": "adgeolocation",
-                               "location_types": json.dumps(["city"]),
-                               "q": plaats, "limit": 15}).get("data", [])
-        # Voorkeur: exacte NL-stad-match; anders eerste NL-resultaat; anders het eerste.
-        nl = [d for d in data if str(d.get("country_code", "")).upper() == land]
-        exact = [d for d in nl if str(d.get("name", "")).lower() == plaats.lower()]
-        gekozen = (exact or nl or data)
-        if gekozen:
-            key = gekozen[0].get("key", "")
-            print(f"[campagne-meta] stad '{plaats}' → Meta geo-key {key} ({gekozen[0].get('name')})")
-    except Exception as e:
-        print(f"[campagne-meta] stad zoeken faalde voor '{plaats}': {e}")
+    for poging in range(2):     # 1 retry: de search-API hikt soms
+        try:
+            data = _get("search", {"type": "adgeolocation",
+                                   "location_types": json.dumps(["city"]),
+                                   "q": plaats, "limit": 15}).get("data", [])
+            # Voorkeur: exacte NL-stad-match; anders eerste NL-resultaat; anders het eerste.
+            nl = [d for d in data if str(d.get("country_code", "")).upper() == land]
+            exact = [d for d in nl if str(d.get("name", "")).lower() == plaats.lower()]
+            gekozen = (exact or nl or data)
+            if gekozen:
+                key = gekozen[0].get("key", "")
+                print(f"[campagne-meta] stad '{plaats}' → Meta geo-key {key} ({gekozen[0].get('name')})")
+            break
+        except Exception as e:
+            print(f"[campagne-meta] stad zoeken faalde voor '{plaats}' (poging {poging + 1}): {e}")
     _STAD_CACHE[sleutel] = key
     return key
 

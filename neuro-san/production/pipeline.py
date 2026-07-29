@@ -112,25 +112,39 @@ def _placements() -> dict:
 
 def _targeting_geo(vacancy: dict, radius_km: int = 30) -> dict:
     """EMPLOYMENT-compliant geo-targeting: een RADIUS rond de standplaats (geen leeftijd/
-    geslacht-narrowing). Zoekt de Meta-stad-key op zodat we niet heel NL targeten.
-    In-stream video-placements staan standaard uit (zie _placements)."""
+    geslacht-narrowing). In-stream video-placements staan standaard uit (zie _placements).
+
+    FAIL-CLOSED: we targeten NOOIT heel Nederland. De standplaats wordt bepaald via
+    (1) ingebouwde NL-coördinaten (betrouwbaar, geen API), (2) lat/lng op de vacature,
+    (3) Meta's stad-zoekopdracht. Lukt geen van drieën, dan raisen we — dan wordt de
+    campagne NIET aangemaakt (zichtbaar in de goedkeur-mail) i.p.v. budget te verspillen
+    aan het hele land. Zo kan de plaatsnaam nooit meer stilletjes op 'Nederland' vallen."""
     radius = max(int(radius_km or 30), 24)            # Meta vereist min. ~24 km bij WERK
-    # Stad-key eenmalig opzoeken en cachen op de vacature.
-    if "_meta_stad_key" not in vacancy:
-        vacancy["_meta_stad_key"] = meta.zoek_stad(vacancy.get("plaats", "")) if vacancy.get("plaats") else ""
-    stad_key = vacancy["_meta_stad_key"]
-    lat, lng = vacancy.get("lat"), vacancy.get("lng")
-    if stad_key:
-        geo = {"cities": [{"key": stad_key, "radius": radius, "distance_unit": "kilometer"}]}
-    elif lat and lng:
-        geo = {"custom_locations": [{"latitude": lat, "longitude": lng,
+    plaats = (vacancy.get("plaats") or "").strip()
+    coords = meta.stad_coords(plaats) if plaats else None
+    lat, lng = (coords if coords else (vacancy.get("lat"), vacancy.get("lng")))
+
+    if lat and lng:
+        geo = {"custom_locations": [{"latitude": float(lat), "longitude": float(lng),
                                      "radius": radius, "distance_unit": "kilometer"}]}
+        bron = "ingebouwde coördinaten" if coords else "lat/lng op de vacature"
+        print(f"[campagne-meta] geo '{plaats}' → radius {radius} km via {bron}")
     else:
-        geo = {"countries": ["NL"]}     # laatste redmiddel: heel NL (met waarschuwing)
-        print(f"[campagne-meta] LET OP: geen stad-key voor '{vacancy.get('plaats')}' — "
-              f"campagne target heel NL i.p.v. een radius. Controleer de plaatsnaam.")
+        # Secundair: Meta's stad-key (adgeolocation-search), eenmalig gecacht op de vacature.
+        if "_meta_stad_key" not in vacancy:
+            vacancy["_meta_stad_key"] = meta.zoek_stad(plaats) if plaats else ""
+        stad_key = vacancy["_meta_stad_key"]
+        if stad_key:
+            geo = {"cities": [{"key": stad_key, "radius": radius, "distance_unit": "kilometer"}]}
+            print(f"[campagne-meta] geo '{plaats}' → radius {radius} km via Meta stad-key {stad_key}")
+        else:
+            # FAIL-CLOSED: geen betrouwbaar doelgebied → campagne NIET aanmaken (nooit heel NL).
+            raise ValueError(
+                f"GEO-BLOKKADE: kon voor standplaats '{plaats or '(leeg)'}' geen radius-doelgebied "
+                f"bepalen. De campagne is NIET aangemaakt om te voorkomen dat heel Nederland wordt "
+                f"getarget (budgetverspilling). Controleer/plaats de plaatsnaam in de VIF; voeg de "
+                f"plaats zo nodig toe aan de ingebouwde stedentabel (tools/meta.py, _NL_STEDEN).")
     # Geen age_min/age_max: Meta staat leeftijd-narrowing niet toe bij EMPLOYMENT.
-    # Placements zonder in-stream video (standaard) worden meegenomen.
     return {"geo_locations": geo, **_placements()}
 
 
@@ -513,9 +527,10 @@ def _mail_aanleveraar_ontvangen(vac: dict, uploader_email: str, uploader_id: str
 
 
 def _bereid_formuliervragen_voor(vac: dict) -> None:
-    """Genereert eenmalig de leadformuliervragen — de 2 vaste vragen + max. 3 uit de VIF — en
-    bewaart ze op de vacature, zodat de recruiter-mail én het Meta-formulier exact dezelfde
-    vragen gebruiken."""
+    """Bepaalt de leadformuliervragen. In het FORMULIER komen ALLEEN de vaste vragen
+    (contactvelden + de 2 standaardvragen); de AI-vragen worden NIET automatisch toegevoegd.
+    Die zijn een VOORSTEL in de recruiter-mail: wil de recruiter ze erin, dan stuurt hij de
+    mail door naar Djimon, die ze bij de goedkeuring handmatig toevoegt."""
     if "formulier_meta_vragen" in vac:
         return
     try:
@@ -524,12 +539,14 @@ def _bereid_formuliervragen_voor(vac: dict) -> None:
         print(f"[dirigent] AI-formuliervragen faalden: {e}")
         ai = []
     vac["formulier_ai_vragen"] = ai
-    vac["formulier_meta_vragen"] = meta.standaard_vragen(ai)
+    # Formulier: alleen contactvelden + de 2 vaste vragen. GEEN AI-vragen (die zijn voorstel).
+    vac["formulier_meta_vragen"] = meta.standaard_vragen()
     vac["formulier_vast_leesbaar"] = [q["label"] + "  (Ja / Nee)" for q in meta.STANDAARD_VRAGEN]
     vac["formulier_ai_leesbaar"] = [
         q["label"] + (f"  ({' / '.join(q['options'])})" if q.get("options") else "")
         for q in ai]
-    print(f"[dirigent] leadformuliervragen klaar — 2 vast + {len(ai)} uit de VIF")
+    print(f"[dirigent] leadformuliervragen klaar — 2 vaste vragen in het formulier, "
+          f"{len(ai)} AI-voorstel(len) alleen in de mail")
 
 
 def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str,
@@ -563,7 +580,8 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
     a_naam = aanleveraar.get("Name", "").split(" ")[0] if aanleveraar.get("Name") else ""
     a_vol = aanleveraar.get("Name", "") or "een salescollega"
 
-    # Leadformulier-vragen: 2 vaste + max. 3 door de AI uit de VIF opgesteld.
+    # Leadformulier-vragen: de 2 vaste vragen staan IN het formulier; de AI-vragen zijn een
+    # VOORSTEL (worden NIET automatisch toegevoegd — dat doet Djimon op verzoek bij de goedkeuring).
     vast = vac.get("formulier_vast_leesbaar") or []
     ai_vragen = vac.get("formulier_ai_leesbaar") or []
     vragen_html = ""
@@ -573,12 +591,14 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
         vragen_html = (
             '<div style="background:#F6F6F6;border-radius:6px;padding:12px 14px;margin:6px 0;font-size:12px;color:#333">'
             '<b>Vragen in het sollicitatieformulier</b>'
-            '<div style="color:#69696A;margin:6px 0 2px"><b>Standaard opgenomen:</b></div>'
+            '<div style="color:#69696A;margin:6px 0 2px"><b>Nu in het formulier</b> (naam, e-mail en telefoon zijn verplicht):</div>'
             f'<ul style="margin:2px 0 0;padding-left:18px">{_li(vast)}</ul>'
-            + (f'<div style="color:#69696A;margin:8px 0 2px"><b>Op basis van de VIF toegevoegd:</b></div>'
+            + (f'<div style="color:#69696A;margin:8px 0 2px"><b>Voorstel op basis van de VIF</b> '
+               f'(nog NIET toegevoegd):</div>'
                f'<ul style="margin:2px 0 0;padding-left:18px">{_li(ai_vragen)}</ul>' if ai_vragen else "")
-            + '<p style="color:#8A8A8B;font-size:11px;margin:8px 0 0">Wil je een vraag aanpassen of '
-              'verwijderen? Dat kan in het Instant Form in Meta.</p></div>')
+            + '<p style="color:#8A8A8B;font-size:11px;margin:8px 0 0">Wil je deze voorstelvragen in '
+              'het formulier? Stuur deze mail door met je campagne-aanvraag; ze worden dan bij de '
+              'goedkeuring toegevoegd.</p></div>')
 
     # Recruiter: wie leverde aan + wat de AI deed + link + de formuliervragen + Meta-aanvraag.
     recruiter_binnen = (
@@ -589,7 +609,7 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
         f'<p style="color:#9a5b1e;font-size:12px;margin:0"><b>Wil je een Meta-campagne voor deze '
         f'vacature?</b> Stuur deze mail door naar '
         f'<a href="mailto:{cfg.RECRUITER_MAIL_CC}" style="color:#9a5b1e">{cfg.RECRUITER_MAIL_CC}</a> '
-        f'om de aanvraag in gang te zetten.</p></div>')
+        f'om de aanvraag in gang te zetten (vermeld eventueel welke voorstelvragen mee moeten).</p></div>')
     _stuur(recruiter.get("Email", ""),
            f"Hoi {r_naam}," if r_naam else "Hoi,",
            recruiter_binnen,
