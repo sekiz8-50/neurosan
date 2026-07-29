@@ -109,7 +109,9 @@ class Config:
     KLING_ACCESS_KEY = _opt("KLING_ACCESS_KEY")
     KLING_SECRET_KEY = _opt("KLING_SECRET_KEY")
     KLING_API_KEY = _opt("KLING_API_KEY")
-    KLING_API_BASE = _opt("KLING_API_BASE", "https://api.klingai.com").rstrip("/")
+    # Global/international platform (app.klingai.com/global) → api-singapore.klingai.com.
+    # China-mainland gebruikt api.klingai.com; override desnoods via KLING_API_BASE.
+    KLING_API_BASE = _opt("KLING_API_BASE", "https://api-singapore.klingai.com").rstrip("/")
     KLING_MODEL = _opt("KLING_MODEL", "kling-v1-6")        # afstemmen op je beschikbare model
     KLING_DURATION = _opt("KLING_DURATION", "5")           # seconden (max 8 gevraagd; 5 is veilig)
     KLING_MODE = _opt("KLING_MODE", "std")                 # std of pro
