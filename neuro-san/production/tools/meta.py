@@ -464,8 +464,31 @@ def _normaliseer_plaats(plaats: str) -> str:
 
 def stad_coords(plaats: str):
     """(lat, lng) voor een NL-plaats uit de ingebouwde tabel, of None. Betrouwbaar en
-    zonder externe API-call — de primaire bron voor radius-targeting."""
-    return _NL_STEDEN.get(_normaliseer_plaats(plaats))
+    zonder externe API-call — de primaire bron voor radius-targeting.
+
+    Herkent ook samengestelde standplaatsen ('Rotterdam Botlek', 'Havengebied Rotterdam',
+    'Botlek Rotterdam'): eerst de hele naam, dan aflopende woord-prefixes (zodat meerwoord-
+    steden als 'den haag' / 'bergen op zoom' intact blijven), en tot slot elk los woord dat
+    een bekende stad is."""
+    p = _normaliseer_plaats(plaats)
+    if not p:
+        return None
+    # 1) exacte match op de volledige (genormaliseerde) naam — dekt 'den haag', 'bergen op zoom'
+    if p in _NL_STEDEN:
+        return _NL_STEDEN[p]
+    woorden = p.split()
+    # 2) aflopende prefixes: 'rotterdam botlek' → 'rotterdam'; 'den haag zuidwest' → 'den haag'
+    for n in range(len(woorden) - 1, 0, -1):
+        kandidaat = " ".join(woorden[:n])
+        if kandidaat in _NL_STEDEN:
+            return _NL_STEDEN[kandidaat]
+    # 3) elk los woord dat een bekende stad is — dekt 'botlek rotterdam', 'havengebied rotterdam'.
+    #    Voorkeur voor de LANGSTE match (specifieker), zodat 'botlek' vóór 'rotterdam' wint als
+    #    beide bekend zijn — beide liggen in hetzelfde gebied, dus veilig.
+    treffers = [w for w in woorden if w in _NL_STEDEN]
+    if treffers:
+        return _NL_STEDEN[max(treffers, key=len)]
+    return None
 
 
 def zoek_stad(plaats: str, land: str = "NL") -> str:
