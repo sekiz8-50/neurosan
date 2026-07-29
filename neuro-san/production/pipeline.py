@@ -16,7 +16,7 @@ import kosten
 import neuro_san_client
 import store
 import vif_parser
-from tools import image_gen, meta, emailer, brand_overlay, salesforce
+from tools import image_gen, meta, emailer, brand_overlay, salesforce, kling
 from config import cfg
 
 # IMG_DIR is configureerbaar (env IMG_DIR): wijs 'm naar een Render Persistent Disk-pad
@@ -204,6 +204,11 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                         f"{vacancy['titel']} — variant {i}", adset_id, image_hash,
                         v["headline"], v["primary_text"], v.get("description", ""),
                         form_id, vacancy["url"], "SIGN_UP"))
+            # Video-advertenties: uit het kale beeld één Kling-video → 5 video-varianten naast
+            # de 5 foto-varianten. GATED (staat standaard uit) en RESILIENT (faalt nooit hard).
+            video_id, video_ad_ids = _maak_video_advertenties(
+                vacancy, image_hash, adset_ids, variants, form_id, vacancy["url"], vacancy["titel"])
+            ad_ids.extend(video_ad_ids)
             print(f"[campagne-meta] {len(adset_ids)} ad set(s) + {len(ad_ids)} advertentie(s) "
                   f"aangemaakt (PAUSED), form {form_id}")
             _bewaar_campagne_build(vacancy, {"image_hash": image_hash, "adset_ids": adset_ids,
@@ -213,6 +218,7 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                                              "inhoud_hash": inhoud_hash,
                                              "app_id": vacancy.get("app_id") or "",
                                              "form_vragen": form_vragen,
+                                             "video_id": video_id, "n_video_ads": len(video_ad_ids),
                                              "budget_eur": plan.get("budget_eur"),
                                              "looptijd_dagen": plan.get("looptijd_dagen")})
         else:
@@ -272,6 +278,40 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
         record["mail_fout"] = str(e)[:600]
         print(f"[goedkeuring] goedkeur-mail versturen faalde: {e}")
     return record
+
+
+def _maak_video_advertenties(vacancy: dict, image_hash: str, adset_ids: list, variants: list,
+                             form_id: str, url: str, titel: str) -> tuple[str, list]:
+    """RESILIENT/GATED: maakt uit het KALE beeld één korte Kling-video en bouwt daaruit de
+    video-advertentievarianten (5×) naast de foto-advertenties. Faalt de video-generatie of
+    -upload, dan mag dat de foto-campagne NIET breken — we geven ('', []) terug en gaan door.
+    Retour: (video_id, lijst met video-ad-ids)."""
+    if not kling.beschikbaar():
+        return "", []
+    raw_path = vacancy.get("beeld_raw_path")
+    if not (raw_path and os.path.exists(raw_path)):
+        print("[campagne-meta] geen kaal beeld beschikbaar voor video — video overgeslagen")
+        return "", []
+    try:
+        with open(raw_path, "rb") as f:
+            beeld_bytes = f.read()
+        prompt = (f"Subtiele, professionele beweging voor een wervende vacature-video: "
+                  f"{titel}. Rustige camerabeweging, natuurlijk licht, geen tekst toevoegen.")
+        video_url = kling.maak_video(beeld_bytes, prompt)
+        video_id = meta.upload_video(video_url)
+        kosten.add_video(1)                     # één video, gedeeld over de varianten
+        video_ad_ids = []
+        for adset_id in adset_ids:
+            for i, v in enumerate(variants, 1):
+                video_ad_ids.append(meta.create_lead_video_ad(
+                    f"{titel} — video-variant {i}", adset_id, video_id, image_hash,
+                    v["headline"], v["primary_text"], v.get("description", ""),
+                    form_id, url, "SIGN_UP"))
+        print(f"[campagne-meta] {len(video_ad_ids)} video-advertentie(s) aangemaakt (PAUSED), video {video_id}")
+        return video_id, video_ad_ids
+    except Exception as e:
+        print(f"[campagne-meta] video-generatie/-advertenties overgeslagen (foto-campagne blijft intact): {e}")
+        return "", []
 
 
 def _bewaar_campagne_build(vacancy: dict, build: dict) -> None:
@@ -998,6 +1038,7 @@ def _send_mail(record: dict) -> None:
             f"± € {k.get('eur', 0):.2f} (${k.get('usd', 0):.2f}) · {k.get('totaal_tokens', 0):,} tokens".replace(",", ".")
             + f" over {k.get('calls', 0)} AI-aanroepen"
             + (f" + {k.get('beelden', 0)} beeld(en)" if k.get("beelden") else "")
+            + (f" + {k.get('videos', 0)} video('s)" if k.get("videos") else "")
             + f"<br><span style='color:#9a7bb8'>Model {k.get('model', '')}</span></div>")
     # Leadkoppeling: het Tigris App Id zit als trackingparameter in het Instant Form
     app_id = plan.get("app_id")
@@ -1139,6 +1180,20 @@ def publiceer(campaign_id: str, sf_id: str = "", inhoud_hash: str = "") -> dict:
                                         build["image_hash"], v["headline"], v["primary_text"],
                                         v.get("description", ""), nieuw_form, build.get("url"),
                                         build.get("cta", "SIGN_UP"))
+            # Video-advertenties horen óók op het nieuwe formulier (de video zelf is al bij Meta
+            # geüpload — video_id blijft geldig, dus GEEN nieuwe Kling-generatie/kosten).
+            if build.get("video_id"):
+                try:
+                    for adset_id in build.get("adset_ids", []):
+                        for i, v in enumerate(build.get("variants", []), 1):
+                            meta.create_lead_video_ad(f"{build.get('titel', '')} — video-variant {i}",
+                                                      adset_id, build["video_id"], build["image_hash"],
+                                                      v["headline"], v["primary_text"],
+                                                      v.get("description", ""), nieuw_form,
+                                                      build.get("url"), build.get("cta", "SIGN_UP"))
+                    print(f"[campagne-meta] video-advertenties opnieuw gekoppeld aan form {nieuw_form}")
+                except Exception as ve:
+                    print(f"[campagne-meta] video-advertenties herbouwen overgeslagen: {ve}")
             for oud_ad in build.get("ad_ids", []):
                 try:
                     meta.delete_object(oud_ad)

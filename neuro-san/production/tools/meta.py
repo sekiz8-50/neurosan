@@ -9,6 +9,7 @@ BELANGRIJK — vacatures = Speciale Advertentiecategorie 'EMPLOYMENT':
 Alles wordt op PAUSED aangemaakt; activeren gebeurt pas na goedkeuring.
 """
 import json
+import time
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -250,6 +251,66 @@ def create_lead_ad(name: str, adset_id: str, image_hash: str, headline: str, pri
                 "message": primary_text,
                 "name": headline,
                 "description": description,
+                "call_to_action": {"type": cta, "value": {"lead_gen_form_id": lead_form_id, "link": link}},
+            },
+        }),
+    })
+    ad = _post(f"{ACT}/ads", {
+        "name": name,
+        "adset_id": adset_id,
+        "creative": json.dumps({"creative_id": creative["id"]}),
+        "status": "PAUSED",
+    })
+    return ad["id"]
+
+
+def upload_video(bron_url: str) -> str:
+    """Uploadt een video naar het ad-account via de URL (Meta haalt 'm zelf op) en geeft het
+    video_id terug zodra Meta 'm heeft verwerkt. Wacht tot de verwerking klaar is (max ~4 min),
+    zodat de creative niet op een nog-niet-gereed-zijnde video wordt gebouwd."""
+    r = requests.post(f"{BASE}/{ACT}/advideos",
+                      data={"access_token": cfg.META_TOKEN, "file_url": bron_url},
+                      timeout=120)
+    if not r.ok:
+        raise RuntimeError(f"Meta video-upload fout: {r.status_code} {r.text[:300]}")
+    video_id = r.json().get("id")
+    if not video_id:
+        raise RuntimeError(f"Meta gaf geen video-id terug: {r.text[:300]}")
+    # Wacht tot de video 'ready' is (Meta transcodeert async). Niet-ready video → creative faalt.
+    eind = time.time() + 240
+    while time.time() < eind:
+        time.sleep(8)
+        try:
+            g = _get(f"{video_id}", {"fields": "status"})
+            status = ((g.get("status") or {}).get("video_status") or "").lower()
+            if status == "ready":
+                print(f"[campagne-meta] video {video_id} verwerkt (ready)")
+                return video_id
+            if status == "error":
+                raise RuntimeError(f"Meta video {video_id} verwerking mislukt")
+        except RuntimeError:
+            raise
+        except Exception as e:
+            print(f"[campagne-meta] video-status lezen (nog even door): {e}")
+    print(f"[campagne-meta] video {video_id} nog niet 'ready' na wachttijd — ga voorzichtig door")
+    return video_id
+
+
+def create_lead_video_ad(name: str, adset_id: str, video_id: str, image_hash: str, headline: str,
+                         primary_text: str, description: str, lead_form_id: str, link: str,
+                         cta: str = "SIGN_UP") -> str:
+    """Video-advertentie die het Instant Form opent (lead_gen_form_id in de call-to-action).
+    image_hash dient als thumbnail (verplicht bij video_data)."""
+    creative = _post(f"{ACT}/adcreatives", {
+        "name": f"{name} — lead video creative",
+        "object_story_spec": json.dumps({
+            "page_id": cfg.META_PAGE_ID,
+            "video_data": {
+                "video_id": video_id,
+                "image_hash": image_hash,
+                "message": primary_text,
+                "title": headline,
+                "link_description": description,
                 "call_to_action": {"type": cta, "value": {"lead_gen_form_id": lead_form_id, "link": link}},
             },
         }),

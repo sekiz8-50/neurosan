@@ -95,7 +95,21 @@ class Config:
     PRIJS_INPUT_PER_MILJOEN_USD = float(_opt("PRIJS_INPUT_PER_MILJOEN_USD", "5") or "5")
     PRIJS_OUTPUT_PER_MILJOEN_USD = float(_opt("PRIJS_OUTPUT_PER_MILJOEN_USD", "25") or "25")
     PRIJS_BEELD_PER_STUK_USD = float(_opt("PRIJS_BEELD_PER_STUK_USD", "0.17") or "0.17")
+    # Prijs per gegenereerde Kling-video (schatting; stel af op je Kling-tarief). Wordt in de
+    # marketingmail meegeteld naast de tokens en beelden.
+    PRIJS_VIDEO_PER_STUK_USD = float(_opt("PRIJS_VIDEO_PER_STUK_USD", "0.50") or "0.50")
     USD_EUR_KOERS = float(_opt("USD_EUR_KOERS", "0.92") or "0.92")
+
+    # Kling (image-to-video) — voegt naast de 5 foto-advertenties 5 video-advertenties toe.
+    # Standaard UIT; zet KLING_VIDEO_AAN=1 én de developer-API-sleutels om het te activeren.
+    KLING_VIDEO_AAN = _opt("KLING_VIDEO_AAN").lower() in ("1", "true", "ja", "yes")
+    KLING_ACCESS_KEY = _opt("KLING_ACCESS_KEY")
+    KLING_SECRET_KEY = _opt("KLING_SECRET_KEY")
+    KLING_API_BASE = _opt("KLING_API_BASE", "https://api.klingai.com").rstrip("/")
+    KLING_MODEL = _opt("KLING_MODEL", "kling-v1-6")        # afstemmen op je beschikbare model
+    KLING_DURATION = _opt("KLING_DURATION", "5")           # seconden (max 8 gevraagd; 5 is veilig)
+    KLING_MODE = _opt("KLING_MODE", "std")                 # std of pro
+    KLING_WACHT_SEC = int(_opt("KLING_WACHT_SEC", "240") or "240")   # max wachttijd op de video
     # Het ingebouwde Claude-brein (11 agents, claude_agents.py) — standaard AAN
     # zodra er een ANTHROPIC_API_KEY is. Zet CLAUDE_BRAIN=0 om terug te vallen
     # op de simpele agents (sneller/goedkoper, minder rijk).

@@ -24,6 +24,7 @@ class Kosten:
         self.output_tokens = 0
         self.calls = 0
         self.beelden = 0
+        self.videos = 0
 
     def add_llm(self, usage) -> None:
         try:
@@ -36,10 +37,14 @@ class Kosten:
     def add_beeld(self, n: int = 1) -> None:
         self.beelden += n
 
+    def add_video(self, n: int = 1) -> None:
+        self.videos += n
+
     def _usd(self) -> float:
         return (self.input_tokens / 1_000_000 * cfg.PRIJS_INPUT_PER_MILJOEN_USD
                 + self.output_tokens / 1_000_000 * cfg.PRIJS_OUTPUT_PER_MILJOEN_USD
-                + self.beelden * cfg.PRIJS_BEELD_PER_STUK_USD)
+                + self.beelden * cfg.PRIJS_BEELD_PER_STUK_USD
+                + self.videos * cfg.PRIJS_VIDEO_PER_STUK_USD)
 
     def samenvatting(self) -> dict:
         usd = self._usd()
@@ -49,6 +54,7 @@ class Kosten:
             "totaal_tokens": self.input_tokens + self.output_tokens,
             "calls": self.calls,
             "beelden": self.beelden,
+            "videos": self.videos,
             "usd": round(usd, 4),
             "eur": round(usd * cfg.USD_EUR_KOERS, 2),
             "model": cfg.ANTHROPIC_MODEL,
@@ -74,6 +80,13 @@ def add_beeld(n: int = 1) -> None:
     k = _huidige.get()
     if k is not None:
         k.add_beeld(n)
+
+
+def add_video(n: int = 1) -> None:
+    """Meld dat er n video('s) zijn gegenereerd (Kling image-to-video)."""
+    k = _huidige.get()
+    if k is not None:
+        k.add_video(n)
 
 
 def samenvatting() -> dict | None:
