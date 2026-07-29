@@ -16,7 +16,7 @@ import kosten
 import neuro_san_client
 import store
 import vif_parser
-from tools import image_gen, meta, emailer, brand_overlay, salesforce, kling
+from tools import image_gen, meta, emailer, brand_overlay, salesforce, kling, higgsfield
 from config import cfg
 
 # IMG_DIR is configureerbaar (env IMG_DIR): wijs 'm naar een Render Persistent Disk-pad
@@ -280,24 +280,46 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
     return record
 
 
+def _genereer_campagne_video(vacancy: dict, prompt: str) -> str:
+    """Kiest de beschikbare videoprovider en geeft de video-URL terug (of '' als er geen
+    provider aan staat / geen bruikbaar bronbeeld is). Higgsfield heeft VOORRANG (wil een
+    publieke beeld-URL); Kling is de terugval (wil de kale beeld-bytes)."""
+    if higgsfield.beschikbaar():
+        # Higgsfield haalt het beeld zelf op via een publieke URL — het kale beeld (foto_url)
+        # of anders de Render-beeld-URL.
+        beeld_url = vacancy.get("foto_url") or ""
+        raw_path = vacancy.get("beeld_raw_path")
+        if not beeld_url and raw_path and os.path.exists(raw_path) \
+                and os.path.dirname(os.path.abspath(raw_path)) == os.path.abspath(IMG_DIR):
+            beeld_url = f"{cfg.PUBLIC_BASE_URL}/beeld/{os.path.basename(raw_path)}"
+        if not beeld_url:
+            print("[campagne-meta] geen publieke beeld-URL voor Higgsfield — video overgeslagen")
+            return ""
+        return higgsfield.maak_video(beeld_url, prompt)
+    if kling.beschikbaar():
+        raw_path = vacancy.get("beeld_raw_path")
+        if not (raw_path and os.path.exists(raw_path)):
+            print("[campagne-meta] geen kaal beeld beschikbaar voor video — video overgeslagen")
+            return ""
+        with open(raw_path, "rb") as f:
+            return kling.maak_video(f.read(), prompt)
+    return ""
+
+
 def _maak_video_advertenties(vacancy: dict, image_hash: str, adset_ids: list, variants: list,
                              form_id: str, url: str, titel: str) -> tuple[str, list]:
-    """RESILIENT/GATED: maakt uit het KALE beeld één korte Kling-video en bouwt daaruit de
-    video-advertentievarianten (5×) naast de foto-advertenties. Faalt de video-generatie of
-    -upload, dan mag dat de foto-campagne NIET breken — we geven ('', []) terug en gaan door.
-    Retour: (video_id, lijst met video-ad-ids)."""
-    if not kling.beschikbaar():
-        return "", []
-    raw_path = vacancy.get("beeld_raw_path")
-    if not (raw_path and os.path.exists(raw_path)):
-        print("[campagne-meta] geen kaal beeld beschikbaar voor video — video overgeslagen")
+    """RESILIENT/GATED: maakt uit het KALE beeld één korte video (Higgsfield óf Kling) en bouwt
+    daaruit de video-advertentievarianten (5×) naast de foto-advertenties. Faalt de video-
+    generatie of -upload, dan mag dat de foto-campagne NIET breken — we geven ('', []) terug en
+    gaan door. Retour: (video_id, lijst met video-ad-ids)."""
+    if not (higgsfield.beschikbaar() or kling.beschikbaar()):
         return "", []
     try:
-        with open(raw_path, "rb") as f:
-            beeld_bytes = f.read()
         prompt = (f"Subtiele, professionele beweging voor een wervende vacature-video: "
                   f"{titel}. Rustige camerabeweging, natuurlijk licht, geen tekst toevoegen.")
-        video_url = kling.maak_video(beeld_bytes, prompt)
+        video_url = _genereer_campagne_video(vacancy, prompt)
+        if not video_url:
+            return "", []
         video_id = meta.upload_video(video_url)
         kosten.add_video(1)                     # één video, gedeeld over de varianten
         video_ad_ids = []
