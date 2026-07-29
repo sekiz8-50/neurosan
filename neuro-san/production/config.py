@@ -103,8 +103,12 @@ class Config:
     # Kling (image-to-video) — voegt naast de 5 foto-advertenties 5 video-advertenties toe.
     # Standaard UIT; zet KLING_VIDEO_AAN=1 én de developer-API-sleutels om het te activeren.
     KLING_VIDEO_AAN = _opt("KLING_VIDEO_AAN").lower() in ("1", "true", "ja", "yes")
+    # Twee auth-varianten:
+    #  (1) Officiële Kling Open Platform → Access Key + Secret Key (JWT-ondertekening).
+    #  (2) Eén losse bearer-token (bv. via een tussenpartij) → KLING_API_KEY.
     KLING_ACCESS_KEY = _opt("KLING_ACCESS_KEY")
     KLING_SECRET_KEY = _opt("KLING_SECRET_KEY")
+    KLING_API_KEY = _opt("KLING_API_KEY")
     KLING_API_BASE = _opt("KLING_API_BASE", "https://api.klingai.com").rstrip("/")
     KLING_MODEL = _opt("KLING_MODEL", "kling-v1-6")        # afstemmen op je beschikbare model
     KLING_DURATION = _opt("KLING_DURATION", "5")           # seconden (max 8 gevraagd; 5 is veilig)

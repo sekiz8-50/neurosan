@@ -21,8 +21,11 @@ _IMG2VID = "/v1/videos/image2video"
 
 
 def beschikbaar() -> bool:
-    """Video-generatie aan én sleutels aanwezig?"""
-    return bool(cfg.KLING_VIDEO_AAN and cfg.KLING_ACCESS_KEY and cfg.KLING_SECRET_KEY)
+    """Video-generatie aan én bruikbare auth aanwezig? Dat is óf een Access+Secret Key-paar
+    (officiële Open Platform, JWT), óf één losse bearer-token (KLING_API_KEY)."""
+    if not cfg.KLING_VIDEO_AAN:
+        return False
+    return bool((cfg.KLING_ACCESS_KEY and cfg.KLING_SECRET_KEY) or cfg.KLING_API_KEY)
 
 
 def _b64url(b: bytes) -> str:
@@ -40,8 +43,16 @@ def _jwt() -> str:
     return seg + "." + _b64url(sig)
 
 
+def _bearer() -> str:
+    """De bearer-token voor de Authorization-header. Bij een Access+Secret-paar ondertekenen
+    we een JWT (officiële Open Platform); anders gebruiken we de losse KLING_API_KEY direct."""
+    if cfg.KLING_ACCESS_KEY and cfg.KLING_SECRET_KEY:
+        return _jwt()
+    return cfg.KLING_API_KEY
+
+
 def _headers() -> dict:
-    return {"Authorization": f"Bearer {_jwt()}", "Content-Type": "application/json"}
+    return {"Authorization": f"Bearer {_bearer()}", "Content-Type": "application/json"}
 
 
 def maak_video(image_bytes: bytes, prompt: str = "") -> str:
@@ -69,7 +80,7 @@ def maak_video(image_bytes: bytes, prompt: str = "") -> str:
         time.sleep(10)
         try:
             g = requests.get(f"{cfg.KLING_API_BASE}{_IMG2VID}/{task_id}",
-                             headers={"Authorization": f"Bearer {_jwt()}"}, timeout=30)
+                             headers={"Authorization": f"Bearer {_bearer()}"}, timeout=30)
             if not g.ok:
                 continue
             gd = (g.json() or {}).get("data") or {}
