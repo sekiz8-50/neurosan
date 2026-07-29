@@ -100,9 +100,12 @@ def _placements() -> dict:
     #   - 'facebook_reels_overlay' → In-stream advertenties vóór/over reels
     #   - 'search' / 'ig_search'   → Zoekresultaten (Facebook + Instagram)
     #   - Audience Network         → 'apps en sites' (native/banner/rewarded video)
+    #   - 'video_feeds'            → Facebook-videofeeds: Meta ondersteunt deze plaatsing NIET
+    #                                voor leadformulier-adsets (fout-subcode 2490562) → weggelaten.
+    # Alleen feed-/story-/reels-plaatsingen die het Instant Form gegarandeerd ondersteunen.
     return {
         "publisher_platforms": ["facebook", "instagram"],
-        "facebook_positions": ["feed", "marketplace", "video_feeds", "story", "facebook_reels"],
+        "facebook_positions": ["feed", "marketplace", "story", "facebook_reels"],
         "instagram_positions": ["stream", "story", "reels", "explore"],
     }
 
@@ -591,7 +594,6 @@ def _notify_recruiter_aanleveraar(vac: dict, recruiter_id: str, uploader_id: str
            f"Hoi {r_naam}," if r_naam else "Hoi,",
            recruiter_binnen,
            f"[Nieuwe vacature] {titel} {plaats}".strip(),
-           cc=cfg.RECRUITER_MAIL_CC,
            kop="Nieuwe vacature aangemaakt in Tigris")
 
     # Aanleveraar: afronding — VIF verwerkt, vacature staat klaar.
@@ -1008,14 +1010,14 @@ def _send_mail(record: dict) -> None:
     html = _mail_shell("Campagne ter goedkeuring", _inner_goedkeur)
     try:
         emailer.send_approval_mail(f"[Akkoord nodig] Vacature {v['titel']} {v['plaats']}", html,
-                                   record["image_path"], attachments=bijlagen)
-        print(f"[mail] goedkeur-mail verstuurd naar {cfg.APPROVAL_TO}")
+                                   record["image_path"], attachments=bijlagen, cc=cfg.APPROVAL_CC)
+        print(f"[mail] goedkeur-mail verstuurd naar {cfg.APPROVAL_TO} (CC {cfg.APPROVAL_CC})")
     except Exception as e:
         print(f"[mail] goedkeur-mail VERSTUREN MISLUKT ({e}); 2e poging zonder inline-beeld...")
         try:
             emailer.send_approval_mail(f"[Akkoord nodig] Vacature {v['titel']} {v['plaats']}",
                                        html.replace('src="cid:beeld"', f'src="{v.get("video_url") or v.get("foto_url", "")}"'),
-                                       attachments=bijlagen)
+                                       attachments=bijlagen, cc=cfg.APPROVAL_CC)
             print(f"[mail] goedkeur-mail (zonder bijlage) verstuurd naar {cfg.APPROVAL_TO}")
         except Exception as e2:
             print(f"[mail] goedkeur-mail definitief mislukt: {e2}")
