@@ -134,7 +134,27 @@ def create_lead_adset(name: str, campaign_id: str, daily_budget_eur: int, target
         nu = datetime.now(timezone.utc)
         payload["start_time"] = nu.strftime("%Y-%m-%dT%H:%M:%S%z")
         payload["end_time"] = (nu + timedelta(days=looptijd_dagen)).strftime("%Y-%m-%dT%H:%M:%S%z")
-    res = _post(f"{ACT}/adsets", payload)
+    try:
+        res = _post(f"{ACT}/adsets", payload)
+    except Exception as e:
+        # LANGE-TERMIJN-VANGNET: Meta weigert soms een specifieke plaatsing voor leadformulier-
+        # adsets (bv. subcode 2490562 'plaatsing niet ondersteund'). We laten de campagne dan NIET
+        # helemaal falen, maar herproberen met een minimale, gegarandeerd lead-compatibele set
+        # (alleen de feeds) — nog steeds zonder in-stream of zoekresultaten.
+        fout = str(e).lower()
+        heeft_pos = isinstance(targeting, dict) and (
+            "facebook_positions" in targeting or "instagram_positions" in targeting)
+        if heeft_pos and ("2490562" in fout or "plaats" in fout or "placement" in fout):
+            veilig = {k: v for k, v in targeting.items()
+                      if k not in ("facebook_positions", "instagram_positions", "publisher_platforms")}
+            veilig.update({"publisher_platforms": ["facebook", "instagram"],
+                           "facebook_positions": ["feed"], "instagram_positions": ["stream"]})
+            payload["targeting"] = json.dumps(veilig)
+            print(f"[campagne-meta] plaatsing geweigerd door Meta → herprobeer met feeds-only "
+                  f"(geen in-stream/zoeken). Oorspronkelijke fout: {str(e)[:160]}")
+            res = _post(f"{ACT}/adsets", payload)
+        else:
+            raise
     return res["id"]
 
 

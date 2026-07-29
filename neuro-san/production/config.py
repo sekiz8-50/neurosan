@@ -66,12 +66,14 @@ class Config:
     GRAPH_SENDER = _req("GRAPH_SENDER") if MAIL_PROVIDER == "graph" else _opt("GRAPH_SENDER")
 
     APPROVAL_TO = _req("APPROVAL_TO")
+    # CC op de goedkeur-/campagnemail (meekijken op elke campagne-goedkeuring). Leeg = geen CC.
+    APPROVAL_CC = _opt("APPROVAL_CC", "yasar.erol@tecqgroep.com")
     # TESTMODUS: stuur ÁLLE uitgaande mail naar dit ene adres (bv. je Gmail dat Resend toestaat),
     # ongeacht de bedoelde ontvanger. Zo zie je tijdens testen ook de recruiter-/aanleveraar-mails.
     # Leeg = normaal (elke mail naar de echte ontvanger). Bij livegang: leegmaken + domein verifiëren.
     MAIL_OVERRIDE_TO = _opt("MAIL_OVERRIDE_TO")
-    # CC op de recruiter-notificatie (marketing/Meta-aanvragen lopen via deze collega).
-    # De recruiter kan de mail doorsturen naar dit adres om een Meta-campagne aan te vragen.
+    # Adres in de recruiter-mail waar 'stuur door om een Meta-campagne aan te vragen' naar verwijst.
+    # (Dit is de mailto-link in de tekst — NIET meer een CC op de mail zelf.)
     RECRUITER_MAIL_CC = _opt("RECRUITER_MAIL_CC", "djimon.ruis@tecqgroep.com")
 
     # Webhook / hosting — op Render wordt RENDER_EXTERNAL_URL automatisch gezet,
