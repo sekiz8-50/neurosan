@@ -48,10 +48,17 @@ def maak_video(image_url: str, prompt: str = "") -> str:
     terug. Blokkeert tot de video klaar is (of tot HIGGSFIELD_WACHT_SEC). Raiset bij een fout."""
     if not image_url:
         raise RuntimeError("Higgsfield: geen (publieke) beeld-URL om video van te maken")
+    # Higgsfield verwacht de generatieparameters verpakt in een 'params'-object (de API gaf
+    # anders een 422 'body.params required'). 'model' zetten we óók top-level: of het schema nu
+    # {model, params:{...}} of {params:{model,...}} is, extra velden worden genegeerd → dekt beide.
+    tekst = (prompt or "Subtiele, professionele camerabeweging; geen tekst toevoegen.")[:2000]
     body = {
         "model": cfg.HIGGSFIELD_MODEL,
-        "prompt": (prompt or "Subtiele, professionele camerabeweging; geen tekst toevoegen.")[:2000],
-        "input_images": [{"type": "image_url", "image_url": image_url}],
+        "params": {
+            "model": cfg.HIGGSFIELD_MODEL,
+            "prompt": tekst,
+            "input_images": [{"type": "image_url", "image_url": image_url}],
+        },
     }
     r = requests.post(f"{cfg.HIGGSFIELD_API_BASE}{_IMG2VID}", headers=_headers(), json=body, timeout=60)
     if not r.ok:
