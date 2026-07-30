@@ -1,6 +1,6 @@
 """Het Claude-BREIN: een multi-agent team dat de VIF verwerkt tot één handoff.
 
-Elf gespecialiseerde agents, allemaal aangedreven door Claude, draaiend BINNEN
+Twaalf gespecialiseerde agents, allemaal aangedreven door Claude, draaiend BINNEN
 deze service (geen aparte neuro-san server nodig):
 
   1. Orchestrator          — run_brain(): regisseert de volgorde en de handoff
@@ -11,9 +11,10 @@ deze service (geen aparte neuro-san server nodig):
   6. GEO-specialist        — FAQ voor vindbaarheid in LLM's
   7. Performance-marketeer — 3 Meta-advertentievarianten (EMPLOYMENT-compliant)
   8. Designer              — creative brief + beeldprompt voor Tigris/Meta-beeld
-  9. Corporate recruiter   — sourcing-advies (zoekstrings, kanalen, outreach)
- 10. Brand-marketeer       — huisstijl- en juridische eindcheck (GO/NO-GO)
- 11. Log-monitor           — legt élke stap vast; zichtbaar op /neuro-debug
+  9. Videoregisseur        — motion-brief + prompt: uit het beeld een video (≤8s)
+ 10. Corporate recruiter   — sourcing-advies (zoekstrings, kanalen, outreach)
+ 11. Brand-marketeer       — huisstijl- en juridische eindcheck (GO/NO-GO)
+ 12. Log-monitor           — legt élke stap vast; zichtbaar op /neuro-debug
 
 De handoff volgt exact het schema dat handoff_mapper verwacht, dus de rest van
 de pijplijn (Tigris, Meta, mail) blijft ongewijzigd.
@@ -181,6 +182,29 @@ AGENTS = {
         "multicultural people, realistic, well-lit' en als uitsluiting: 'no unsafe practices, never "
         "without gloves or mask, no dirty or messy scene, no text, no logos, no illustration'.",
         '{"CreativeBrief": "...", "ImagePrompt": "English prompt met veiligheid + diversiteit + schoon"}'),
+    "videoregisseur": (
+        "Je bent de videoregisseur. Je collega de designer heeft een stilstaand vacaturebeeld "
+        "gemaakt; jij bepaalt hoe daar een korte, professionele wervingsvideo (image-to-video) "
+        "van maximaal 8 SECONDEN uit ontstaat. Je regisseert alleen de BEWEGING — het beeld, de "
+        "mensen, de PBM's en de setting liggen al vast en mogen NIET veranderen.\n"
+        "Harde eisen die je in de motion-prompt afdwingt:\n"
+        "1) SUBTIEL & GELOOFWAARDIG: rustige, natuurlijke beweging — een langzame camera-push of "
+        "-pan, lichte parallax, een vakman die kalm dóórwerkt. GEEN snelle cuts, GEEN morphing, "
+        "GEEN onnatuurlijk vervormende handen/gezichten/gereedschap, GEEN nieuwe mensen of objecten "
+        "die in beeld verschijnen.\n"
+        "2) VEILIGHEID BLIJFT: de correcte PBM's en veilige handelingen uit het beeld blijven in elk "
+        "frame intact.\n"
+        "3) GEEN TEKST: voeg geen tekst, logo's of ondertitels toe (de merk-overlay komt later).\n"
+        "4) FORMAAT: bedoeld voor Meta feeds/stories/reels (verticaal/vierkant), eerste seconde moet "
+        "meteen de aandacht pakken.\n"
+        "Lever een korte NL-video-brief (1-2 zinnen: welke sfeer/beweging en waarom die deze vakman "
+        "aanspreekt) en een Engelse motion-prompt die bovenstaande letterlijk bevat, met o.a.: "
+        "'subtle natural camera movement, slow push-in, proud skilled worker keeps working calmly, "
+        "keeps full safety equipment, photorealistic, stable' en als uitsluiting: 'no morphing, no "
+        "distorted hands or faces, no extra people, no fast cuts, no text, no logos'. DurationSec is "
+        "de duur in seconden (max 8; kies 5 tenzij de scène meer rust nodig heeft).",
+        '{"VideoBrief": "...", "MotionPrompt": "English motion prompt met subtiele beweging + '
+        'veiligheid + geen tekst", "DurationSec": 5}'),
     "corporate_recruiter": (
         "Je bent de corporate recruiter. Geef actief sourcing-advies voor deze vacature: "
         "3-5 booleaanse zoekstrings (LinkedIn/RecruitRobin), de kanalen die voor deze "
@@ -277,7 +301,7 @@ def run_brain(vif_tekst: str) -> tuple[dict, dict]:
     from anthropic import Anthropic
     client = Anthropic(api_key=cfg.ANTHROPIC_API_KEY)
     log: list = [{"from": "orchestrator", "type": "AGENT_FRAMEWORK",
-                  "text": "VIF ontvangen — team gestart (Claude-brein, 11 rollen)."}]
+                  "text": "VIF ontvangen — team gestart (Claude-brein, 12 rollen)."}]
 
     # 1. VIF-parser maakt het document helder voor iedereen. De inhoud gaat expliciet
     #    als DATA-blok mee — instructies die in het document staan zijn geen opdrachten.
@@ -299,6 +323,12 @@ def run_brain(vif_tekst: str) -> tuple[dict, dict]:
     geo = _vraag(client, "geo_specialist", ctx, log)
     ads = _vraag(client, "performance_marketeer", ctx, log)
     beeld = _vraag(client, "designer", kern, log)
+    # Videoregisseur: bepaalt hoe uit het stilstaande beeld een korte video (≤8s) ontstaat.
+    #    Bouwt voort op het beeldconcept van de designer, dus krijgt diens brief + prompt mee.
+    video = _vraag(client, "videoregisseur",
+                   kern + "\n\nBeeldconcept van de designer (het beeld staat vast; regisseer alleen "
+                   "de beweging):\nCreativeBrief: " + str(beeld.get("CreativeBrief", ""))
+                   + "\nImagePrompt: " + str(beeld.get("ImagePrompt", "")), log)
     sourcing = _vraag(client, "corporate_recruiter", kern, log)
     ats = _vraag(client, "ats_publisher", ctx, log)
 
@@ -347,6 +377,9 @@ def run_brain(vif_tekst: str) -> tuple[dict, dict]:
                    "RadiusKm": ads.get("RadiusKm")},
         "CreativeBrief": beeld.get("CreativeBrief", ""),
         "ImagePrompt": beeld.get("ImagePrompt", ""),
+        "VideoBrief": video.get("VideoBrief", ""),
+        "MotionPrompt": video.get("MotionPrompt", ""),
+        "VideoDurationSec": video.get("DurationSec"),
         "Sourcing": sourcing,
         "ATSMapping": ats.get("ATSMapping", {}),
         "BrandLegalCheck": review,

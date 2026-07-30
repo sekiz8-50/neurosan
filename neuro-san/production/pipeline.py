@@ -207,7 +207,9 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
             # Video-advertenties: uit het kale beeld één Kling-video → 5 video-varianten naast
             # de 5 foto-varianten. GATED (staat standaard uit) en RESILIENT (faalt nooit hard).
             video_id, video_ad_ids = _maak_video_advertenties(
-                vacancy, image_hash, adset_ids, variants, form_id, vacancy["url"], vacancy["titel"])
+                vacancy, image_hash, adset_ids, variants, form_id, vacancy["url"], vacancy["titel"],
+                motion_prompt=plan.get("motion_prompt", ""),
+                duration_sec=plan.get("video_duration_sec"))
             ad_ids.extend(video_ad_ids)
             print(f"[campagne-meta] {len(adset_ids)} ad set(s) + {len(ad_ids)} advertentie(s) "
                   f"aangemaakt (PAUSED), form {form_id}")
@@ -280,10 +282,11 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
     return record
 
 
-def _genereer_campagne_video(vacancy: dict, prompt: str) -> str:
+def _genereer_campagne_video(vacancy: dict, prompt: str, duration_sec: int | None = None) -> str:
     """Kiest de beschikbare videoprovider en geeft de video-URL terug (of '' als er geen
     provider aan staat / geen bruikbaar bronbeeld is). Higgsfield heeft VOORRANG (wil een
-    publieke beeld-URL); Kling is de terugval (wil de kale beeld-bytes)."""
+    publieke beeld-URL); Kling is de terugval (wil de kale beeld-bytes). duration_sec (≤8) komt
+    van de videoregisseur-agent; None → de provider-standaard."""
     if higgsfield.beschikbaar():
         # Higgsfield haalt het beeld zelf op via een publieke URL — het kale beeld (foto_url)
         # of anders de Render-beeld-URL.
@@ -295,29 +298,33 @@ def _genereer_campagne_video(vacancy: dict, prompt: str) -> str:
         if not beeld_url:
             print("[campagne-meta] geen publieke beeld-URL voor Higgsfield — video overgeslagen")
             return ""
-        return higgsfield.maak_video(beeld_url, prompt)
+        return higgsfield.maak_video(beeld_url, prompt, duration_sec=duration_sec)
     if kling.beschikbaar():
         raw_path = vacancy.get("beeld_raw_path")
         if not (raw_path and os.path.exists(raw_path)):
             print("[campagne-meta] geen kaal beeld beschikbaar voor video — video overgeslagen")
             return ""
         with open(raw_path, "rb") as f:
-            return kling.maak_video(f.read(), prompt)
+            return kling.maak_video(f.read(), prompt, duration_sec=duration_sec)
     return ""
 
 
 def _maak_video_advertenties(vacancy: dict, image_hash: str, adset_ids: list, variants: list,
-                             form_id: str, url: str, titel: str) -> tuple[str, list]:
+                             form_id: str, url: str, titel: str, motion_prompt: str = "",
+                             duration_sec: int | None = None) -> tuple[str, list]:
     """RESILIENT/GATED: maakt uit het KALE beeld één korte video (Higgsfield óf Kling) en bouwt
-    daaruit de video-advertentievarianten (5×) naast de foto-advertenties. Faalt de video-
-    generatie of -upload, dan mag dat de foto-campagne NIET breken — we geven ('', []) terug en
-    gaan door. Retour: (video_id, lijst met video-ad-ids)."""
+    daaruit de video-advertentievarianten (5×) naast de foto-advertenties. De motion_prompt +
+    duur komen van de videoregisseur-agent; ontbreken ze, dan een veilige standaard. Faalt de
+    video-generatie of -upload, dan mag dat de foto-campagne NIET breken — we geven ('', []) terug
+    en gaan door. Retour: (video_id, lijst met video-ad-ids)."""
     if not (higgsfield.beschikbaar() or kling.beschikbaar()):
         return "", []
     try:
-        prompt = (f"Subtiele, professionele beweging voor een wervende vacature-video: "
-                  f"{titel}. Rustige camerabeweging, natuurlijk licht, geen tekst toevoegen.")
-        video_url = _genereer_campagne_video(vacancy, prompt)
+        prompt = motion_prompt.strip() if motion_prompt and motion_prompt.strip() else (
+            f"Subtle, natural camera movement for a recruitment video: {titel}. Slow push-in, "
+            f"proud skilled worker keeps working calmly, keeps full safety equipment, "
+            f"photorealistic, stable. No morphing, no distorted hands or faces, no text, no logos.")
+        video_url = _genereer_campagne_video(vacancy, prompt, duration_sec=duration_sec)
         if not video_url:
             return "", []
         video_id = meta.upload_video(video_url)
@@ -718,7 +725,7 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
 
     # 2. BREIN — verwerkt de VIF tot een handoff (content + checks). Volgorde:
     #    externe Neuro San-server (indien draaiend) → ingebouwd Claude-brein
-    #    (11 agents, zie claude_agents.py) → simpele fallback-agents.
+    #    (12 agents, zie claude_agents.py) → simpele fallback-agents.
     handoff, bron = None, "neuro-san"
     if neuro_san_client.beschikbaar():
         try:
@@ -732,7 +739,7 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
 
     if handoff is None and cfg.ANTHROPIC_API_KEY and cfg.CLAUDE_BRAIN:
         try:
-            print("[orkestrator] Claude-brein gestart (11 agents)...")
+            print("[orkestrator] Claude-brein gestart (12 agents)...")
             handoff, res = claude_agents.run_brain(raw)
             bron = "claude-brein"
         except Exception as e:

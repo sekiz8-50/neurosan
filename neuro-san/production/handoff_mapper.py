@@ -459,8 +459,17 @@ def campagne_plan(vac: dict, handoff: dict) -> dict:
         targeting = {"ad_sets": [{"name": f"{vac.get('plaats', '')} | Breed (geo)", "segment": "breed",
                                   "daily_budget_eur": 15, "radius_km": 25, "use_lookalike": False}]}
 
+    # Videoregisseur: motion-prompt + duur (≤8s) voor de campagne-video. Leeg → de pipeline
+    # valt terug op een veilige standaard-motion-prompt.
+    motion_prompt = str(handoff.get("MotionPrompt") or "").strip()
+    video_brief = str(handoff.get("VideoBrief") or "").strip()
+    _dur = _pos_int(handoff.get("VideoDurationSec"))
+    video_duration_sec = min(_dur, 8) if _dur else None      # harde bovengrens: 8 seconden
+
     blc = handoff.get("BrandLegalCheck") or {}
     return {"label": vac.get("label", "Maintec"), "image_prompt": image_prompt,
+            "motion_prompt": motion_prompt, "video_brief": video_brief,
+            "video_duration_sec": video_duration_sec,
             "variants": variants, "cta": "APPLY_NOW", "targeting": targeting,
         "media_advies": media_advies,
             "budget_eur": budget_eur, "looptijd_dagen": looptijd_dagen, "radius_km": radius_km,

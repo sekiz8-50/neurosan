@@ -43,23 +43,24 @@ def _headers() -> dict:
             "User-Agent": "neuro-san-server/1.0"}
 
 
-def maak_video(image_url: str, prompt: str = "") -> str:
+def maak_video(image_url: str, prompt: str = "", duration_sec: int | None = None) -> str:
     """Genereert één video (image-to-video) uit het publieke beeld-URL en geeft de video-URL
-    terug. Blokkeert tot de video klaar is (of tot HIGGSFIELD_WACHT_SEC). Raiset bij een fout."""
+    terug. Blokkeert tot de video klaar is (of tot HIGGSFIELD_WACHT_SEC). Raiset bij een fout.
+    duration_sec (van de videoregisseur, max 8) stuurt de duur; None → modelstandaard."""
     if not image_url:
         raise RuntimeError("Higgsfield: geen (publieke) beeld-URL om video van te maken")
     # Higgsfield verwacht de generatieparameters verpakt in een 'params'-object (de API gaf
     # anders een 422 'body.params required'). 'model' zetten we óók top-level: of het schema nu
     # {model, params:{...}} of {params:{model,...}} is, extra velden worden genegeerd → dekt beide.
     tekst = (prompt or "Subtiele, professionele camerabeweging; geen tekst toevoegen.")[:2000]
-    body = {
+    params = {
         "model": cfg.HIGGSFIELD_MODEL,
-        "params": {
-            "model": cfg.HIGGSFIELD_MODEL,
-            "prompt": tekst,
-            "input_images": [{"type": "image_url", "image_url": image_url}],
-        },
+        "prompt": tekst,
+        "input_images": [{"type": "image_url", "image_url": image_url}],
     }
+    if duration_sec and duration_sec > 0:
+        params["duration"] = min(int(duration_sec), 8)     # harde bovengrens: 8 seconden
+    body = {"model": cfg.HIGGSFIELD_MODEL, "params": params}
     r = requests.post(f"{cfg.HIGGSFIELD_API_BASE}{_IMG2VID}", headers=_headers(), json=body, timeout=60)
     if not r.ok:
         raise RuntimeError(f"Higgsfield image2video fout: {r.status_code} {r.text[:300]}")
