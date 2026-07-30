@@ -55,14 +55,17 @@ def _headers() -> dict:
     return {"Authorization": f"Bearer {_bearer()}", "Content-Type": "application/json"}
 
 
-def maak_video(image_bytes: bytes, prompt: str = "") -> str:
+def maak_video(image_bytes: bytes, prompt: str = "", duration_sec: int | None = None) -> str:
     """Genereert één video (image-to-video) uit het beeld en geeft de video-URL terug.
-    Blokkeert tot de video klaar is (of tot KLING_WACHT_SEC). Raiset bij een fout."""
+    Blokkeert tot de video klaar is (of tot KLING_WACHT_SEC). Raiset bij een fout.
+    duration_sec (van de videoregisseur, max 8) stuurt de duur; Kling ondersteunt alleen 5 of 10,
+    dus ≤8 → '5'. None → de geconfigureerde standaard (KLING_DURATION)."""
+    duur = "5" if (duration_sec and 0 < duration_sec <= 8) else str(cfg.KLING_DURATION)
     body = {
         "model_name": cfg.KLING_MODEL,
         "image": base64.b64encode(image_bytes).decode(),
         "mode": cfg.KLING_MODE,
-        "duration": str(cfg.KLING_DURATION),
+        "duration": duur,
     }
     if prompt:
         body["prompt"] = prompt[:2500]
