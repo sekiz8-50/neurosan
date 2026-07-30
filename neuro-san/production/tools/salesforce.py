@@ -382,11 +382,12 @@ def maak_tigris_document(account_id: str, content_version_id: str, naam: str,
         return ""
 
 
-def upload_public_image(inhoud: bytes, naam: str) -> str:
-    """Slaat een beeld PERSISTENT op in Salesforce (ContentVersion) en maakt er een openbare,
-    login-vrije link van via ContentDistribution — i.t.t. de Render-schijf die bij herstart
-    wordt gewist. Retour: directe beeld-URL, of '' bij fout (dan valt de keten terug op de
-    Render-URL). Vereist dat 'Content Deliveries and Public Links' in Salesforce aan staat."""
+def upload_public_bestand(inhoud: bytes, naam: str, bestandsnaam: str) -> str:
+    """Slaat een WILLEKEURIG bestand (beeld of video) PERSISTENT op in Salesforce
+    (ContentVersion) en maakt er een openbare, login-vrije link van via ContentDistribution —
+    i.t.t. de Render-schijf die bij herstart wordt gewist. Zo raakt een (betaalde) video nooit
+    kwijt. 'bestandsnaam' bepaalt de extensie (bv. 'video.mp4'). Retour: directe URL, of ''
+    bij fout. Vereist dat 'Content Deliveries and Public Links' in Salesforce aan staat."""
     if not cfg.salesforce_ready() or not inhoud:
         return ""
     try:
@@ -394,11 +395,11 @@ def upload_public_image(inhoud: bytes, naam: str) -> str:
         token, instance = _auth()
         base = f"{instance}/services/data/{cfg.SF_API_VERSION}"
         hdr = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        cv = requests.post(f"{base}/sobjects/ContentVersion", headers=hdr, timeout=60,
-                           data=json.dumps({"Title": naam, "PathOnClient": f"{naam}.png",
+        cv = requests.post(f"{base}/sobjects/ContentVersion", headers=hdr, timeout=120,
+                           data=json.dumps({"Title": naam, "PathOnClient": bestandsnaam,
                                             "VersionData": base64.b64encode(inhoud).decode()}))
         if not cv.ok:
-            print(f"[ATS-administrateur] beeld-ContentVersion faalde: {cv.status_code} {cv.text[:180]}")
+            print(f"[ATS-administrateur] ContentVersion faalde: {cv.status_code} {cv.text[:180]}")
             return ""
         cv_id = cv.json()["id"]
         dist = requests.post(f"{base}/sobjects/ContentDistribution", headers=hdr, timeout=60,
@@ -418,11 +419,16 @@ def upload_public_image(inhoud: bytes, naam: str) -> str:
         j = rec.json() if rec.ok else {}
         url = j.get("ContentDownloadUrl") or j.get("DistributionPublicUrl") or ""
         if url:
-            print(f"[ATS-administrateur] beeld persistent in Salesforce: {url}")
+            print(f"[ATS-administrateur] bestand persistent in Salesforce: {url}")
         return url
     except Exception as e:
-        print(f"[ATS-administrateur] openbaar beeld uploaden faalde: {e}")
+        print(f"[ATS-administrateur] openbaar bestand uploaden faalde: {e}")
         return ""
+
+
+def upload_public_image(inhoud: bytes, naam: str) -> str:
+    """Beeld persistent + login-vrij opslaan in Salesforce. Retour: beeld-URL of ''."""
+    return upload_public_bestand(inhoud, naam, f"{naam}.png")
 
 
 def recruiter_email(sf_id: str) -> tuple[str, str]:

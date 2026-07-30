@@ -6,7 +6,10 @@ import json
 import os
 import re
 import shutil
+import threading
 import time
+
+import requests
 
 import agents
 import beveiliging
@@ -165,6 +168,7 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
     if not vacancy.get("url"):
         vacancy["url"] = f"{cfg.VACANCY_URL_BASE}/{vacancy.get('slug', '')}".rstrip("/")
     campaign_id, adset_ids, ad_ids, meta_fout = "", [], [], None
+    video_komt = False      # wordt True als de async video op de achtergrond is gestart
 
     # Release-hash: bindt de goedkeuring aan exact déze inhoud (advertenties + budget +
     # looptijd + landingspagina). Wijzigt er daarna iets, dan weigert de publicatie.
@@ -204,15 +208,16 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                         f"{vacancy['titel']} — variant {i}", adset_id, image_hash,
                         v["headline"], v["primary_text"], v.get("description", ""),
                         form_id, vacancy["url"], "SIGN_UP"))
-            # Video-advertenties: uit het kale beeld één Kling-video → 5 video-varianten naast
-            # de 5 foto-varianten. GATED (staat standaard uit) en RESILIENT (faalt nooit hard).
-            video_id, video_ad_ids = _maak_video_advertenties(
-                vacancy, image_hash, adset_ids, variants, form_id, vacancy["url"], vacancy["titel"],
-                motion_prompt=plan.get("motion_prompt", ""),
-                duration_sec=plan.get("video_duration_sec"))
-            ad_ids.extend(video_ad_ids)
             print(f"[campagne-meta] {len(adset_ids)} ad set(s) + {len(ad_ids)} advertentie(s) "
                   f"aangemaakt (PAUSED), form {form_id}")
+            # Video-advertenties komen ASYNC: de video wordt op de achtergrond gemaakt (blokkeert
+            # de goedkeur-mail NIET). Pas als ze klaar is, worden de 5 video-ads op deze campagne
+            # gebouwd en aan de build toegevoegd. De teller telt de (geschatte) videokost alvast
+            # mee zodat de mail 'm toont; de echte generatie is gated + persistent + herstartbaar.
+            video_komt = bool(higgsfield.beschikbaar() or kling.beschikbaar()) and bool(
+                vacancy.get("salesforce_id") and not str(vacancy.get("salesforce_id")).startswith("DRYRUN"))
+            if video_komt:
+                kosten.add_video(1)
             _bewaar_campagne_build(vacancy, {"image_hash": image_hash, "adset_ids": adset_ids,
                                              "form_id": form_id, "ad_ids": ad_ids, "ads_created": True,
                                              "variants": variants, "cta": "SIGN_UP",
@@ -220,9 +225,15 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                                              "inhoud_hash": inhoud_hash,
                                              "app_id": vacancy.get("app_id") or "",
                                              "form_vragen": form_vragen,
-                                             "video_id": video_id, "n_video_ads": len(video_ad_ids),
+                                             "video_id": "", "n_video_ads": 0,
+                                             "video_job": {"status": "GESTART"} if video_komt else {},
                                              "budget_eur": plan.get("budget_eur"),
                                              "looptijd_dagen": plan.get("looptijd_dagen")})
+            # Kick de async video pas ná het bewaren van de build (de worker leest die build).
+            if video_komt:
+                start_video_async(vacancy.get("salesforce_id", ""), vacancy,
+                                  motion_prompt=plan.get("motion_prompt", ""),
+                                  duration_sec=plan.get("video_duration_sec"))
         else:
             # TRAFFIC (oude /tigris-flow): campagne + ad sets + advertenties nu.
             campaign_id = meta.create_campaign(naam)
@@ -269,6 +280,7 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                  "budget_eur": plan.get("budget_eur"), "looptijd_dagen": plan.get("looptijd_dagen"),
                  "radius_km": plan.get("radius_km"),
                  "kosten": kosten.samenvatting(), "app_id": vacancy.get("app_id") or "",
+                 "video_komt": video_komt,
                  "warnings": warnings or [], "meta_fout": meta_fout}
     record = {"campaign_id": campaign_id, "adset_ids": adset_ids, "ad_ids": ad_ids, "lead_gen": lead_gen,
               "state": "PENDING", "vacancy": vacancy, "plan": mail_plan, "image_path": img_path,
@@ -282,65 +294,190 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
     return record
 
 
-def _genereer_campagne_video(vacancy: dict, prompt: str, duration_sec: int | None = None) -> str:
-    """Kiest de beschikbare videoprovider en geeft de video-URL terug (of '' als er geen
-    provider aan staat / geen bruikbaar bronbeeld is). Higgsfield heeft VOORRANG (wil een
-    publieke beeld-URL); Kling is de terugval (wil de kale beeld-bytes). duration_sec (≤8) komt
-    van de videoregisseur-agent; None → de provider-standaard."""
-    if higgsfield.beschikbaar():
-        # Higgsfield haalt het beeld zelf op via een publieke URL — het kale beeld (foto_url)
-        # of anders de Render-beeld-URL.
-        beeld_url = vacancy.get("foto_url") or ""
-        raw_path = vacancy.get("beeld_raw_path")
-        if not beeld_url and raw_path and os.path.exists(raw_path) \
-                and os.path.dirname(os.path.abspath(raw_path)) == os.path.abspath(IMG_DIR):
-            beeld_url = f"{cfg.PUBLIC_BASE_URL}/beeld/{os.path.basename(raw_path)}"
-        if not beeld_url:
-            print("[campagne-meta] geen publieke beeld-URL voor Higgsfield — video overgeslagen")
-            return ""
-        return higgsfield.maak_video(beeld_url, prompt, duration_sec=duration_sec)
-    if kling.beschikbaar():
-        raw_path = vacancy.get("beeld_raw_path")
-        if not (raw_path and os.path.exists(raw_path)):
-            print("[campagne-meta] geen kaal beeld beschikbaar voor video — video overgeslagen")
-            return ""
-        with open(raw_path, "rb") as f:
-            return kling.maak_video(f.read(), prompt, duration_sec=duration_sec)
-    return ""
+# ── Video ASYNC + persistent ────────────────────────────────────────────────────────────
+# De video blokkeert de goedkeur-mail NIET meer. Ze wordt op de achtergrond gemaakt; de
+# provider-taak-id wordt METEEN persistent in Tigris (de build) bewaard, en er staat een
+# lokale pointer, zodat een (betaalde) video nooit verloren gaat — ook niet bij een herstart.
+# Pas als de video ECHT klaar is, wordt ze persistent opgeslagen in Salesforce en worden de
+# 5 video-advertenties op de al bestaande campagne gebouwd.
+VIDEO_JOBS_DIR = os.path.join(os.path.dirname(__file__), "data", "video_jobs")
+
+_DEFAULT_MOTION = (
+    "Subtle, natural camera movement for a recruitment video. Slow push-in, proud skilled "
+    "worker keeps working calmly, keeps full safety equipment, photorealistic, stable. "
+    "No morphing, no distorted hands or faces, no text, no logos.")
 
 
-def _maak_video_advertenties(vacancy: dict, image_hash: str, adset_ids: list, variants: list,
-                             form_id: str, url: str, titel: str, motion_prompt: str = "",
-                             duration_sec: int | None = None) -> tuple[str, list]:
-    """RESILIENT/GATED: maakt uit het KALE beeld één korte video (Higgsfield óf Kling) en bouwt
-    daaruit de video-advertentievarianten (5×) naast de foto-advertenties. De motion_prompt +
-    duur komen van de videoregisseur-agent; ontbreken ze, dan een veilige standaard. Faalt de
-    video-generatie of -upload, dan mag dat de foto-campagne NIET breken — we geven ('', []) terug
-    en gaan door. Retour: (video_id, lijst met video-ad-ids)."""
-    if not (higgsfield.beschikbaar() or kling.beschikbaar()):
-        return "", []
+def _beeld_url_voor_video(vacancy: dict) -> str:
+    """Publieke URL van het KALE beeld (Higgsfield haalt het zelf op): foto_url, anders de
+    Render-beeld-URL."""
+    beeld_url = vacancy.get("foto_url") or ""
+    raw_path = vacancy.get("beeld_raw_path")
+    if not beeld_url and raw_path and os.path.exists(raw_path) \
+            and os.path.dirname(os.path.abspath(raw_path)) == os.path.abspath(IMG_DIR):
+        beeld_url = f"{cfg.PUBLIC_BASE_URL}/beeld/{os.path.basename(raw_path)}"
+    return beeld_url
+
+
+def _pointer_schrijf(sf_id: str) -> None:
     try:
-        prompt = motion_prompt.strip() if motion_prompt and motion_prompt.strip() else (
-            f"Subtle, natural camera movement for a recruitment video: {titel}. Slow push-in, "
-            f"proud skilled worker keeps working calmly, keeps full safety equipment, "
-            f"photorealistic, stable. No morphing, no distorted hands or faces, no text, no logos.")
-        video_url = _genereer_campagne_video(vacancy, prompt, duration_sec=duration_sec)
-        if not video_url:
-            return "", []
-        video_id = meta.upload_video(video_url)
-        kosten.add_video(1)                     # één video, gedeeld over de varianten
-        video_ad_ids = []
-        for adset_id in adset_ids:
-            for i, v in enumerate(variants, 1):
-                video_ad_ids.append(meta.create_lead_video_ad(
-                    f"{titel} — video-variant {i}", adset_id, video_id, image_hash,
-                    v["headline"], v["primary_text"], v.get("description", ""),
-                    form_id, url, "SIGN_UP"))
-        print(f"[campagne-meta] {len(video_ad_ids)} video-advertentie(s) aangemaakt (PAUSED), video {video_id}")
-        return video_id, video_ad_ids
+        os.makedirs(VIDEO_JOBS_DIR, exist_ok=True)
+        with open(os.path.join(VIDEO_JOBS_DIR, f"{sf_id}.json"), "w") as f:
+            json.dump({"sf_id": sf_id, "ts": int(time.time())}, f)
     except Exception as e:
-        print(f"[campagne-meta] video-generatie/-advertenties overgeslagen (foto-campagne blijft intact): {e}")
-        return "", []
+        print(f"[video-async] pointer schrijven faalde (niet fataal): {e}")
+
+
+def _pointer_wis(sf_id: str) -> None:
+    try:
+        os.remove(os.path.join(VIDEO_JOBS_DIR, f"{sf_id}.json"))
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"[video-async] pointer wissen faalde: {e}")
+
+
+def _scan_pointers() -> list:
+    try:
+        return [f[:-5] for f in os.listdir(VIDEO_JOBS_DIR) if f.endswith(".json")]
+    except FileNotFoundError:
+        return []
+
+
+def _bewaar_build_sf(sf_id: str, build: dict) -> None:
+    """Schrijft de (bijgewerkte) build terug naar Tigris (Campagne_input__c)."""
+    if not sf_id or str(sf_id).startswith("DRYRUN") or not cfg.salesforce_ready():
+        return
+    try:
+        salesforce.update_record(sf_id, {"Campagne_input__c": json.dumps(build, ensure_ascii=False)})
+    except Exception as e:
+        print(f"[video-async] build terugschrijven faalde: {e}")
+
+
+def _video_job_bewaar(sf_id: str, job: dict) -> None:
+    """Zet/actualiseert het video_job-blok in de bewaarde build (persistent in Tigris)."""
+    build = _lees_campagne_build(sf_id) or {}
+    build["video_job"] = {**(build.get("video_job") or {}), **job}
+    _bewaar_build_sf(sf_id, build)
+
+
+def start_video_async(sf_id: str, vacancy: dict, motion_prompt: str = "",
+                      duration_sec: int | None = None) -> None:
+    """GATED + NON-BLOCKING: start (indien een provider aan staat) de video op de achtergrond,
+    zodat de goedkeur-mail meteen kan. Geen provider/bronbeeld → stil overslaan."""
+    if not (higgsfield.beschikbaar() or kling.beschikbaar()):
+        return
+    if not sf_id or str(sf_id).startswith("DRYRUN"):
+        print("[video-async] geen Tigris-record — video niet gestart (kan niet persistent bewaren)")
+        return
+    prompt = motion_prompt.strip() if (motion_prompt and motion_prompt.strip()) else _DEFAULT_MOTION
+    threading.Thread(target=_video_worker, args=(sf_id, dict(vacancy), prompt, duration_sec),
+                     daemon=True).start()
+
+
+def _video_worker(sf_id: str, vacancy: dict, prompt: str, duration_sec: int | None) -> None:
+    """Achtergrond: start de provider-taak, bewaar de id METEEN persistent, en rond daarna af."""
+    try:
+        if higgsfield.beschikbaar():
+            provider = "higgsfield"
+            beeld_url = _beeld_url_voor_video(vacancy)
+            if not beeld_url:
+                print("[video-async] geen publieke beeld-URL — video overgeslagen")
+                return
+            job_id = higgsfield.start_job(beeld_url, prompt, duration_sec=duration_sec)
+        elif kling.beschikbaar():
+            provider = "kling"
+            raw_path = vacancy.get("beeld_raw_path")
+            if not (raw_path and os.path.exists(raw_path)):
+                print("[video-async] geen kaal beeld — video overgeslagen")
+                return
+            with open(raw_path, "rb") as f:
+                job_id = kling.start_job(f.read(), prompt, duration_sec=duration_sec)
+        else:
+            return
+        # Taak-id METEEN persistent bewaren (Tigris + pointer) — nu is de betaalde taak veilig.
+        _video_job_bewaar(sf_id, {"status": "BEZIG", "provider": provider, "job_id": job_id})
+        _pointer_schrijf(sf_id)
+        print(f"[video-async] taak gestart en bewaard ({provider}:{job_id}) voor {sf_id}")
+        _video_afronden(sf_id, provider, job_id)
+    except Exception as e:
+        print(f"[video-async] starten faalde (foto-campagne blijft intact): {e}")
+
+
+def _video_afronden(sf_id: str, provider: str, job_id: str) -> None:
+    """Wacht tot de video klaar is, sla haar PERSISTENT op in Salesforce, upload naar Meta en
+    bouw de 5 video-advertenties op de bestaande campagne. Herbruikbaar om een bewaarde taak te
+    HERVATTEN (zelfde job_id → geen nieuwe, betaalde generatie)."""
+    try:
+        video_url = higgsfield.poll_job(job_id) if provider == "higgsfield" else kling.poll_job(job_id)
+        # 1) Video PERSISTENT opslaan in Salesforce (login-vrij) — zo raakt ze nooit kwijt,
+        #    ook als de provider-URL later verloopt of Meta-upload faalt.
+        bewaard_url = ""
+        try:
+            r = requests.get(video_url, timeout=180)
+            if r.ok and r.content:
+                bewaard_url = salesforce.upload_public_bestand(r.content, f"VIF-video-{sf_id}", "video.mp4")
+        except Exception as de:
+            print(f"[video-async] video downloaden/bewaren faalde (val terug op provider-URL): {de}")
+        _video_job_bewaar(sf_id, {"status": "KLAAR_BRON", "video_url": video_url, "bewaard_url": bewaard_url})
+
+        # 2) Naar Meta + 5 video-advertenties op de bestaande adsets/form.
+        build = _lees_campagne_build(sf_id) or {}
+        video_id = meta.upload_video(bewaard_url or video_url)
+        nieuwe_ads = []
+        for adset_id in build.get("adset_ids", []):
+            for i, v in enumerate(build.get("variants", []), 1):
+                nieuwe_ads.append(meta.create_lead_video_ad(
+                    f"{build.get('titel', '')} — video-variant {i}", adset_id, video_id,
+                    build.get("image_hash"), v["headline"], v["primary_text"],
+                    v.get("description", ""), build.get("form_id"), build.get("url"),
+                    build.get("cta", "SIGN_UP")))
+        # 3) Build bijwerken (video_id + ad_ids), zodat het App-Id-vangnet bij goedkeuring de
+        #    video-ads meeneemt en de campagne compleet is.
+        build["video_id"] = video_id
+        build["ad_ids"] = (build.get("ad_ids") or []) + nieuwe_ads
+        build["n_video_ads"] = len(nieuwe_ads)
+        build["video_job"] = {**(build.get("video_job") or {}), "status": "KLAAR",
+                              "provider": provider, "job_id": job_id, "video_url": video_url,
+                              "bewaard_url": bewaard_url, "video_id": video_id}
+        _bewaar_build_sf(sf_id, build)
+        _pointer_wis(sf_id)
+        print(f"[video-async] KLAAR — video {video_id}, {len(nieuwe_ads)} video-advertentie(s); "
+              f"persistent bewaard: {bewaard_url or '(provider-URL)'}")
+    except Exception as e:
+        print(f"[video-async] afronden faalde (blijft herstart-baar via /video-hervat): {e}")
+        _video_job_bewaar(sf_id, {"status": "ONVOLTOOID", "provider": provider, "job_id": job_id,
+                                  "fout": str(e)[:300]})
+        # Pointer NIET wissen — zo pikt de hervat-scan (of /video-hervat) 'm later op.
+
+
+def hervat_video(sf_id: str) -> dict:
+    """Hervat een bewaarde, nog niet afgeronde video-taak vanaf de opgeslagen job_id — ZONDER
+    nieuwe (betaalde) generatie. Voor herstart-herstel en handmatig /video-hervat."""
+    build = _lees_campagne_build(sf_id)
+    vj = (build or {}).get("video_job") or {}
+    if vj.get("status") == "KLAAR":
+        _pointer_wis(sf_id)
+        return {"sf_id": sf_id, "status": "al_klaar"}
+    job_id, provider = vj.get("job_id"), vj.get("provider")
+    if not job_id or not provider:
+        _pointer_wis(sf_id)
+        return {"sf_id": sf_id, "status": "geen_taak"}
+    print(f"[video-async] hervat {provider}:{job_id} voor {sf_id}")
+    _video_afronden(sf_id, provider, job_id)
+    return {"sf_id": sf_id, "status": "hervat"}
+
+
+def hervat_openstaande_videos() -> list:
+    """Scan de pointers en hervat elke openstaande video-taak (bv. na een herstart)."""
+    uit = []
+    for sf_id in _scan_pointers():
+        try:
+            uit.append(hervat_video(sf_id))
+        except Exception as e:
+            print(f"[video-async] hervatten faalde voor {sf_id}: {e}")
+            uit.append({"sf_id": sf_id, "status": f"fout: {str(e)[:120]}"})
+    return uit
 
 
 def _bewaar_campagne_build(vacancy: dict, build: dict) -> None:
@@ -1078,6 +1215,11 @@ def _send_mail(record: dict) -> None:
     varianten_html = "".join(
         "<p style='margin:0 0 8px'><b>Variant {}:</b> {}</p>".format(i + 1, t)
         for i, t in enumerate(plan.get("alle_varianten") or [plan.get("primary_text", "")]))
+    video_html = ("<div style='background:#FFF3EA;border-radius:6px;padding:10px 14px;font-size:12px;"
+                  "margin-bottom:16px;color:#8a4300'><b>Video in productie:</b> de videoregisseur maakt "
+                  "op de achtergrond een korte video (≤8s) uit het beeld. Zodra die klaar is, worden er "
+                  "automatisch 5 video-advertenties aan deze campagne toegevoegd — je hoeft niets te doen."
+                  "</div>") if plan.get("video_komt") else ""
     _inner_goedkeur = f"""<tr><td style="padding:24px">
 <h2 style="margin:0 0 4px;font-size:22px;line-height:1.25">{plan['headline']}</h2>
 <p style="color:#69696A;font-size:13px;margin:0 0 6px">Vacature <b>{v['titel']}</b> gepubliceerd in Tigris. Beeld + Meta-campagne staan klaar (PAUSED).</p>
@@ -1088,6 +1230,7 @@ def _send_mail(record: dict) -> None:
 {advies_html}
 {budget_html}
 {leadkoppeling_html}
+{video_html}
 {kosten_html}
 {meta_html}
 {warn_html}

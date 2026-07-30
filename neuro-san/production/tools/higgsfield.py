@@ -46,7 +46,16 @@ def _headers() -> dict:
 def maak_video(image_url: str, prompt: str = "", duration_sec: int | None = None) -> str:
     """Genereert één video (image-to-video) uit het publieke beeld-URL en geeft de video-URL
     terug. Blokkeert tot de video klaar is (of tot HIGGSFIELD_WACHT_SEC). Raiset bij een fout.
-    duration_sec (van de videoregisseur, max 8) stuurt de duur; None → modelstandaard."""
+    Convenience-wrapper rond start_job()+poll_job(); voor de async/persistente flow gebruik je
+    die twee los, zodat de request-id bewaard kan worden vóór het pollen."""
+    request_id = start_job(image_url, prompt, duration_sec)
+    return poll_job(request_id)
+
+
+def start_job(image_url: str, prompt: str = "", duration_sec: int | None = None) -> str:
+    """START een image-to-video-taak en geeft de request-id terug (NIET wachten). Zo kan de
+    aanroeper de id meteen persistent bewaren — een betaalde taak raakt dan nooit kwijt.
+    Geeft de taak direct een video terug, dan is de retour 'DIRECT:<url>'."""
     if not image_url:
         raise RuntimeError("Higgsfield: geen (publieke) beeld-URL om video van te maken")
     # Higgsfield verwacht de generatieparameters verpakt in een 'params'-object (de API gaf
@@ -65,37 +74,54 @@ def maak_video(image_url: str, prompt: str = "", duration_sec: int | None = None
     if not r.ok:
         raise RuntimeError(f"Higgsfield image2video fout: {r.status_code} {r.text[:300]}")
     data = r.json() or {}
-    # Sommige responses geven direct de video terug; anders een request_id om te pollen.
     direct = _video_url_uit(data)
     if direct:
         print(f"[higgsfield] video direct klaar: {direct}")
-        return direct
+        return f"DIRECT:{direct}"
     request_id = data.get("request_id") or data.get("id")
     if not request_id:
         raise RuntimeError(f"Higgsfield gaf geen request_id: {r.text[:300]}")
     print(f"[higgsfield] video-taak gestart ({request_id}) — model {cfg.HIGGSFIELD_MODEL}")
+    return str(request_id)
 
-    eind = time.time() + cfg.HIGGSFIELD_WACHT_SEC
+def poll_job(request_id: str, wacht_sec: int | None = None) -> str:
+    """WACHT tot de (al gestarte) taak klaar is en geeft de video-URL terug. Raiset bij fout/
+    timeout. request_id 'DIRECT:<url>' → meteen die URL. Herbruikbaar om een bewaarde taak te
+    hervatten (na een herstart) zonder nieuwe — en dus betaalde — generatie."""
+    if request_id.startswith("DIRECT:"):
+        return request_id[len("DIRECT:"):]
+    wacht = wacht_sec or cfg.HIGGSFIELD_WACHT_SEC
+    eind = time.time() + wacht
+    laatste_status, laatste_body, volgende_log = "", "", 0.0
     while time.time() < eind:
         time.sleep(5)
         try:
             g = requests.get(f"{cfg.HIGGSFIELD_API_BASE}/requests/{request_id}/status",
                              headers={"Authorization": f"Key {_credentials()}"}, timeout=30)
             if not g.ok:
+                laatste_body = f"{g.status_code} {g.text[:200]}"
                 continue
             gd = g.json() or {}
-            status = str(gd.get("status", "")).lower()
-            if status in ("completed", "success", "succeeded", "succeed"):
-                url = _video_url_uit(gd)
+            kern = gd.get("data") if isinstance(gd.get("data"), dict) else gd   # soms genest in 'data'
+            status = str(kern.get("status") or gd.get("status") or "").lower()
+            laatste_status, laatste_body = status, str(gd)[:300]
+            # Diagnostiek: elke ~30s de actuele status loggen, zodat 'traag' vs 'niet-herkend'
+            # zichtbaar wordt in plaats van een blinde timeout.
+            if time.time() >= volgende_log:
+                print(f"[higgsfield] status: {status or '(leeg)'} — {str(gd)[:200]}")
+                volgende_log = time.time() + 30
+            if status in ("completed", "complete", "success", "succeeded", "succeed", "done", "finished", "ready"):
+                url = _video_url_uit(kern) or _video_url_uit(gd)
                 if url:
                     print(f"[higgsfield] video klaar: {url}")
                     return url
-                raise RuntimeError("Higgsfield: status 'completed' maar geen video-URL")
-            if status in ("failed", "error", "canceled", "cancelled"):
-                raise RuntimeError(f"Higgsfield video mislukt: {gd.get('error') or status}")
+                raise RuntimeError(f"Higgsfield: status '{status}' maar geen video-URL — {str(gd)[:300]}")
+            if status in ("failed", "error", "canceled", "cancelled", "nsfw", "rejected"):
+                raise RuntimeError(f"Higgsfield video mislukt ({status}): {kern.get('error') or gd.get('error') or ''}")
         except requests.RequestException as e:
             print(f"[higgsfield] poll-fout (nog even door): {e}")
-    raise RuntimeError(f"Higgsfield video niet klaar binnen {cfg.HIGGSFIELD_WACHT_SEC}s")
+    raise RuntimeError(f"Higgsfield video niet klaar binnen {wacht}s "
+                       f"(laatste status: {laatste_status or '(nooit gezien)'}; laatste respons: {laatste_body})")
 
 
 def _video_url_uit(d: dict) -> str:
