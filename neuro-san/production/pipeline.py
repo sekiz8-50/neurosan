@@ -219,6 +219,7 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
             if video_komt:
                 kosten.add_video(1)
             _bewaar_campagne_build(vacancy, {"image_hash": image_hash, "adset_ids": adset_ids,
+                                             "campaign_id": campaign_id,
                                              "form_id": form_id, "ad_ids": ad_ids, "ads_created": True,
                                              "variants": variants, "cta": "SIGN_UP",
                                              "url": vacancy["url"], "titel": vacancy["titel"],
@@ -301,6 +302,24 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
 # Pas als de video ECHT klaar is, wordt ze persistent opgeslagen in Salesforce en worden de
 # 5 video-advertenties op de al bestaande campagne gebouwd.
 VIDEO_JOBS_DIR = os.path.join(os.path.dirname(__file__), "data", "video_jobs")
+
+# Verwerkings-guard: welke vacatures worden op dit moment (in dit proces) verwerkt, zodat de
+# periodieke hervat-scan een baan die nog door zijn eigen worker loopt niet dubbel oppakt.
+_video_lock = threading.Lock()
+_video_bezig: set = set()
+
+
+def _video_claim(sf_id: str) -> bool:
+    with _video_lock:
+        if sf_id in _video_bezig:
+            return False
+        _video_bezig.add(sf_id)
+        return True
+
+
+def _video_release(sf_id: str) -> None:
+    with _video_lock:
+        _video_bezig.discard(sf_id)
 
 _DEFAULT_MOTION = (
     "Subtle, natural camera movement for a recruitment video. Slow push-in, proud skilled "
@@ -407,7 +426,13 @@ def _video_worker(sf_id: str, vacancy: dict, prompt: str, duration_sec: int | No
 def _video_afronden(sf_id: str, provider: str, job_id: str) -> None:
     """Wacht tot de video klaar is, sla haar PERSISTENT op in Salesforce, upload naar Meta en
     bouw de 5 video-advertenties op de bestaande campagne. Herbruikbaar om een bewaarde taak te
-    HERVATTEN (zelfde job_id → geen nieuwe, betaalde generatie)."""
+    HERVATTEN (zelfde job_id → geen nieuwe, betaalde generatie).
+
+    GUARD: dezelfde vacature wordt nooit tegelijk door de originele worker én de periodieke
+    hervat-scan verwerkt (zou dubbele video-ads geven)."""
+    if not _video_claim(sf_id):
+        print(f"[video-async] {sf_id} wordt al verwerkt — deze poging overgeslagen")
+        return
     try:
         video_url = higgsfield.poll_job(job_id) if provider == "higgsfield" else kling.poll_job(job_id)
         # 1) Video PERSISTENT opslaan in Salesforce (login-vrij) — zo raakt ze nooit kwijt,
@@ -434,12 +459,27 @@ def _video_afronden(sf_id: str, provider: str, job_id: str) -> None:
                     build.get("cta", "SIGN_UP")))
         # 3) Build bijwerken (video_id + ad_ids), zodat het App-Id-vangnet bij goedkeuring de
         #    video-ads meeneemt en de campagne compleet is.
+        # 2b) Staat de campagne al ACTIEF (marketing zette 'm online vóórdat de video klaar was)?
+        #     Activeer dan ook deze late video-ads, zodat je er nooit aan hoeft te denken.
+        actief = False
+        try:
+            if nieuwe_ads and meta.campagne_actief(build.get("campaign_id", "")):
+                for ad in nieuwe_ads:
+                    meta.set_status(ad, "ACTIVE")
+                actief = True
+                print(f"[video-async] campagne stond al actief → {len(nieuwe_ads)} video-ad(s) mee-geactiveerd")
+        except Exception as ae:
+            print(f"[video-async] late video-ads activeren faalde (blijven PAUSED): {ae}")
+
+        # 3) Build bijwerken (video_id + ad_ids), zodat het App-Id-vangnet bij goedkeuring de
+        #    video-ads meeneemt en de campagne compleet is.
         build["video_id"] = video_id
         build["ad_ids"] = (build.get("ad_ids") or []) + nieuwe_ads
         build["n_video_ads"] = len(nieuwe_ads)
         build["video_job"] = {**(build.get("video_job") or {}), "status": "KLAAR",
                               "provider": provider, "job_id": job_id, "video_url": video_url,
-                              "bewaard_url": bewaard_url, "video_id": video_id}
+                              "bewaard_url": bewaard_url, "video_id": video_id,
+                              "video_ads_actief": actief}
         _bewaar_build_sf(sf_id, build)
         _pointer_wis(sf_id)
         print(f"[video-async] KLAAR — video {video_id}, {len(nieuwe_ads)} video-advertentie(s); "
@@ -449,6 +489,8 @@ def _video_afronden(sf_id: str, provider: str, job_id: str) -> None:
         _video_job_bewaar(sf_id, {"status": "ONVOLTOOID", "provider": provider, "job_id": job_id,
                                   "fout": str(e)[:300]})
         # Pointer NIET wissen — zo pikt de hervat-scan (of /video-hervat) 'm later op.
+    finally:
+        _video_release(sf_id)
 
 
 def hervat_video(sf_id: str) -> dict:
@@ -478,6 +520,32 @@ def hervat_openstaande_videos() -> list:
             print(f"[video-async] hervatten faalde voor {sf_id}: {e}")
             uit.append({"sf_id": sf_id, "status": f"fout: {str(e)[:120]}"})
     return uit
+
+
+_scheduler_gestart = False
+
+
+def start_video_scheduler() -> None:
+    """Periodiek veiligheidsnet: hervat elke VIDEO_HERVAT_INTERVAL_SEC de openstaande, al betaalde
+    video-taken, zodat /video-hervat nooit handmatig hoeft. Draait één keer per proces (idempotent)."""
+    global _scheduler_gestart
+    if _scheduler_gestart or cfg.VIDEO_HERVAT_INTERVAL_SEC <= 0:
+        return
+    _scheduler_gestart = True
+
+    def _loop():
+        while True:
+            time.sleep(cfg.VIDEO_HERVAT_INTERVAL_SEC)
+            try:
+                verwerkt = [r for r in hervat_openstaande_videos()
+                            if r.get("status") not in ("al_klaar", "geen_taak")]
+                if verwerkt:
+                    print(f"[video-async] periodieke hervat-scan verwerkte: {verwerkt}")
+            except Exception as e:
+                print(f"[video-async] periodieke hervat-scan faalde: {e}")
+
+    threading.Thread(target=_loop, daemon=True).start()
+    print(f"[video-async] periodieke hervat-scan actief (elke {cfg.VIDEO_HERVAT_INTERVAL_SEC}s)")
 
 
 def _bewaar_campagne_build(vacancy: dict, build: dict) -> None:

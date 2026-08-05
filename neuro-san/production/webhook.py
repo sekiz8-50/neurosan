@@ -797,12 +797,13 @@ def video_hervat(token: str = "", sf: str = ""):
 
 @app.on_event("startup")
 def _startup_hervat_videos():
-    """Na een (her)start: openstaande, al betaalde video-taken automatisch hervatten, zodat
-    een video die tijdens een herstart nog liep alsnog wordt opgehaald en toegevoegd."""
+    """Na een (her)start: openstaande, al betaalde video-taken automatisch hervatten (eenmalig),
+    en het periodieke veiligheidsnet starten zodat /video-hervat nooit handmatig hoeft."""
     try:
         threading.Thread(target=pipeline.hervat_openstaande_videos, daemon=True).start()
+        pipeline.start_video_scheduler()
     except Exception as e:
-        print(f"[startup] video-hervat-scan starten faalde: {e}")
+        print(f"[startup] video-hervat starten faalde: {e}")
 
 
 @app.get("/reject")
