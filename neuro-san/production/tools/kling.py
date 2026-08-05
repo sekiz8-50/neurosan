@@ -56,10 +56,14 @@ def _headers() -> dict:
 
 
 def maak_video(image_bytes: bytes, prompt: str = "", duration_sec: int | None = None) -> str:
-    """Genereert één video (image-to-video) uit het beeld en geeft de video-URL terug.
-    Blokkeert tot de video klaar is (of tot KLING_WACHT_SEC). Raiset bij een fout.
-    duration_sec (van de videoregisseur, max 8) stuurt de duur; Kling ondersteunt alleen 5 of 10,
-    dus ≤8 → '5'. None → de geconfigureerde standaard (KLING_DURATION)."""
+    """Convenience-wrapper: start_job()+poll_job(). Voor de async/persistente flow gebruik je
+    die twee los, zodat de task-id bewaard kan worden vóór het pollen."""
+    return poll_job(start_job(image_bytes, prompt, duration_sec))
+
+
+def start_job(image_bytes: bytes, prompt: str = "", duration_sec: int | None = None) -> str:
+    """START een image-to-video-taak en geeft de task-id terug (NIET wachten). duration_sec
+    (max 8) → Kling ondersteunt 5 of 10, dus ≤8 → '5'; None → KLING_DURATION."""
     duur = "5" if (duration_sec and 0 < duration_sec <= 8) else str(cfg.KLING_DURATION)
     body = {
         "model_name": cfg.KLING_MODEL,
@@ -76,9 +80,15 @@ def maak_video(image_bytes: bytes, prompt: str = "", duration_sec: int | None = 
     task_id = data.get("task_id")
     if not task_id:
         raise RuntimeError(f"Kling gaf geen task_id: {r.text[:300]}")
-    print(f"[kling] video-taak gestart ({task_id}) — model {cfg.KLING_MODEL}, {cfg.KLING_DURATION}s")
+    print(f"[kling] video-taak gestart ({task_id}) — model {cfg.KLING_MODEL}, {duur}s")
+    return str(task_id)
 
-    eind = time.time() + cfg.KLING_WACHT_SEC
+
+def poll_job(task_id: str, wacht_sec: int | None = None) -> str:
+    """WACHT tot de (al gestarte) taak klaar is en geeft de video-URL terug. Herbruikbaar om
+    een bewaarde taak te hervatten zonder nieuwe — betaalde — generatie."""
+    wacht = wacht_sec or cfg.KLING_WACHT_SEC
+    eind = time.time() + wacht
     while time.time() < eind:
         time.sleep(10)
         try:
@@ -99,4 +109,4 @@ def maak_video(image_bytes: bytes, prompt: str = "", duration_sec: int | None = 
                 raise RuntimeError(f"Kling video mislukt: {gd.get('task_status_msg', '')}")
         except requests.RequestException as e:
             print(f"[kling] poll-fout (nog even door): {e}")
-    raise RuntimeError(f"Kling video niet klaar binnen {cfg.KLING_WACHT_SEC}s")
+    raise RuntimeError(f"Kling video niet klaar binnen {wacht}s")

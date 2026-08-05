@@ -778,6 +778,33 @@ def leadforms(token: str = ""):
             "formulieren": forms}
 
 
+@app.get("/video-hervat")
+def video_hervat(token: str = "", sf: str = ""):
+    """Hervat een openstaande (al betaalde) video-taak ZONDER nieuwe generatie — voor herstel
+    na een herstart of als een video-taak bleef hangen. De taak wordt hervat vanaf de bewaarde
+    provider-taak-id, dus er worden geen nieuwe credits verbruikt.
+    /video-hervat?token=<secret>          → scan + hervat alle openstaande
+    /video-hervat?token=<secret>&sf=<id>  → hervat één specifiek Tigris-record"""
+    if token.strip() != cfg.TIGRIS_SHARED_SECRET:
+        raise HTTPException(401, "Ongeldige TIGRIS_SHARED_SECRET")
+    if sf.strip():
+        threading.Thread(target=pipeline.hervat_video, args=(sf.strip(),), daemon=True).start()
+        return {"status": "hervat_gestart", "sf_id": sf.strip()}
+    openstaand = pipeline._scan_pointers()
+    threading.Thread(target=pipeline.hervat_openstaande_videos, daemon=True).start()
+    return {"status": "scan_gestart", "openstaande_taken": openstaand}
+
+
+@app.on_event("startup")
+def _startup_hervat_videos():
+    """Na een (her)start: openstaande, al betaalde video-taken automatisch hervatten, zodat
+    een video die tijdens een herstart nog liep alsnog wordt opgehaald en toegevoegd."""
+    try:
+        threading.Thread(target=pipeline.hervat_openstaande_videos, daemon=True).start()
+    except Exception as e:
+        print(f"[startup] video-hervat-scan starten faalde: {e}")
+
+
 @app.get("/reject")
 def reject(campaign: str, token: str, sf: str = "", h: str = ""):
     if not store.verify(campaign, "reject", token, sf, h):

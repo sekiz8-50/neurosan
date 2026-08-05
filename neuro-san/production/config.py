@@ -126,7 +126,9 @@ class Config:
     HIGGSFIELD_API_SECRET = _opt("HIGGSFIELD_API_SECRET")
     HIGGSFIELD_API_BASE = _opt("HIGGSFIELD_API_BASE", "https://platform.higgsfield.ai").rstrip("/")
     HIGGSFIELD_MODEL = _opt("HIGGSFIELD_MODEL", "dop-turbo")   # dop-turbo (snel) of dop-lite
-    HIGGSFIELD_WACHT_SEC = int(_opt("HIGGSFIELD_WACHT_SEC", "300") or "300")  # max wachttijd
+    # Async worker wacht op de video (blokkeert de mail NIET meer), dus ruim; het uitzonderlijke
+    # geval erna wordt door de pointer + /video-hervat opgevangen (zonder nieuwe kosten).
+    HIGGSFIELD_WACHT_SEC = int(_opt("HIGGSFIELD_WACHT_SEC", "900") or "900")  # max wachttijd (15 min)
 
     # Het ingebouwde Claude-brein (11 agents, claude_agents.py) — standaard AAN
     # zodra er een ANTHROPIC_API_KEY is. Zet CLAUDE_BRAIN=0 om terug te vallen
