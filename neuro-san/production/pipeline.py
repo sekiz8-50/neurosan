@@ -662,6 +662,107 @@ def _scrub_output_links(vac: dict, plan: dict | None) -> None:
                         v[veld] = beveiliging.scrub_links(v[veld])
 
 
+# Overname-/1040-uur-clausule: het getal 1040/1.040 sámen met een uren-context, óf een
+# overname-/overgenomen-term. Zo raken we de clausule en niet een toevallig ander getal.
+_CLAUSULE_1040 = re.compile(r"1\.?040\s*(?:gewerkte\s*)?ur|overname|overgenomen", re.I)
+
+
+def _strip_clausule(tekst: str) -> str:
+    """Verwijder bullets én zinnen die de overname/1040-uur-clausule bevatten uit een tekstblok."""
+    uit = []
+    for ln in str(tekst).splitlines():
+        s = ln.strip()
+        if s.startswith(("-", "*", "•")):
+            if _CLAUSULE_1040.search(s):
+                continue                                  # hele bullet weg
+            uit.append(ln)
+        elif s:
+            zinnen = re.split(r"(?<=[.!?])\s+", ln)
+            behouden = [z for z in zinnen if not _CLAUSULE_1040.search(z)]
+            uit.append(" ".join(behouden).strip())
+        else:
+            uit.append(ln)
+    return "\n".join(uit)
+
+
+def _verwijder_overname_1040(vac: dict, plan: dict | None = None) -> None:
+    """CODE-BACKSTOP (regel 1): de overname-/'1040 uur'-clausule mag NOOIT in publieke tekst —
+    verwijder 'm uit omschrijving, teaser, FAQ en de advertentievarianten, ongeacht wat het
+    model schreef."""
+    veranderd = False
+    oms = vac.get("omschrijving")
+    if isinstance(oms, dict):
+        for k, v in list(oms.items()):
+            nieuw = _strip_clausule(v)
+            if nieuw != v:
+                oms[k], veranderd = nieuw, True
+    elif isinstance(oms, str):
+        nieuw = _strip_clausule(oms)
+        if nieuw != oms:
+            vac["omschrijving"], veranderd = nieuw, True
+    if vac.get("quote") and _CLAUSULE_1040.search(str(vac["quote"])):
+        vac["quote"], veranderd = "", True
+    faq = vac.get("faq")
+    if isinstance(faq, list):
+        schoon = [f for f in faq if not _CLAUSULE_1040.search(
+            f"{f.get('vraag', '')} {f.get('antwoord', '')}" if isinstance(f, dict) else str(f))]
+        if len(schoon) != len(faq):
+            vac["faq"], veranderd = schoon, True
+    if isinstance(plan, dict):
+        for v in plan.get("variants", []) or []:
+            if isinstance(v, dict):
+                for veld in ("headline", "primary_text", "description"):
+                    if v.get(veld) and _CLAUSULE_1040.search(str(v[veld])):
+                        v[veld], veranderd = _strip_clausule(v[veld]).replace("\n", " ").strip(), True
+    if veranderd:
+        print("[dirigent] overname/1040-uur-clausule uit de publieke tekst verwijderd (backstop)")
+
+
+def _salaris_zin(vac: dict) -> str:
+    """Bouwt de salaris-zin uit de vacaturevelden (bedragen; anders de CAO). Leeg als niets bekend."""
+    mn, mx = vac.get("salaris_min"), vac.get("salaris_max")
+    per = str(vac.get("salaris_per") or "Maand (bruto)").lower()
+    periode = "bruto per uur" if ("uur" in per and "maand" not in per) else "bruto per maand"
+
+    def eur(n):
+        return "€ " + f"{int(n):,}".replace(",", ".")
+    if mn:
+        try:
+            if mx and int(mx) != int(mn):
+                return f"Een salaris van {eur(mn)} tot {eur(mx)} {periode}"
+            return f"Een salaris van {eur(mn)} {periode}"
+        except (TypeError, ValueError):
+            pass
+    cao = vac.get("cao") or vac.get("cao_inschaling") or vac.get("cao_naam")
+    return f"Een marktconform salaris volgens de {cao}" if cao else ""
+
+
+def _verzeker_salaris(vac: dict) -> None:
+    """CODE-BACKSTOP (regel 2): het salaris moet ALTIJD in de vacaturetekst staan. Ontbreekt het,
+    injecteer het als eerste bullet van het aanbod-blok."""
+    oms = vac.get("omschrijving")
+    if not isinstance(oms, dict):
+        return
+    zin = _salaris_zin(vac)
+    if not zin:
+        return
+    plat = " ".join(str(v) for v in oms.values())
+    plat_digits = re.sub(r"[.\s]", "", plat.lower())
+    mn = vac.get("salaris_min")
+    aanwezig = False
+    if mn:
+        aanwezig = str(int(mn)) in plat_digits
+    if not aanwezig and ("salaris" in plat.lower() or "cao" in plat.lower()):
+        aanwezig = True
+    if aanwezig:
+        return
+    key = "wat_kun_je_van_ons_verwachten"
+    bestaand = str(oms.get(key, "")).strip()
+    oms[key] = (f"- {zin}" + ("\n" + bestaand if bestaand else "")).strip()
+    vac["omschrijving"] = oms
+    print("[dirigent] salaris ontbrak in de tekst → als eerste aanbod-bullet toegevoegd (backstop)")
+
+
 def _mail_kop(titel_regel: str) -> str:
     return ('<tr><td style="background:#000000;padding:18px 24px">'
             '<span style="color:#FF7D2F;font-weight:800;font-size:18px">MAINTEC</span>'
@@ -1014,6 +1115,9 @@ def run_vif(docx_path: str, uploader_email: str = "", uploader_naam: str = "",
     #     (2) alleen eigen domeinen in publiceerbare links (LLM-output saneren).
     _scrub_opdrachtgever(vac, plan)
     _scrub_output_links(vac, plan)
+    # (3) HARDE protocolregels: nooit de overname/1040-uur-clausule; salaris ALTIJD in de tekst.
+    _verwijder_overname_1040(vac, plan)
+    _verzeker_salaris(vac)
 
     # 6. ATS-administrateur — record in Tigris/Salesforce (dry-run zonder creds)
     if recruiter_id:
