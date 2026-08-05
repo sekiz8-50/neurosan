@@ -129,6 +129,9 @@ class Config:
     # Async worker wacht op de video (blokkeert de mail NIET meer), dus ruim; het uitzonderlijke
     # geval erna wordt door de pointer + /video-hervat opgevangen (zonder nieuwe kosten).
     HIGGSFIELD_WACHT_SEC = int(_opt("HIGGSFIELD_WACHT_SEC", "900") or "900")  # max wachttijd (15 min)
+    # Periodiek veiligheidsnet: hoe vaak (sec) openstaande, al betaalde video-taken automatisch
+    # hervat worden zodat /video-hervat nooit handmatig hoeft. 0 = uit. Standaard elk uur.
+    VIDEO_HERVAT_INTERVAL_SEC = int(_opt("VIDEO_HERVAT_INTERVAL_SEC", "3600") or "3600")
 
     # Het ingebouwde Claude-brein (11 agents, claude_agents.py) — standaard AAN
     # zodra er een ANTHROPIC_API_KEY is. Zet CLAUDE_BRAIN=0 om terug te vallen

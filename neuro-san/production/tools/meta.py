@@ -89,6 +89,20 @@ def activate_all(campaign_id: str, app_id: str | None = None) -> dict:
             "verified": str(effectief).upper() in ("ACTIVE", "PENDING_REVIEW", "IN_PROCESS")}
 
 
+def campagne_actief(campaign_id: str) -> bool:
+    """True als de campagne bij Meta al loopt (ACTIVE/PENDING_REVIEW/IN_PROCESS). Dan moeten
+    later toegevoegde video-advertenties óók geactiveerd worden om mee te draaien."""
+    if not campaign_id:
+        return False
+    try:
+        terug = _get(campaign_id, {"fields": "status,effective_status"})
+        s = str(terug.get("effective_status") or terug.get("status") or "").upper()
+        return s in ("ACTIVE", "PENDING_REVIEW", "IN_PROCESS")
+    except Exception as e:
+        print(f"[campagne-meta] campagne-status lezen faalde: {e}")
+        return False
+
+
 def upload_image(image_path: str) -> str:
     """Upload beeld naar het ad-account, geeft de image_hash terug."""
     with open(image_path, "rb") as f:
