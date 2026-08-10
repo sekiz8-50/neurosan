@@ -89,7 +89,10 @@ def copywriter(vacancy: dict, brand: str, feedback: str = "") -> dict:
     sys = (f"Je bent senior recruitment-copywriter.\n{brand}\n"
            "Lever 2 advertentievarianten voor Meta (Facebook/Instagram). Geen leeftijd/"
            "geslacht noemen (Meta EMPLOYMENT-regels). Sterke eerste zin die scrollen stopt. "
-           "Concreet maken (vast contract, regio, doorgroei). JSON: "
+           "Concreet maken (vast contract, regio, doorgroei). "
+           "SALARIS IN ADVERTENTIES: noem het salaris ALLEEN als aantrekkelijke BOVENGRENS "
+           "('tot € X per maand') — NOOIT de ondergrens ('vanaf') of een van-tot-range. De "
+           "bovengrens triggert de doelgroep om te solliciteren. JSON: "
            '{"variants":[{"headline":"","primary_text":"","description":""}],"cta":"APPLY_NOW"}.')
     user = f"Vacature:\n{json.dumps(vacancy, ensure_ascii=False)}"
     if feedback:
