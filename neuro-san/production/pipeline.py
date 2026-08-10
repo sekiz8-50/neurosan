@@ -1392,6 +1392,18 @@ def _send_mail(record: dict) -> None:
                   "op de achtergrond een korte video (≤8s) uit het beeld. Zodra die klaar is, worden er "
                   "automatisch 5 video-advertenties aan deze campagne toegevoegd — je hoeft niets te doen."
                   "</div>") if plan.get("video_komt") else ""
+    # Voorwaardelijke logica op het leadformulier is een Ads Manager-functie (niet via de API te
+    # zetten) — dus 1 handmatige stap voor Djimon, hier expliciet uitgelegd.
+    formulier_instructie_html = (
+        "<div style='background:#EAF3FF;border-radius:6px;padding:12px 14px;font-size:12px;"
+        "margin-bottom:16px;color:#14457a'><b>Leadformulier — 1 handmatige stap (voorwaardelijke "
+        "logica):</b><br>De 2 kwalificatievragen staan al in het formulier. Zet ze in Meta op "
+        "<b>voorwaardelijke logica</b>:<br>"
+        "• <b>Beheers jij de Nederlandse taal?</b> — Ja → door · Nee → eindpagina voor niet-leads<br>"
+        "• <b>Rijbewijs (personenauto)?</b> — Ja → door · Nee → eindpagina voor niet-leads<br>"
+        "Eindpagina voor niet-leads: knoptekst invullen en link op <b>www.maintec.nl</b> zetten. "
+        "Zo filter je niet-passende sollicitanten er meteen uit. (Vragen, bedankscherm voor leads "
+        "en App Id staan al goed.)</div>")
     _inner_goedkeur = f"""<tr><td style="padding:24px">
 <h2 style="margin:0 0 4px;font-size:22px;line-height:1.25">{plan['headline']}</h2>
 <p style="color:#69696A;font-size:13px;margin:0 0 6px">Vacature <b>{v['titel']}</b> gepubliceerd in Tigris. Beeld + Meta-campagne staan klaar (PAUSED).</p>
@@ -1402,6 +1414,7 @@ def _send_mail(record: dict) -> None:
 {advies_html}
 {budget_html}
 {leadkoppeling_html}
+{formulier_instructie_html}
 {video_html}
 {kosten_html}
 {meta_html}

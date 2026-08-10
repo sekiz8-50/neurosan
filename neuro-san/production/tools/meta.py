@@ -219,9 +219,19 @@ def create_lead_form(name: str, app_id: str | None = None, privacy_url: str | No
         "privacy_policy": json.dumps({"url": privacy_url, "link_text": "Privacybeleid"}),
         "follow_up_action_url": follow_up_url,
     }
-    # Verplichte intro/beschrijving over gegevensgebruik: op TWEE plekken zetten omdat Meta ze
-    # apart uitvraagt — (1) de intro/context-card én (2) de beschrijving boven de contactvragen
-    # (question_page_custom_headline). Zo blijft geen van beide leeg.
+    # Bedankscherm (eindpagina voor LEADS): kop + tekst + een echte call-to-action-knop met link.
+    # Zo is de knoptekst nooit leeg en gaat de knop naar een geldige website-URL.
+    payload["thank_you_page"] = json.dumps({
+        "title": cfg.LEAD_THANKYOU_TITEL,
+        "body": cfg.LEAD_THANKYOU_TEKST,
+        "button_type": "VIEW_WEBSITE",
+        "button_text": cfg.LEAD_THANKYOU_CTA,
+        "website_url": follow_up_url or cfg.MAINTEC_URL,
+    })
+    # Verplichte tekst over gegevensgebruik, op TWEE aparte plekken die Meta los uitvraagt:
+    #  (1) de intro/context-card = de volledige privacy-uitleg;
+    #  (2) de beschrijving BOVEN de contactvragen (question_page_custom_headline) = de KORTE
+    #      standaardtekst ("... nemen wij zo snel mogelijk contact met je op").
     if beschrijving:
         payload["context_card"] = json.dumps({
             "title": cfg.LEAD_FORM_INTRO_TITEL,
@@ -229,7 +239,7 @@ def create_lead_form(name: str, app_id: str | None = None, privacy_url: str | No
             "content": beschrijving,
             "button_text": "Ga verder",
         })
-        payload["question_page_custom_headline"] = beschrijving[:200]
+        payload["question_page_custom_headline"] = cfg.LEAD_FORM_CONTACT_BESCHRIJVING[:200]
     if app_id:
         # Meta verwacht een JSON-OBJECT (key→value), geen lijst.
         payload["tracking_parameters"] = json.dumps({"APP ID": str(app_id)})
@@ -241,11 +251,12 @@ def create_lead_form(name: str, app_id: str | None = None, privacy_url: str | No
         # niet-standaard sleutels. Wordt een vorm geweigerd, bouw het formulier dan tóch — mét
         # vragen, App Id en privacy — en meld de exacte Meta-fout, zodat de vragen/App Id nooit
         # sneuvelen door alleen de beschrijving.
-        if "context_card" in payload or "question_page_custom_headline" in payload:
+        if any(k in payload for k in ("context_card", "question_page_custom_headline", "thank_you_page")):
             print(f"[campagne-meta] leadform-aanmaak faalde ({str(e)[:250]}); "
-                  f"opnieuw ZONDER beschrijving-velden — vragen + App Id blijven behouden.")
+                  f"opnieuw ZONDER beschrijving-/bedankscherm-velden — vragen + App Id blijven behouden.")
             payload.pop("context_card", None)
             payload.pop("question_page_custom_headline", None)
+            payload.pop("thank_you_page", None)
             res = _post(f"{cfg.META_PAGE_ID}/leadgen_forms", payload, token=page_token())
         else:
             raise

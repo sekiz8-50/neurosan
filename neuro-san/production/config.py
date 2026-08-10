@@ -204,6 +204,17 @@ class Config:
         "te helpen bij het vinden van een baan in de techniek. Je gegevens worden alleen hiervoor "
         "gebruikt en veilig bewaard. Meer weten? Lees ons privacybeleid op maintec.nl.")
     LEAD_FORM_INTRO_TITEL = _opt("LEAD_FORM_INTRO_TITEL", "Werken in de techniek bij Maintec")
+    # Korte, standaard tekst boven de contactgegevens (question_page_custom_headline) — NIET de
+    # lange privacy-intro (die blijft de context-card/introductie).
+    LEAD_FORM_CONTACT_BESCHRIJVING = _opt("LEAD_FORM_CONTACT_BESCHRIJVING",
+        "Door dit formulier in te vullen nemen wij zo snel mogelijk contact met je op.")
+    # Eindpagina (bedankscherm) voor LEADS: kop, tekst, knoptekst (call-to-action) + link.
+    LEAD_THANKYOU_TITEL = _opt("LEAD_THANKYOU_TITEL", "Bedankt, je kunt aan de slag.")
+    LEAD_THANKYOU_TEKST = _opt("LEAD_THANKYOU_TEKST",
+        "We nemen zo snel mogelijk contact met je op. Bekijk ondertussen onze andere vacatures.")
+    LEAD_THANKYOU_CTA = _opt("LEAD_THANKYOU_CTA", "Bekijk onze vacatures")
+    # Vaste Maintec-website — o.a. de link op het bedankscherm voor niet-leads.
+    MAINTEC_URL = _opt("MAINTEC_URL", "https://www.maintec.nl").rstrip("/")
 
     # CORS — welke origins mogen de /vif-upload aanroepen (bv. de MODX-landingspagina).
     ALLOWED_ORIGINS = [o.strip() for o in
