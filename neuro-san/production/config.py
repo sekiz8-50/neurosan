@@ -42,6 +42,9 @@ class Config:
     # Standaard gebruiken we handmatige placements (feeds, stories, reels, marketplace) zónder
     # in-stream. Zet META_INSTREAM_AAN=1 om terug te vallen op automatische placements (incl. in-stream).
     META_INSTREAM_AAN = _opt("META_INSTREAM_AAN").lower() in ("1", "true", "ja", "yes")
+    # Vast aantal advertentievarianten: 1 beeld -> dit aantal foto-advertenties, en 1 video ->
+    # ditzelfde aantal video-advertenties. Standaard 4 (= 4 foto + 4 video = 8 ads in dezelfde set).
+    AD_VARIANTEN = int(_opt("AD_VARIANTEN", "4") or "4")
 
     # Beeldgeneratie — OpenAI (gpt-image-1)
     OPENAI_API_KEY = _req("OPENAI_API_KEY")

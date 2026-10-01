@@ -282,6 +282,7 @@ def run(vacancy: dict, *, plan: dict | None = None, image_path: str | None = Non
                  "radius_km": plan.get("radius_km"),
                  "kosten": kosten.samenvatting(), "app_id": vacancy.get("app_id") or "",
                  "video_komt": video_komt,
+                 "tigris_url": salesforce.record_url(vacancy.get("salesforce_id", "")),
                  "warnings": warnings or [], "meta_fout": meta_fout}
     record = {"campaign_id": campaign_id, "adset_ids": adset_ids, "ad_ids": ad_ids, "lead_gen": lead_gen,
               "state": "PENDING", "vacancy": vacancy, "plan": mail_plan, "image_path": img_path,
@@ -1387,10 +1388,11 @@ def _send_mail(record: dict) -> None:
     varianten_html = "".join(
         "<p style='margin:0 0 8px'><b>Variant {}:</b> {}</p>".format(i + 1, t)
         for i, t in enumerate(plan.get("alle_varianten") or [plan.get("primary_text", "")]))
+    n_var = plan.get("n_variants") or 4
     video_html = ("<div style='background:#FFF3EA;border-radius:6px;padding:10px 14px;font-size:12px;"
                   "margin-bottom:16px;color:#8a4300'><b>Video in productie:</b> de videoregisseur maakt "
-                  "op de achtergrond een korte video (≤8s) uit het beeld. Zodra die klaar is, worden er "
-                  "automatisch 5 video-advertenties aan deze campagne toegevoegd — je hoeft niets te doen."
+                  "op de achtergrond één korte video (≤8s) uit het beeld. Zodra die klaar is, worden er "
+                  f"automatisch {n_var} video-advertenties aan deze campagne toegevoegd — je hoeft niets te doen."
                   "</div>") if plan.get("video_komt") else ""
     # Voorwaardelijke logica op het leadformulier is een Ads Manager-functie (niet via de API te
     # zetten) — dus 1 handmatige stap voor Djimon, hier expliciet uitgelegd.
@@ -1404,10 +1406,16 @@ def _send_mail(record: dict) -> None:
         "Eindpagina voor niet-leads: knoptekst invullen en link op <b>www.maintec.nl</b> zetten. "
         "Zo filter je niet-passende sollicitanten er meteen uit. (Vragen, bedankscherm voor leads "
         "en App Id staan al goed.)</div>")
+    tigris_html = (
+        f"<div style='background:#F6F6F6;border-radius:6px;padding:10px 14px;font-size:13px;"
+        f"margin-bottom:16px'><b>Vacature in Tigris:</b> "
+        f"<a href='{plan.get('tigris_url')}' style='color:#FF7D2F;font-weight:700'>"
+        f"open dit record in Tigris &rarr;</a></div>") if plan.get("tigris_url") else ""
     _inner_goedkeur = f"""<tr><td style="padding:24px">
 <h2 style="margin:0 0 4px;font-size:22px;line-height:1.25">{plan['headline']}</h2>
 <p style="color:#69696A;font-size:13px;margin:0 0 6px">Vacature <b>{v['titel']}</b> gepubliceerd in Tigris. Beeld + Meta-campagne staan klaar (PAUSED).</p>
-<p style="color:#69696A;font-size:12px;margin:0 0 14px">Door agents ontworpen — kwaliteitsscore <b>{plan.get('review',{}).get('score','—')}/10</b> · {plan.get('n_adsets','?')} advertentieset(s) · {plan.get('n_variants','?')} advertentievarianten klaar (worden bij goedkeuring als advertenties aangemaakt)</p>
+{tigris_html}
+<p style="color:#69696A;font-size:12px;margin:0 0 14px">Door agents ontworpen — kwaliteitsscore <b>{plan.get('review',{}).get('score','—')}/10</b> · {plan.get('n_adsets','?')} advertentieset(s) · {plan.get('n_variants','?')} foto- + {plan.get('n_variants','?')} video-advertenties (8 totaal) in dezelfde set</p>
 <img src="cid:beeld" width="512" style="width:100%;border-radius:6px;margin-bottom:14px">
 <div style="background:#F6F6F6;border-radius:6px;padding:14px;font-size:13px;margin-bottom:16px">{varianten_html}</div>
 {canva_html}

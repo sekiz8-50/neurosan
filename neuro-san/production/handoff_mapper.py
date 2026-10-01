@@ -416,6 +416,18 @@ def gatekeeping(handoff: dict) -> tuple[str, list]:
     return "GO", []
 
 
+def _schoon_ad(tekst, maxlen: int) -> str:
+    """Advertentietekst opschonen: GEEN witregels/enters en GEEN bullets/opsommingstekens
+    (die werken slecht in Meta-feeds) -> één doorlopende zin, en niet langer dan maxlen
+    (afgekapt op een woordgrens). Kort = beter leesbaar en hogere doorklik."""
+    s = re.sub(r"[\r\n\t]+", " ", str(tekst or ""))
+    s = re.sub(r"\s*[•·▪◦‣\-\*]\s+", " ", s)        # losse bullets/opsommingstekens weg
+    s = re.sub(r"\s{2,}", " ", s).strip()
+    if len(s) > maxlen:
+        s = s[:maxlen].rsplit(" ", 1)[0].rstrip(" ,.;:-") + "…"
+    return s
+
+
 def campagne_plan(vac: dict, handoff: dict) -> dict:
     """Bouwt het plan-dict dat pipeline.run() verwacht, met de Meta-copy uit de handoff."""
     social = handoff.get("Social") or {}
@@ -431,18 +443,22 @@ def campagne_plan(vac: dict, handoff: dict) -> dict:
     budget_eur = _pos_int(social.get("DailyBudgetEur"))
     looptijd_dagen = _pos_int(social.get("LooptijdDagen"))
     radius_km = _pos_int(social.get("RadiusKm"))
-    pts = social.get("PrimaryTexts") or []
-    hls = social.get("Headlines") or []
-    dcs = social.get("Descriptions") or []
+    pts = [_schoon_ad(t, 150) for t in (social.get("PrimaryTexts") or []) if str(t).strip()]
+    hls = [_schoon_ad(t, 40) for t in (social.get("Headlines") or []) if str(t).strip()]
+    dcs = [_schoon_ad(t, 30) for t in (social.get("Descriptions") or []) if str(t).strip()]
+
+    def _pick(lst, i, fallback):
+        return lst[i % len(lst)] if lst else fallback
+    # ALTIJD exact cfg.AD_VARIANTEN varianten (standaard 4) → 4 foto- + 4 video-advertenties = 8.
+    # Is er minder copy, dan cyclen we; zo blijft het aantal consistent per campagne.
+    aantal = max(1, int(getattr(cfg, "AD_VARIANTEN", 4)))
     variants = []
-    for i in range(min(5, max(len(pts), 1))):
+    for i in range(aantal):
         variants.append({
-            "headline": (hls[i] if i < len(hls) else (hls[0] if hls else vac.get("titel", ""))),
-            "primary_text": (pts[i] if i < len(pts) else (pts[0] if pts else vac.get("quote", ""))),
-            "description": (dcs[i] if i < len(dcs) else (dcs[0] if dcs else "")),
+            "headline": _pick(hls, i, _schoon_ad(vac.get("titel", ""), 40)),
+            "primary_text": _pick(pts, i, _schoon_ad(vac.get("quote", "") or vac.get("titel", ""), 150)),
+            "description": _pick(dcs, i, ""),
         })
-    if not variants:
-        variants = [{"headline": vac.get("titel", ""), "primary_text": vac.get("quote", ""), "description": ""}]
 
     # Beeldprompt: bij voorkeur die van de designer-agent uit de handoff (Maintec-
     # fotografiestijl); anders lokaal via de art-director, met sjabloon-fallback.
