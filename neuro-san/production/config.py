@@ -46,10 +46,13 @@ class Config:
     # ditzelfde aantal video-advertenties. Standaard 4 (= 4 foto + 4 video = 8 ads in dezelfde set).
     AD_VARIANTEN = int(_opt("AD_VARIANTEN", "4") or "4")
 
-    # Beeldgeneratie — OpenAI (gpt-image-1)
+    # Beeldgeneratie — OpenAI GPT Images 2.5 (zelfde /v1/images/generations-endpoint als gpt-image-1).
+    # 'gpt-image-2.5-flare' = snel + hoge kwaliteit (default); 'gpt-image-2.5-sunburst' = gedetailleerder
+    # maar langzamer. Override via env OPENAI_IMAGE_MODEL. Vereist dat de OpenAI-sleutel toegang heeft
+    # tot GPT Images 2.5; zo niet, dan valt de keten terug op de merkfoto (beeld_fout in de mail).
     OPENAI_API_KEY = _req("OPENAI_API_KEY")
-    OPENAI_IMAGE_MODEL = _opt("OPENAI_IMAGE_MODEL", "gpt-image-1")
-    OPENAI_IMAGE_QUALITY = _opt("OPENAI_IMAGE_QUALITY", "high")   # low/medium/high — high = realistischer/scherper
+    OPENAI_IMAGE_MODEL = _opt("OPENAI_IMAGE_MODEL", "gpt-image-2.5-flare")
+    OPENAI_IMAGE_QUALITY = _opt("OPENAI_IMAGE_QUALITY", "high")   # low/medium/high/xhigh/max/auto
 
     # E-mail — provider-keuze. 'resend' (extern, HTTP-API) of 'graph' (Microsoft 365
     # via Graph API, ook HTTP — Render blokkeert SMTP-poorten, dus SMTP kan niet).
