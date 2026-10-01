@@ -1,4 +1,5 @@
-"""Beeldgeneratie via OpenAI (gpt-image-1).
+"""Beeldgeneratie via OpenAI GPT Images 2.5 (model instelbaar via OPENAI_IMAGE_MODEL,
+default gpt-image-2.5-flare).
 
 POST /v1/images/generations → base64-beeld → lokaal opslaan zodat het stabiel
 beschikbaar is voor de goedkeur-mail en de Meta-upload.
