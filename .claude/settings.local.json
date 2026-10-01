@@ -80,7 +80,8 @@
       "WebFetch(domain:www.todaysspecials.nl)",
       "WebFetch(domain:www.zipconomy.nl)",
       "WebFetch(domain:www.wij-techniek.nl)",
-      "WebFetch(domain:www.goflex.nl)"
+      "WebFetch(domain:www.goflex.nl)",
+      "mcp__Claude_Code_Remote__read_documentation"
     ]
   }
 }
