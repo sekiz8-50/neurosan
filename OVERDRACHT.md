@@ -41,6 +41,36 @@ De sleutels geven toegang tot budgetten en persoonsgegevens. **Roteer ze bij ove
 | **Salesforce / Tigris** | Vacature-records, bestanden | Connected App, `SF_CLIENT_ID` / `SF_CLIENT_SECRET` |
 | **Anthropic** | Het AI-brein (agents) | `ANTHROPIC_API_KEY` |
 
+> **API-sleutels op bedrijfsaccounts:** controleer dat `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+> `HIGGSFIELD_*` en `KLING_*` op bedrijfsaccounts staan, niet op een persoonlijk account dat bij
+> vertrek van een medewerker sluit. Zo niet → nieuwe sleutels op een bedrijfsaccount en in Render zetten.
+
+---
+
+## ⚠️ KRITIEK bij vertrek van een medewerker — Salesforce "Uitvoeren als"-gebruiker
+
+De backend (Render) authenticeert bij Salesforce/Tigris via de **OAuth client-credentials-flow** van
+een Connected App. Die flow draait als een vaste **"Uitvoeren als"-gebruiker**. **Staat die op een
+persoon die uit dienst gaat, dan stopt de hele VIF-keten** zodra dat Salesforce-account wordt
+gedeactiveerd (geen vacature-records, geen App Id, geen persistente beelden/video's meer).
+
+**Actie — zet "Uitvoeren als" op een blijvende gebruiker:**
+Setup → **App Manager** → de Connected App (Consumer Key = `SF_CLIENT_ID`) → **Beheren** →
+**Beleid bewerken** → **Stroom met client-inloggegevens** → **Uitvoeren als**:
+- **Aanbevolen:** een vaste **integratie-/servicegebruiker** (nooit uit dienst), met een machtigingenset
+  die toegang geeft tot álle gebruikte Tigris-objecten/velden (vacature, opdrachtgever, documenten,
+  App Id, campagnevelden).
+- **Alternatief:** een huidige beheerder — maar dan herhaalt dit risico zich bij diens vertrek.
+
+Roteer bij deze gelegenheid `SF_CLIENT_SECRET` en zet de nieuwe waarde in Render. Zorg dat er ALTIJD
+minstens één andere **Salesforce-admin** is die de Connected App, Flow en machtigingensets beheert.
+
+### Twee Salesforce-"connecties" — niet verwarren
+- **Render → Tigris** (backend schrijft records): Connected App + **"Uitvoeren als"-gebruiker** hierboven.
+  Dit is een service-koppeling, kritiek bij personeelswissels.
+- **Tigris → Render** (een medewerker dient een VIF in via de Flow): machtigingenset **"Neuro San toegang"**
+  per gebruiker toewijzen (zie `neuro-san/production/NIEUWE-GEBRUIKER-TOEVOEGEN.md`).
+
 ---
 
 ## Env-variabelen in Render (namen, geen waarden)
